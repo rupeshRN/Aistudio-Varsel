@@ -223,11 +223,11 @@ fun TransactionDetailScreen(
                     //--------------------------------------------------
 
                     CategorySection(
-
                         selectedCategory =
                             state
                                 .selectedCategory,
-
+                        transactionType =
+                            transaction.type,
                         onCategorySelected =
                             viewModel::updateCategory
                     )

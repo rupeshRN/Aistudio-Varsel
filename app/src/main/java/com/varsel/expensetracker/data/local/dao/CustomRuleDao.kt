@@ -27,6 +27,9 @@ suspend fun findRuleByPattern(
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCustomRule(rule: CustomRuleEntity)
 
+    @androidx.room.Update
+    suspend fun updateRule(rule: CustomRuleEntity)
+
     @Delete
     suspend fun deleteRule(rule: CustomRuleEntity)
 }

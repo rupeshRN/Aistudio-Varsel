@@ -24,6 +24,24 @@ interface CategoryDao {
     fun getAllCategories(): Flow<List<CategoryEntity>>
 
     /**
+     * Retrieves categories matching a specific type ("EXPENSE", "INCOME") or "BOTH".
+     */
+    @Query("SELECT * FROM categories WHERE UPPER(type) = UPPER(:type) OR UPPER(type) = 'BOTH' ORDER BY name ASC")
+    fun getCategoriesByType(type: String): Flow<List<CategoryEntity>>
+
+    /**
+     * Retrieves only expense categories (and universal categories).
+     */
+    @Query("SELECT * FROM categories WHERE UPPER(type) = 'EXPENSE' OR UPPER(type) = 'BOTH' ORDER BY name ASC")
+    fun getExpenseCategories(): Flow<List<CategoryEntity>>
+
+    /**
+     * Retrieves only income categories (and universal categories).
+     */
+    @Query("SELECT * FROM categories WHERE UPPER(type) = 'INCOME' OR UPPER(type) = 'BOTH' ORDER BY name ASC")
+    fun getIncomeCategories(): Flow<List<CategoryEntity>>
+
+    /**
      * Synchronous snapshot fetch of all categories used by SmartCategorizerEngine 
      * during background statement parsing and transaction auto-categorization.
      */

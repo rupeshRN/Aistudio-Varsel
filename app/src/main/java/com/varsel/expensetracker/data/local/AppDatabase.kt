@@ -30,7 +30,7 @@ import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
         TransactionLinkGroupEntity::class,
         FinancialEventAllocationEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -260,6 +260,83 @@ val MIGRATION_8_9 =
             )
         }
     }
+
+    val MIGRATION_10_11 =
+        object : Migration(10, 11) {
+
+            override fun migrate(
+                database: SupportSQLiteDatabase
+            ) {
+                database.execSQL(
+                    """
+                    ALTER TABLE categories
+                    ADD COLUMN type TEXT NOT NULL DEFAULT 'EXPENSE'
+                    """.trimIndent()
+                )
+
+                // Update known income categories to INCOME
+                database.execSQL(
+                    """
+                    UPDATE categories
+                    SET type = 'INCOME'
+                    WHERE UPPER(name) IN ('SALARY', 'INCOME', 'INVESTMENT', 'INVESTMENTS', 'FREELANCE', 'RENTAL', 'REFUND', 'CASHBACK', 'DIVIDENDS', 'GIFTS')
+                    """.trimIndent()
+                )
+
+                // Update universal categories to BOTH
+                database.execSQL(
+                    """
+                    UPDATE categories
+                    SET type = 'BOTH'
+                    WHERE UPPER(name) IN ('UNCATEGORIZED', 'TRANSFER', 'OTHER')
+                    """.trimIndent()
+                )
+
+                // Seed default Income categories if not existing
+                database.execSQL(
+                    """
+                    INSERT OR IGNORE INTO categories (name, colorHex, iconName, budgetLimit, keywords, type)
+                    VALUES ('Salary', '#4CAF50', 'ic_salary', 0.0, 'SALARY,PAYROLL,ACH CREDIT,NEFT CREDIT,STIPEND', 'INCOME')
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT OR IGNORE INTO categories (name, colorHex, iconName, budgetLimit, keywords, type)
+                    VALUES ('Investments', '#1565C0', 'ic_trending_up', 0.0, 'DIVIDEND,INTEREST,GROWW,ZERODHA,MUTUAL FUND,STOCKS', 'INCOME')
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT OR IGNORE INTO categories (name, colorHex, iconName, budgetLimit, keywords, type)
+                    VALUES ('Freelance & Side Hustle', '#00897B', 'ic_work', 0.0, 'UPWORK,FIVERR,FREELANCE,CLIENT PAYMENT,CONSULTING', 'INCOME')
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT OR IGNORE INTO categories (name, colorHex, iconName, budgetLimit, keywords, type)
+                    VALUES ('Refunds & Cashback', '#00BCD4', 'ic_swap', 0.0, 'REFUND,CASHBACK,REVERSAL,CREDIT ADJUSTMENT', 'INCOME')
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT OR IGNORE INTO categories (name, colorHex, iconName, budgetLimit, keywords, type)
+                    VALUES ('Rental & Property', '#795548', 'ic_home', 0.0, 'RENT,TENANT,LEASE', 'INCOME')
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT OR IGNORE INTO categories (name, colorHex, iconName, budgetLimit, keywords, type)
+                    VALUES ('Gifts & Grants', '#E91E63', 'ic_gift', 0.0, 'GIFT,BONUS,REWARD,GRANT', 'INCOME')
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT OR IGNORE INTO categories (name, colorHex, iconName, budgetLimit, keywords, type)
+                    VALUES ('Other Income', '#8BC34A', 'ic_paid', 0.0, 'INCOME,CREDIT', 'INCOME')
+                    """.trimIndent()
+                )
+            }
+        }
 }
     class SeedCallback(
         private val categoryDaoProvider: Provider<CategoryDao>
@@ -281,68 +358,113 @@ val MIGRATION_8_9 =
             categoryDao: CategoryDao
         ) {
             val defaultCategories = listOf(
-
+                // Income categories
                 CategoryEntity(
                     name = "Salary",
                     iconName = "ic_salary",
                     colorHex = "#4CAF50",
-                    keywords =
-                        "SALARY,PAYROLL,ACH CREDIT,NEFT CREDIT,STIPEND"
+                    keywords = "SALARY,PAYROLL,ACH CREDIT,NEFT CREDIT,STIPEND",
+                    type = "INCOME"
                 ),
-
                 CategoryEntity(
-                    name = "Groceries",
-                    iconName = "ic_cart",
-                    colorHex = "#FF9800",
-                    keywords =
-                        "WALMART,DMART,SUPERMARKET,GROCERY,BIGBASKET,PRODUCE,WHOLEFOODS"
+                    name = "Investments",
+                    iconName = "ic_trending_up",
+                    colorHex = "#1565C0",
+                    keywords = "DIVIDEND,INTEREST,GROWW,ZERODHA,MUTUAL FUND,STOCKS",
+                    type = "INCOME"
+                ),
+                CategoryEntity(
+                    name = "Freelance & Side Hustle",
+                    iconName = "ic_work",
+                    colorHex = "#00897B",
+                    keywords = "UPWORK,FIVERR,FREELANCE,CLIENT PAYMENT,CONSULTING",
+                    type = "INCOME"
+                ),
+                CategoryEntity(
+                    name = "Refunds & Cashback",
+                    iconName = "ic_swap",
+                    colorHex = "#00BCD4",
+                    keywords = "REFUND,CASHBACK,REVERSAL,CREDIT ADJUSTMENT",
+                    type = "INCOME"
+                ),
+                CategoryEntity(
+                    name = "Rental & Property",
+                    iconName = "ic_home",
+                    colorHex = "#795548",
+                    keywords = "RENT,TENANT,LEASE",
+                    type = "INCOME"
+                ),
+                CategoryEntity(
+                    name = "Gifts & Grants",
+                    iconName = "ic_gift",
+                    colorHex = "#E91E63",
+                    keywords = "GIFT,BONUS,REWARD,GRANT",
+                    type = "INCOME"
+                ),
+                CategoryEntity(
+                    name = "Other Income",
+                    iconName = "ic_paid",
+                    colorHex = "#8BC34A",
+                    keywords = "INCOME,CREDIT",
+                    type = "INCOME"
                 ),
 
+                // Expense categories
                 CategoryEntity(
                     name = "Dining & Food",
                     iconName = "ic_restaurant",
-                    colorHex = "#E91E63",
-                    keywords =
-                        "STARBUCKS,MCDONALD,SWIGGY,ZOMATO,RESTAURANT,CAFE,BAKERY,PIZZA"
+                    colorHex = "#FF9800",
+                    keywords = "STARBUCKS,MCDONALD,SWIGGY,ZOMATO,RESTAURANT,CAFE,BAKERY,PIZZA",
+                    type = "EXPENSE"
                 ),
-
+                CategoryEntity(
+                    name = "Groceries",
+                    iconName = "ic_cart",
+                    colorHex = "#4CAF50",
+                    keywords = "WALMART,DMART,SUPERMARKET,GROCERY,BIGBASKET,PRODUCE,WHOLEFOODS",
+                    type = "EXPENSE"
+                ),
                 CategoryEntity(
                     name = "Fuel & Transport",
                     iconName = "ic_car",
                     colorHex = "#9C27B0",
-                    keywords =
-                        "SHELL,PETROL,UBER,OLA,PARKING,TOLL,METRO,CHEVRON,GASOLINE"
+                    keywords = "SHELL,PETROL,UBER,OLA,PARKING,TOLL,METRO,CHEVRON,GASOLINE",
+                    type = "EXPENSE"
                 ),
-
                 CategoryEntity(
                     name = "Utilities",
                     iconName = "ic_lightning",
                     colorHex = "#2196F3",
-                    keywords =
-                        "ELECTRIC,WATER,AIRTEL,JIO,BROADBAND,VERIZON,ATT,GAS BILL"
+                    keywords = "ELECTRIC,WATER,AIRTEL,JIO,BROADBAND,VERIZON,ATT,GAS BILL",
+                    type = "EXPENSE"
                 ),
-
                 CategoryEntity(
                     name = "Healthcare",
                     iconName = "ic_hospital",
                     colorHex = "#F44336",
-                    keywords =
-                        "PHARMACY,HOSPITAL,CLINIC,CVS,WALGREENS,MEDICARE,APOLLO"
+                    keywords = "PHARMACY,HOSPITAL,CLINIC,CVS,WALGREENS,MEDICARE,APOLLO",
+                    type = "EXPENSE"
                 ),
-
                 CategoryEntity(
                     name = "Shopping",
                     iconName = "ic_bag",
-                    colorHex = "#00BCD4",
-                    keywords =
-                        "AMAZON,FLIPKART,TARGET,ZARA,CLOTHING,FOOTWEAR,MALL"
+                    colorHex = "#E91E63",
+                    keywords = "AMAZON,FLIPKART,TARGET,ZARA,CLOTHING,FOOTWEAR,MALL",
+                    type = "EXPENSE"
                 ),
-
+                CategoryEntity(
+                    name = "Entertainment",
+                    iconName = "ic_movies",
+                    colorHex = "#673AB7",
+                    keywords = "NETFLIX,SPOTIFY,CINEMA,MOVIE,THEATRE,STEAM,GAME",
+                    type = "EXPENSE"
+                ),
                 CategoryEntity(
                     name = "Uncategorized",
                     iconName = "ic_help",
                     colorHex = "#9E9E9E",
-                    keywords = ""
+                    keywords = "",
+                    type = "BOTH"
                 )
             )
 
