@@ -72,7 +72,7 @@ fun CategoryDrillDownBottomSheet(
     onFinancialEventClick: (String) -> Unit
 ) {
     val currencyFormatter = remember {
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
+        NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     }
 
     val dateFormatter = remember {
@@ -121,67 +121,82 @@ fun CategoryDrillDownBottomSheet(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
                         shape = CircleShape,
                         color = categoryColor.copy(alpha = 0.20f),
-                        modifier = Modifier.size(52.dp)
+                        modifier = Modifier.size(46.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = categoryIcon,
                                 contentDescription = state.categoryName,
                                 tint = categoryColor,
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = state.categoryName,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = state.categoryName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(4.dp),
                                 color = categoryColor.copy(alpha = 0.18f)
                             ) {
                                 Text(
-                                    text = if (state.flow == ReportsFlow.EXPENSES) "Expense" else "Income",
+                                    text = if (state.flow == ReportsFlow.EXPENSES) "EXPENSE" else "INCOME",
                                     style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
+                                    fontWeight = FontWeight.ExtraBold,
                                     color = categoryColor,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
                                 )
                             }
+
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            Text(
+                                text = "${state.month.format(monthFormatter)} (${state.items.size})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "${state.month.format(monthFormatter)} • ${state.items.size} transaction${if (state.items.size == 1) "" else "s"}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
                             text = currencyFormatter.format(state.totalCategoryAmount),
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (state.flow == ReportsFlow.EXPENSES) AppColors.Expense else AppColors.Income
                         )
                         Text(
-                            text = "${state.percentOfTotal.toInt()}% of ${if (state.flow == ReportsFlow.EXPENSES) "expenses" else "income"}",
+                            text = "${state.percentOfTotal.toInt()}% of total",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -306,6 +306,8 @@ class ReportsViewModel @Inject constructor(
 
     fun dismissCategoryDrillDown() {
         _uiState.value = _uiState.value.copy(
+            selectedExpenseCategory = null,
+            selectedIncomeCategory = null,
             drillDownState = _uiState.value.drillDownState.copy(isVisible = false)
         )
     }
