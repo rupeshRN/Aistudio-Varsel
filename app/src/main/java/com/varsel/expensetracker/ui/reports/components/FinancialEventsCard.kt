@@ -345,63 +345,61 @@ private fun FinancialEventRow(
         }
 
         /*
-         * Detailed period and cumulative activity.
+         * Detailed period activity.
          */
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement =
+                Arrangement.spacedBy(
+                    12.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement =
-                    Arrangement.spacedBy(
-                        12.dp
-                    )
-            ) {
-                if (event.expenseAmount > 0.0) {
-                    Text(
-                        text =
-                            "${formatter.format(event.expenseAmount)} expense",
-                        style =
-                            MaterialTheme.typography
-                                .labelMedium,
-                        color =
-                            AppColors.Expense,
-                        fontWeight =
-                            FontWeight.Medium
-                    )
-                }
-
-                if (event.reimbursedAmount > 0.0) {
-                    Text(
-                        text =
-                            "${formatter.format(event.reimbursedAmount)} reimbursed",
-                        style =
-                            MaterialTheme.typography
-                                .labelMedium,
-                        color =
-                            AppColors.Income,
-                        fontWeight =
-                            FontWeight.Medium
-                    )
-                }
-
-                if (event.expenseAmount == 0.0 && event.reimbursedAmount == 0.0) {
-                    Text(
-                        text = "No transactions this month",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            if (event.expenseAmount > 0.0) {
+                Text(
+                    text =
+                        "${formatter.format(event.expenseAmount)} expense",
+                    style =
+                        MaterialTheme.typography
+                            .labelMedium,
+                    color =
+                        AppColors.Expense,
+                    fontWeight =
+                        FontWeight.Medium
+                )
             }
 
-            if (event.coveredMonths.size > 1) {
+            if (event.reimbursedAmount > 0.0) {
                 Text(
-                    text = "Total: ${formatter.format(event.totalEventExpense)} exp · ${formatter.format(event.totalEventReimbursement)} reimb",
+                    text =
+                        "${formatter.format(event.reimbursedAmount)} reimbursed",
+                    style =
+                        MaterialTheme.typography
+                            .labelMedium,
+                    color =
+                        AppColors.Income,
+                    fontWeight =
+                        FontWeight.Medium
+                )
+            }
+
+            if (event.expenseAmount == 0.0 && event.reimbursedAmount == 0.0) {
+                Text(
+                    text = "No transactions this month",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+
+        /*
+         * Multi-month cumulative totals displayed clearly on a new line.
+         */
+        if (event.coveredMonths.size > 1) {
+            Text(
+                text = "Total: ${formatter.format(event.totalEventExpense)} exp · ${formatter.format(event.totalEventReimbursement)} reimb",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         HorizontalDivider(
