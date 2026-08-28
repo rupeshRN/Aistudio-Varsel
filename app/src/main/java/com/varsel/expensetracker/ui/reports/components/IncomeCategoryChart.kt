@@ -251,33 +251,4 @@ fun IncomeCategoryChart(
 
 private fun incomeCategoryColor(
     category: String
-) =
-    when {
-
-        category.equals(
-            "Salary",
-            ignoreCase = true
-        ) ->
-            CategoryPalette.Salary
-
-        category.equals(
-            "Investment",
-            ignoreCase = true
-        ) ->
-            CategoryPalette.Investment
-
-        category.equals(
-            "Transfer",
-            ignoreCase = true
-        ) ->
-            CategoryPalette.Transfer
-
-        category.equals(
-            "Uncategorized",
-            ignoreCase = true
-        ) ->
-            CategoryPalette.Uncategorized
-
-        else ->
-            AppColors.Income
-    }
+): androidx.compose.ui.graphics.Color = CategoryPalette.colorFor(category)

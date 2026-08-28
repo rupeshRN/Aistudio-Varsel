@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.design.AppColors
+import com.varsel.expensetracker.ui.design.CategoryPalette
 import com.varsel.expensetracker.ui.reports.ReportsIncomeCategory
 import java.text.NumberFormat
 import java.util.Locale
@@ -82,12 +83,13 @@ fun IncomeCategoryList(
                 selectedCategory ==
                     category.category
 
+            val itemColor = CategoryPalette.colorFor(category.category)
+
             Surface(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .clickable {
-
                             onCategorySelected(
                                 if (isSelected) {
                                     null
@@ -96,23 +98,20 @@ fun IncomeCategoryList(
                                 }
                             )
                         },
-
                 shape =
                     RoundedCornerShape(
                         14.dp
                     ),
-
                 color =
                     if (isSelected) {
-                        AppColors.Income.copy(
-                            alpha = 0.10f
+                        itemColor.copy(
+                            alpha = 0.12f
                         )
                     } else {
                         MaterialTheme.colorScheme
                             .surface
                     }
             ) {
-
                 Row(
                     modifier =
                         Modifier
@@ -121,11 +120,9 @@ fun IncomeCategoryList(
                                 horizontal = 8.dp,
                                 vertical = 10.dp
                             ),
-
                     verticalAlignment =
                         Alignment.CenterVertically
                 ) {
-
                     ReportCategoryIcon(
                         category =
                             category.category
@@ -139,24 +136,20 @@ fun IncomeCategoryList(
                     Text(
                         text =
                             category.category,
-
                         modifier =
                             Modifier.weight(1f),
-
                         style =
                             MaterialTheme.typography
                                 .bodyLarge,
-
                         fontWeight =
                             if (isSelected) {
                                 FontWeight.Bold
                             } else {
                                 FontWeight.Medium
                             },
-
                         color =
                             if (isSelected) {
-                                AppColors.Income
+                                itemColor
                             } else {
                                 MaterialTheme.colorScheme
                                     .onSurface
@@ -166,11 +159,9 @@ fun IncomeCategoryList(
                     Text(
                         text =
                             "${percentage.toInt()}%",
-
                         style =
                             MaterialTheme.typography
                                 .labelMedium,
-
                         color =
                             MaterialTheme.colorScheme
                                 .onSurfaceVariant
@@ -186,17 +177,14 @@ fun IncomeCategoryList(
                             formatter.format(
                                 category.totalAmount
                             ),
-
                         style =
                             MaterialTheme.typography
                                 .bodyLarge,
-
                         fontWeight =
                             FontWeight.SemiBold,
-
                         color =
                             if (isSelected) {
-                                AppColors.Income
+                                itemColor
                             } else {
                                 MaterialTheme.colorScheme
                                     .onSurface
