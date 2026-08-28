@@ -251,26 +251,12 @@ data class ReportsFinancialEvent(
     val reimbursedAmount: Double = 0.0,
 
     val effectiveCost: Double = 0.0,
-    /**
-     * All calendar months in which this Financial Event
-     * has relevant linked transactions.
-     *
-     * This is intentionally separate from the selected
-     * report period.
-     *
-     * Example:
-     *
-     * selected report = July 2026
-     *
-     * event transactions:
-     * - June 2026
-     * - July 2026
-     *
-     * coveredMonths = [2026-06, 2026-07]
-     *
-     * The report still calculates July's effective cost only,
-     * but the UI can tell the user that the event spans
-     * multiple months.
-     */
+
+    val totalEventExpense: Double = 0.0,
+
+    val totalEventReimbursement: Double = 0.0,
+
+    val isFinalMonth: Boolean = true,
+
     val coveredMonths: List<YearMonth> = emptyList()
 )

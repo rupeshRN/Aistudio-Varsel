@@ -296,9 +296,7 @@ private fun observeReportData() {
     // ------------------------------------------------------------------------
 
     private fun rebuildReport() {
-
         try {
-
             val state =
                 _uiState.value
 
@@ -310,7 +308,6 @@ private fun observeReportData() {
              */
             val periodTransactions =
                 latestTransactions.filter { transaction ->
-
                     transaction.belongsToMonth(
                         state.selectedMonth
                     )
@@ -329,64 +326,84 @@ private fun observeReportData() {
                     selectedAccountIds =
                         state.selectedAccountIds
                 )
+
             /*
- * Account-filtered transactions across the complete
- * transaction history.
- *
- * This is NOT period filtered.
- *
- * It is used only to determine whether a Financial Event
- * spans multiple months.
- */
-val accountFilteredAllTransactions =
-    filterByAccounts(
-        transactions = latestTransactions,
-        selectedAccountIds =
-            state.selectedAccountIds
-    )
+             * Account-filtered transactions across the complete
+             * transaction history.
+             *
+             * This is NOT period filtered.
+             *
+             * It is used to resolve multi-month financial events
+             * and overall event balances.
+             */
+            val accountFilteredAllTransactions =
+                filterByAccounts(
+                    transactions = latestTransactions,
+                    selectedAccountIds =
+                        state.selectedAccountIds
+                )
+
+            /*
+             * Step 3:
+             *
+             * Resolve all Financial Events across history.
+             */
+            val resolvedEvents =
+                resolveFinancialEvents(
+                    allAccountTransactions =
+                        accountFilteredAllTransactions,
+                    groups =
+                        latestGroups,
+                    allocations =
+                        latestAllocations
+                )
 
             /*
              * Step 4:
              *
-             * Build report sections from the same filtered
-             * transaction collection.
+             * Build report sections.
              */
-            val cashFlow =
-                buildCashFlow(
-                    filteredTransactions
+            val expenseCategories =
+                buildExpenseCategories(
+                    transactions =
+                        filteredTransactions,
+                    selectedMonth =
+                        state.selectedMonth,
+                    resolvedEvents =
+                        resolvedEvents,
+                    allocations =
+                        latestAllocations
                 )
-
-val expenseCategories =
-    buildExpenseCategories(
-        transactions =
-            filteredTransactions,
-
-        groups =
-            latestGroups,
-
-        allocations =
-            latestAllocations
-    )
 
             val incomeCategories =
                 buildIncomeCategories(
-                    filteredTransactions
+                    transactions =
+                        filteredTransactions,
+                    selectedMonth =
+                        state.selectedMonth,
+                    resolvedEvents =
+                        resolvedEvents,
+                    allocations =
+                        latestAllocations
                 )
 
-val financialEvents =
-    buildFinancialEvents(
-        transactions =
-            filteredTransactions,
+            val cashFlow =
+                buildCashFlow(
+                    expenseCategories =
+                        expenseCategories,
+                    incomeCategories =
+                        incomeCategories
+                )
 
-        allAccountTransactions =
-            accountFilteredAllTransactions,
-
-        groups =
-            latestGroups,
-
-        allocations =
-            latestAllocations
-    )
+            val financialEvents =
+                buildFinancialEvents(
+                    selectedMonth =
+                        state.selectedMonth,
+                    transactions =
+                        filteredTransactions,
+                    resolvedEvents =
+                        resolvedEvents
+                )
 
             /*
              * Account list comes from the complete transaction
@@ -485,779 +502,468 @@ val financialEvents =
     }
 
     // ------------------------------------------------------------------------
+    // Financial Event Resolution
+    // ------------------------------------------------------------------------
+
+    private data class ResolvedFinancialEvent(
+        val group: TransactionLinkGroup,
+        val eventTransactions: List<Transaction>,
+        val allocationMap: Map<Long, Double>,
+        val coveredMonths: List<YearMonth>,
+        val finalMonth: YearMonth?,
+        val totalExpense: Double,
+        val totalReimbursement: Double,
+        val netCost: Double
+    )
+
+    private fun resolveFinancialEvents(
+        allAccountTransactions: List<Transaction>,
+        groups: List<TransactionLinkGroup>,
+        allocations: List<FinancialEventAllocationEntity>
+    ): List<ResolvedFinancialEvent> {
+
+        val allocationsByGroup =
+            allocations.groupBy {
+                it.transactionLinkId
+            }
+
+        return groups.mapNotNull { group ->
+
+            val groupAllocations =
+                allocationsByGroup[group.transactionLinkId].orEmpty()
+
+            val allocationByTxId =
+                groupAllocations
+                    .groupBy { it.transactionId }
+                    .mapValues { (_, rows) ->
+                        rows.sumOf { it.allocatedAmount }
+                    }
+
+            /*
+             * A transaction belongs to this event if:
+             * 1. It has an allocation record for this event, OR
+             * 2. It has transactionLinkId matching this event
+             */
+            val eventTransactions =
+                allAccountTransactions.filter { tx ->
+                    tx.transactionLinkId == group.transactionLinkId ||
+                        tx.id in allocationByTxId.keys
+                }
+
+            if (eventTransactions.isEmpty() && groupAllocations.isEmpty()) {
+                return@mapNotNull null
+            }
+
+            val txAmounts =
+                eventTransactions.associate { tx ->
+                    val allocAmt =
+                        allocationByTxId[tx.id]
+
+                    val amt =
+                        if (allocAmt != null && allocAmt > 0.0) {
+                            allocAmt
+                        } else {
+                            kotlin.math.abs(tx.amount)
+                        }
+
+                    tx.id to amt
+                }
+
+            val coveredMonths =
+                eventTransactions
+                    .map {
+                        transactionYearMonth(it.dateTimestamp)
+                    }
+                    .distinct()
+                    .sorted()
+
+            val finalMonth =
+                coveredMonths.maxOrNull()
+
+            val totalExpense =
+                eventTransactions
+                    .asSequence()
+                    .filter { tx ->
+                        (tx.type == TransactionType.EXPENSE || tx.type == TransactionType.DEBIT) &&
+                            tx.role != TransactionRole.TRANSFER_OUT &&
+                            tx.role != TransactionRole.REIMBURSEMENT
+                    }
+                    .sumOf { tx ->
+                        txAmounts[tx.id] ?: 0.0
+                    }
+
+            val totalReimbursement =
+                eventTransactions
+                    .asSequence()
+                    .filter { tx ->
+                        tx.role == TransactionRole.REIMBURSEMENT ||
+                            (tx.type == TransactionType.INCOME &&
+                                tx.role != TransactionRole.TRANSFER_IN &&
+                                tx.role != TransactionRole.TRANSFER_OUT)
+                    }
+                    .sumOf { tx ->
+                        txAmounts[tx.id] ?: 0.0
+                    }
+
+            val netCost =
+                totalExpense - totalReimbursement
+
+            ResolvedFinancialEvent(
+                group = group,
+                eventTransactions = eventTransactions,
+                allocationMap = txAmounts,
+                coveredMonths = coveredMonths,
+                finalMonth = finalMonth,
+                totalExpense = totalExpense,
+                totalReimbursement = totalReimbursement,
+                netCost = netCost
+            )
+        }
+    }
+
+    private fun getUnallocatedAmount(
+        transaction: Transaction,
+        allocations: List<FinancialEventAllocationEntity>
+    ): Double {
+        val totalAllocated =
+            allocations
+                .filter { it.transactionId == transaction.id }
+                .sumOf { it.allocatedAmount }
+
+        val effectiveAllocated =
+            if (totalAllocated > 0.0) {
+                totalAllocated
+            } else if (transaction.transactionLinkId != null) {
+                kotlin.math.abs(transaction.amount)
+            } else {
+                0.0
+            }
+
+        return (kotlin.math.abs(transaction.amount) - effectiveAllocated)
+            .coerceAtLeast(0.0)
+    }
+
+    // ------------------------------------------------------------------------
     // Cash Flow
     // ------------------------------------------------------------------------
 
-private fun buildCashFlow(
-    transactions: List<Transaction>
-): ReportsCashFlow {
+    private fun buildCashFlow(
+        expenseCategories: List<ReportsExpenseCategory>,
+        incomeCategories: List<ReportsIncomeCategory>
+    ): ReportsCashFlow {
 
-    /*
-     * --------------------------------------------------------
-     * Actual income
-     * --------------------------------------------------------
-     *
-     * A transaction allocated to a Financial Event is NOT
-     * ordinary income.
-     *
-     * Reimbursements are also NOT income.
-     *
-     * Transfers are NOT income.
-     */
-    val actualIncome =
-        transactions
-            .asSequence()
-            .filter { transaction ->
-
-                transaction.type ==
-                    TransactionType.INCOME &&
-
-                    transaction.role ==
-                    TransactionRole.NORMAL &&
-
-                    transaction.transactionLinkId == null &&
-
-                    transaction.transferLinkId == null
-            }
-            .sumOf {
-                it.amount
+        val actualIncome =
+            incomeCategories.sumOf {
+                it.totalAmount
             }
 
-    /*
-     * --------------------------------------------------------
-     * Ordinary expenses
-     * --------------------------------------------------------
-     *
-     * Linked Financial Event transactions are excluded.
-     *
-     * Financial Event expenses are represented separately
-     * through their effective event cost.
-     */
-    val ordinaryExpense =
-        transactions
-            .asSequence()
-            .filter { transaction ->
-
-                transaction.type ==
-                    TransactionType.EXPENSE &&
-
-                    transaction.role !=
-                    TransactionRole.TRANSFER_OUT &&
-
-                    transaction.transactionLinkId == null &&
-
-                    transaction.transferLinkId == null
-            }
-            .sumOf {
-                it.amount
+        val effectiveExpense =
+            expenseCategories.sumOf {
+                it.totalAmount
             }
 
-    return ReportsCashFlow(
-        actualIncome =
-            actualIncome,
-
-        effectiveExpense =
-            ordinaryExpense,
-
-        netCashFlow =
-            actualIncome -
-                ordinaryExpense
-    )
-}
+        return ReportsCashFlow(
+            actualIncome = actualIncome,
+            effectiveExpense = effectiveExpense,
+            netCashFlow = actualIncome - effectiveExpense
+        )
+    }
 
     // ------------------------------------------------------------------------
     // Expense Categories
     // ------------------------------------------------------------------------
 
-private fun buildExpenseCategories(
-    transactions: List<Transaction>,
-    groups: List<TransactionLinkGroup>,
-    allocations: List<FinancialEventAllocationEntity>
-): List<ReportsExpenseCategory> {
-
-    /*
-     * --------------------------------------------------------
-     * Allocation lookup
-     * --------------------------------------------------------
-     *
-     * A transaction may now be allocated to multiple
-     * Financial Events.
-     *
-     * Therefore we NEVER use transactionLinkId to determine
-     * how much of a transaction remains available for normal
-     * reporting.
-     */
-    val allocatedByTransactionId =
-        allocations
-            .groupBy {
-                it.transactionId
-            }
-            .mapValues { (_, rows) ->
-                rows.sumOf {
-                    it.allocatedAmount
-                }
-            }
-
-    /*
-     * --------------------------------------------------------
-     * Ordinary expense categories
-     * --------------------------------------------------------
-     *
-     * Only the unallocated remainder remains in the original
-     * transaction category.
-     *
-     * Example:
-     *
-     * Transaction = ₹1,000
-     * Event A     = ₹600
-     * Event B     = ₹400
-     *
-     * Ordinary category = ₹0
-     */
-    val normalAmountsByCategory =
-        transactions
-            .asSequence()
-            .filter { transaction ->
-
-                transaction.type ==
-                    TransactionType.EXPENSE &&
-
-                    transaction.role ==
-                    TransactionRole.NORMAL &&
-
-                    transaction.transferLinkId == null
-            }
-            .mapNotNull { transaction ->
-
-                val allocatedAmount =
-                    allocatedByTransactionId[
-                        transaction.id
-                    ] ?: 0.0
-
-                val remainingAmount =
-                    (
-                        transaction.amount -
-                            allocatedAmount
-                        )
-                        .coerceAtLeast(0.0)
-
-                if (remainingAmount <= 0.0) {
-                    null
-                } else {
-                    transaction.category to
-                        remainingAmount
-                }
-            }
-            .groupBy(
-                keySelector = {
-                    it.first
-                },
-                valueTransform = {
-                    it.second
-                }
-            )
-            .mapValues { (_, amounts) ->
-                amounts.sum()
-            }
-
-    /*
-     * --------------------------------------------------------
-     * Financial Event category amounts
-     * --------------------------------------------------------
-     *
-     * IMPORTANT:
-     *
-     * We calculate each event through the END of the
-     * currently selected month.
-     *
-     * This is intentionally different from the ordinary
-     * transaction list, which contains only the selected
-     * reporting period.
-     *
-     * Therefore a June reimbursement remains relevant when
-     * July is selected.
-     */
-    val eventAmountsByCategory =
-        mutableMapOf<String, Double>()
-
-    val eventGrossByCategory =
-        mutableMapOf<String, Double>()
-
-    val eventReimbursementByCategory =
-        mutableMapOf<String, Double>()
-
-    /*
-     * All transactions available to the report calculation.
-     *
-     * `latestTransactions` contains the complete transaction
-     * stream observed by ReportsViewModel.
-     *
-     * We use it here so Financial Events can be calculated
-     * cumulatively through month-end.
-     */
-    val allTransactions =
-        latestTransactions
-
-    val selectedMonth =
-        _uiState.value.selectedMonth
-
-    groups.forEach { group ->
-
-        val eventAllocations =
-            allocations.filter {
-                it.transactionLinkId ==
-                    group.transactionLinkId
-            }
-
-        if (eventAllocations.isEmpty()) {
-            return@forEach
-        }
+    private fun buildExpenseCategories(
+        transactions: List<Transaction>,
+        selectedMonth: YearMonth,
+        resolvedEvents: List<ResolvedFinancialEvent>,
+        allocations: List<FinancialEventAllocationEntity>
+    ): List<ReportsExpenseCategory> {
 
         /*
-         * transactionId -> amount allocated to THIS event
+         * --------------------------------------------------------
+         * Ordinary expense categories
+         * --------------------------------------------------------
          *
-         * This is important for the future multi-event case.
+         * Only the unallocated remainder remains in the original
+         * transaction category.
          */
-        val allocationByTransactionId =
-            eventAllocations
-                .groupBy {
-                    it.transactionId
+        val normalAmountsByCategory =
+            transactions
+                .asSequence()
+                .filter { transaction ->
+                    (transaction.type == TransactionType.EXPENSE || transaction.type == TransactionType.DEBIT) &&
+                        transaction.role == TransactionRole.NORMAL &&
+                        transaction.transferLinkId == null
                 }
-                .mapValues { (_, rows) ->
-                    rows.sumOf {
-                        it.allocatedAmount
+                .mapNotNull { transaction ->
+                    val remainingAmount =
+                        getUnallocatedAmount(
+                            transaction = transaction,
+                            allocations = allocations
+                        )
+
+                    if (remainingAmount <= 0.0) {
+                        null
+                    } else {
+                        transaction.category to remainingAmount
                     }
                 }
-
-        /*
-         * All transactions belonging to this event.
-         *
-         * We deliberately use allTransactions instead of the
-         * currently filtered transaction list.
-         */
-        val eventTransactions =
-            allTransactions
-                .filter { transaction ->
-
-                    transaction.id in
-                        allocationByTransactionId.keys
+                .groupBy(
+                    keySelector = { it.first },
+                    valueTransform = { it.second }
+                )
+                .mapValues { (_, amounts) ->
+                    amounts.sum()
                 }
 
         /*
-         * Only transactions occurring on or before the end
-         * of the selected month contribute to the event's
-         * effective cost.
+         * --------------------------------------------------------
+         * Financial Event category amounts
+         * --------------------------------------------------------
+         *
+         * Multi-month rule:
+         *
+         * If an event spans multiple months (e.g. Jun & Jul),
+         * it is mapped into the pie chart ONLY in its FINAL month.
+         * In interim months, 0 is added to categories/pie chart.
          */
-        val transactionsThroughMonthEnd =
-            eventTransactions.filter { transaction ->
+        val eventAmountsByCategory =
+            mutableMapOf<String, Double>()
 
-                transactionYearMonth(
-                    transaction.dateTimestamp
-                ) <= selectedMonth
+        val eventGrossByCategory =
+            mutableMapOf<String, Double>()
+
+        val eventReimbursementByCategory =
+            mutableMapOf<String, Double>()
+
+        resolvedEvents.forEach { event ->
+            val category =
+                event.group.category.trim()
+
+            if (category.isBlank()) {
+                return@forEach
             }
 
-        /*
-         * ----------------------------------------------------
-         * Cumulative Financial Event expenses
-         * ----------------------------------------------------
-         */
-        val cumulativeExpense =
-            transactionsThroughMonthEnd
-                .asSequence()
-                .filter { transaction ->
+            // Only map to pie chart in the event's final month
+            if (event.finalMonth == selectedMonth) {
+                if (event.netCost > 0.0) {
+                    eventAmountsByCategory[category] =
+                        (eventAmountsByCategory[category] ?: 0.0) + event.netCost
 
-                    transaction.type ==
-                        TransactionType.EXPENSE &&
+                    eventGrossByCategory[category] =
+                        (eventGrossByCategory[category] ?: 0.0) + event.totalExpense
 
-                        transaction.role !=
-                        TransactionRole.TRANSFER_OUT
+                    eventReimbursementByCategory[category] =
+                        (eventReimbursementByCategory[category] ?: 0.0) + event.totalReimbursement
                 }
-                .sumOf { transaction ->
-
-                    allocationByTransactionId[
-                        transaction.id
-                    ] ?: 0.0
-                }
-
-        /*
-         * ----------------------------------------------------
-         * Cumulative Financial Event reimbursements
-         * ----------------------------------------------------
-         */
-        val cumulativeReimbursement =
-            transactionsThroughMonthEnd
-                .asSequence()
-                .filter { transaction ->
-
-                    transaction.role ==
-                        TransactionRole.REIMBURSEMENT
-                }
-                .sumOf { transaction ->
-
-                    allocationByTransactionId[
-                        transaction.id
-                    ] ?: 0.0
-                }
-
-        /*
-         * ----------------------------------------------------
-         * Effective Financial Event cost
-         * ----------------------------------------------------
-         */
-        val effectiveCost =
-            cumulativeExpense -
-                cumulativeReimbursement
-
-        val category =
-            group.category.trim()
-
-        if (category.isBlank()) {
-            return@forEach
+            }
         }
 
         /*
-         * Keep these values available for the existing
-         * ReportsExpenseCategory model / UI.
+         * Combine ordinary categories + Financial Event category
          */
-        eventGrossByCategory[category] =
-            (
-                eventGrossByCategory[category]
-                    ?: 0.0
-                ) + cumulativeExpense
+        val allCategories =
+            (normalAmountsByCategory.keys + eventAmountsByCategory.keys)
+                .filter { it.isNotBlank() }
+                .distinct()
 
-        eventReimbursementByCategory[category] =
-            (
-                eventReimbursementByCategory[category]
-                    ?: 0.0
-                ) + cumulativeReimbursement
+        return allCategories
+            .map { category ->
+                val normalAmount =
+                    normalAmountsByCategory[category] ?: 0.0
 
-        /*
-         * A Financial Event with a positive effective cost
-         * contributes to expenses.
-         *
-         * If reimbursements exceed expenses, it must NOT
-         * create a negative expense category.
-         */
-        if (effectiveCost > 0.0) {
+                val eventAmount =
+                    eventAmountsByCategory[category] ?: 0.0
 
-            eventAmountsByCategory[category] =
-                (
-                    eventAmountsByCategory[category]
-                        ?: 0.0
-                    ) + effectiveCost
-        }
-    }
+                val reimbursementAmount =
+                    eventReimbursementByCategory[category] ?: 0.0
 
-    /*
-     * --------------------------------------------------------
-     * Combine ordinary categories + Financial Event category
-     * --------------------------------------------------------
-     */
-    val allCategories =
-        (
-            normalAmountsByCategory.keys +
-                eventAmountsByCategory.keys
-            )
+                ReportsExpenseCategory(
+                    category = category,
+                    totalAmount = normalAmount + eventAmount,
+                    normalAmount = normalAmount,
+                    financialEventAmount = eventAmount,
+                    reimbursedAmount = reimbursementAmount,
+                    effectiveFinancialEventAmount = eventAmount
+                )
+            }
             .filter {
-                it.isNotBlank()
+                it.totalAmount > 0.0
             }
-            .distinct()
-
-    return allCategories
-        .map { category ->
-
-            val normalAmount =
-                normalAmountsByCategory[
-                    category
-                ] ?: 0.0
-
-            val eventAmount =
-                eventAmountsByCategory[
-                    category
-                ] ?: 0.0
-
-            val reimbursementAmount =
-                eventReimbursementByCategory[
-                    category
-                ] ?: 0.0
-
-            ReportsExpenseCategory(
-
-                category =
-                    category,
-
-                totalAmount =
-                    normalAmount +
-                        eventAmount,
-
-                normalAmount =
-                    normalAmount,
-
-                financialEventAmount =
-                    eventAmount,
-
-                reimbursedAmount =
-                    reimbursementAmount,
-
-                effectiveFinancialEventAmount =
-                    eventAmount
-            )
-        }
-        .filter {
-            it.totalAmount > 0.0
-        }
-        .sortedByDescending {
-            it.totalAmount
-        }
-}
+            .sortedByDescending {
+                it.totalAmount
+            }
+    }
 
     // ------------------------------------------------------------------------
     // Income Categories
     // ------------------------------------------------------------------------
 
-    /**
-     * Builds actual income categories.
-     *
-     * Financial Event reimbursements are deliberately excluded.
-     *
-     * Account transfers are deliberately excluded.
-     *
-     * This means the Income chart represents genuine income,
-     * not money received to recover a Financial Event expense
-     * and not money moved between the user's own accounts.
-     */
-private fun buildIncomeCategories(
-    transactions: List<Transaction>
-): List<ReportsIncomeCategory> {
+    private fun buildIncomeCategories(
+        transactions: List<Transaction>,
+        selectedMonth: YearMonth,
+        resolvedEvents: List<ResolvedFinancialEvent>,
+        allocations: List<FinancialEventAllocationEntity>
+    ): List<ReportsIncomeCategory> {
 
-    return transactions
-        .asSequence()
-        .filter { transaction ->
-
-            transaction.type ==
-                TransactionType.INCOME &&
-
-                transaction.role ==
-                TransactionRole.NORMAL &&
-
-                transaction.transactionLinkId == null &&
-
-                transaction.transferLinkId == null
-        }
-        .filter {
-            it.category.isNotBlank()
-        }
-        .groupBy {
-            it.category
-        }
-        .map { (category, categoryTransactions) ->
-
-            ReportsIncomeCategory(
-
-                category =
-                    category,
-
-                totalAmount =
-                    categoryTransactions.sumOf {
-                        it.amount
-                    }
-            )
-        }
-        .sortedByDescending {
-            it.totalAmount
-        }
-}
-
-/**
- * Builds Financial Event summaries.
- *
- * The transaction list is already filtered by period and
- * account before reaching this function.
- *
- * IMPORTANT:
- *
- * The financial amounts shown in the report remain restricted
- * to the selected reporting period.
- *
- * The complete account-filtered transaction history is used
- * only to determine whether an event spans multiple months.
- */
- private fun buildFinancialEvents(
-    transactions: List<Transaction>,
-    allAccountTransactions: List<Transaction>,
-    groups: List<TransactionLinkGroup>,
-    allocations: List<FinancialEventAllocationEntity>
-): List<ReportsFinancialEvent> {
-
-    /*
-     * --------------------------------------------------------
-     * Account-filtered historical allocation data
-     * --------------------------------------------------------
-     */
-    val allocationsByEvent =
-        allocations
-            .groupBy {
-                it.transactionLinkId
-            }
-
-    /*
-     * Only show Financial Events that have at least one
-     * relevant transaction in the selected period.
-     */
-    val selectedPeriodTransactionIds =
-        transactions
-            .map {
-                it.id
-            }
-            .toSet()
-
-    return groups
-        .mapNotNull { group ->
-
-            val eventAllocations =
-                allocationsByEvent[
-                    group.transactionLinkId
-                ]
-                    .orEmpty()
-
-            if (eventAllocations.isEmpty()) {
-                return@mapNotNull null
-            }
-
-            /*
-             * ------------------------------------------------
-             * All transactions belonging to this event.
-             * ------------------------------------------------
-             */
-            val allocationByTransactionId =
-                eventAllocations
-                    .groupBy {
-                        it.transactionId
-                    }
-                    .mapValues { (_, rows) ->
-                        rows.sumOf {
-                            it.allocatedAmount
-                        }
-                    }
-
-            val eventTransactions =
-                allAccountTransactions
-                    .filter { transaction ->
-
-                        transaction.id in
-                            allocationByTransactionId
-                                .keys
-                    }
-
-            /*
-             * ------------------------------------------------
-             * Determine whether this event is visible for
-             * the selected reporting month.
-             * ------------------------------------------------
-             *
-             * We show the event if at least one linked
-             * transaction occurs in the selected month.
-             */
-            val visibleInSelectedPeriod =
-                eventTransactions.any {
-                    it.id in
-                        selectedPeriodTransactionIds
+        val normalAmountsByCategory =
+            transactions
+                .asSequence()
+                .filter { transaction ->
+                    transaction.type == TransactionType.INCOME &&
+                        transaction.role == TransactionRole.NORMAL &&
+                        transaction.transferLinkId == null
                 }
-
-            if (!visibleInSelectedPeriod) {
-                return@mapNotNull null
-            }
-
-            /*
-             * ------------------------------------------------
-             * Cumulative month-end calculation
-             * ------------------------------------------------
-             *
-             * This is the key rule:
-             *
-             * selected month = July
-             *
-             * include ALL linked transactions whose date is
-             * <= July 31.
-             *
-             * Therefore:
-             *
-             * June reimbursement ₹1,465
-             * July expenses      ₹26,950.45
-             * July reimbursements ₹24,384
-             *
-             * are all included.
-             *
-             * Effective cost =
-             *
-             * cumulative expenses
-             * -
-             * cumulative reimbursements
-             */
-            val selectedMonth =
-                _uiState.value.selectedMonth
-
-            val transactionsThroughMonthEnd =
-                eventTransactions.filter { transaction ->
-
-                    transactionYearMonth(
-                        transaction.dateTimestamp
-                    ) <= selectedMonth
-                }
-
-            val cumulativeExpense =
-                transactionsThroughMonthEnd
-                    .asSequence()
-                    .filter { transaction ->
-
-                        transaction.type ==
-                            TransactionType.EXPENSE &&
-
-                            transaction.role !=
-                            TransactionRole.TRANSFER_OUT
-                    }
-                    .sumOf { transaction ->
-
-                        allocationByTransactionId[
-                            transaction.id
-                        ] ?: 0.0
-                    }
-
-            val cumulativeReimbursement =
-                transactionsThroughMonthEnd
-                    .asSequence()
-                    .filter { transaction ->
-
-                        transaction.role ==
-                            TransactionRole.REIMBURSEMENT
-                    }
-                    .sumOf { transaction ->
-
-                        allocationByTransactionId[
-                            transaction.id
-                        ] ?: 0.0
-                    }
-
-            val effectiveCost =
-                cumulativeExpense -
-                    cumulativeReimbursement
-
-            /*
-             * ------------------------------------------------
-             * Selected-period display amounts
-             * ------------------------------------------------
-             *
-             * These remain useful for the Financial Event
-             * card's transaction/month display.
-             */
-            val selectedPeriodTransactions =
-                eventTransactions.filter {
-                    it.id in
-                        selectedPeriodTransactionIds
-                }
-
-            val selectedPeriodExpense =
-                selectedPeriodTransactions
-                    .asSequence()
-                    .filter { transaction ->
-
-                        transaction.type ==
-                            TransactionType.EXPENSE &&
-
-                            transaction.role !=
-                            TransactionRole.TRANSFER_OUT
-                    }
-                    .sumOf { transaction ->
-
-                        allocationByTransactionId[
-                            transaction.id
-                        ] ?: 0.0
-                    }
-
-            val selectedPeriodReimbursement =
-                selectedPeriodTransactions
-                    .asSequence()
-                    .filter { transaction ->
-
-                        transaction.role ==
-                            TransactionRole.REIMBURSEMENT
-                    }
-                    .sumOf { transaction ->
-
-                        allocationByTransactionId[
-                            transaction.id
-                        ] ?: 0.0
-                    }
-
-            /*
-             * ------------------------------------------------
-             * Multi-month detection
-             * ------------------------------------------------
-             */
-            val coveredMonths =
-                eventTransactions
-                    .asSequence()
-                    .filter { transaction ->
-
-                        transaction.type ==
-                            TransactionType.EXPENSE ||
-
-                            transaction.role ==
-                            TransactionRole.REIMBURSEMENT
-                    }
-                    .map {
-                        transactionYearMonth(
-                            it.dateTimestamp
+                .mapNotNull { transaction ->
+                    val remainingAmount =
+                        getUnallocatedAmount(
+                            transaction = transaction,
+                            allocations = allocations
                         )
+
+                    if (remainingAmount <= 0.0) {
+                        null
+                    } else {
+                        transaction.category to remainingAmount
                     }
-                    .distinct()
-                    .sorted()
-                    .toList()
+                }
+                .groupBy(
+                    keySelector = { it.first },
+                    valueTransform = { it.second }
+                )
+                .mapValues { (_, amounts) ->
+                    amounts.sum()
+                }
 
-            ReportsFinancialEvent(
+        val eventSurplusByCategory =
+            mutableMapOf<String, Double>()
 
-                transactionLinkId =
-                    group.transactionLinkId,
+        resolvedEvents.forEach { event ->
+            val category =
+                event.group.category.trim()
 
-                groupName =
-                    group.groupName,
+            if (category.isBlank()) {
+                return@forEach
+            }
 
-                category =
-                    group.category,
+            // If an event resulted in a net surplus (reimbursements > expenses),
+            // report the net surplus as income in its final month
+            if (event.finalMonth == selectedMonth && event.netCost < 0.0) {
+                val surplus =
+                    kotlin.math.abs(event.netCost)
 
-                /*
-                 * Keep these as the selected month's amounts.
-                 */
-                expenseAmount =
-                    selectedPeriodExpense,
-
-                reimbursedAmount =
-                    selectedPeriodReimbursement,
-
-                /*
-                 * IMPORTANT:
-                 *
-                 * This is now the cumulative month-end
-                 * effective cost.
-                 */
-                effectiveCost =
-                    effectiveCost,
-
-                coveredMonths =
-                    coveredMonths
-            )
+                eventSurplusByCategory[category] =
+                    (eventSurplusByCategory[category] ?: 0.0) + surplus
+            }
         }
-        .filter {
-            it.expenseAmount != 0.0 ||
-                it.reimbursedAmount != 0.0 ||
-                it.effectiveCost != 0.0
-        }
-        .sortedByDescending {
-            kotlin.math.abs(
-                it.effectiveCost
-            )
-        }
-}
+
+        val allCategories =
+            (normalAmountsByCategory.keys + eventSurplusByCategory.keys)
+                .filter { it.isNotBlank() }
+                .distinct()
+
+        return allCategories
+            .map { category ->
+                val normalAmount =
+                    normalAmountsByCategory[category] ?: 0.0
+
+                val surplusAmount =
+                    eventSurplusByCategory[category] ?: 0.0
+
+                ReportsIncomeCategory(
+                    category = category,
+                    totalAmount = normalAmount + surplusAmount
+                )
+            }
+            .filter {
+                it.totalAmount > 0.0
+            }
+            .sortedByDescending {
+                it.totalAmount
+            }
+    }
+
+    /**
+     * Builds Financial Event summaries.
+     */
+    private fun buildFinancialEvents(
+        selectedMonth: YearMonth,
+        transactions: List<Transaction>,
+        resolvedEvents: List<ResolvedFinancialEvent>
+    ): List<ReportsFinancialEvent> {
+
+        val selectedPeriodTransactionIds =
+            transactions
+                .map { it.id }
+                .toSet()
+
+        return resolvedEvents
+            .mapNotNull { event ->
+                val hasActivityInSelectedMonth =
+                    event.coveredMonths.contains(selectedMonth)
+
+                val isFinalMonth =
+                    event.finalMonth == selectedMonth
+
+                // Show event if it has transactions in this month or concludes in this month
+                if (!hasActivityInSelectedMonth && !isFinalMonth) {
+                    return@mapNotNull null
+                }
+
+                val selectedPeriodTransactions =
+                    event.eventTransactions.filter {
+                        it.id in selectedPeriodTransactionIds
+                    }
+
+                val selectedPeriodExpense =
+                    selectedPeriodTransactions
+                        .asSequence()
+                        .filter { transaction ->
+                            (transaction.type == TransactionType.EXPENSE || transaction.type == TransactionType.DEBIT) &&
+                                transaction.role != TransactionRole.TRANSFER_OUT &&
+                                transaction.role != TransactionRole.REIMBURSEMENT
+                        }
+                        .sumOf { transaction ->
+                            event.allocationMap[transaction.id] ?: 0.0
+                        }
+
+                val selectedPeriodReimbursement =
+                    selectedPeriodTransactions
+                        .asSequence()
+                        .filter { transaction ->
+                            transaction.role == TransactionRole.REIMBURSEMENT ||
+                                (transaction.type == TransactionType.INCOME &&
+                                    transaction.role != TransactionRole.TRANSFER_IN &&
+                                    transaction.role != TransactionRole.TRANSFER_OUT)
+                        }
+                        .sumOf { transaction ->
+                            event.allocationMap[transaction.id] ?: 0.0
+                        }
+
+                ReportsFinancialEvent(
+                    transactionLinkId = event.group.transactionLinkId,
+                    groupName = event.group.groupName,
+                    category = event.group.category,
+                    expenseAmount = selectedPeriodExpense,
+                    reimbursedAmount = selectedPeriodReimbursement,
+                    effectiveCost = event.netCost,
+                    totalEventExpense = event.totalExpense,
+                    totalEventReimbursement = event.totalReimbursement,
+                    isFinalMonth = isFinalMonth,
+                    coveredMonths = event.coveredMonths
+                )
+            }
+            .filter {
+                it.expenseAmount != 0.0 ||
+                    it.reimbursedAmount != 0.0 ||
+                    it.effectiveCost != 0.0 ||
+                    it.coveredMonths.contains(selectedMonth)
+            }
+            .sortedByDescending {
+                kotlin.math.abs(it.effectiveCost)
+            }
+    }
 
     // ------------------------------------------------------------------------
     // Helpers

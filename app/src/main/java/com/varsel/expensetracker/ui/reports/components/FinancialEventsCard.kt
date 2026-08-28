@@ -218,11 +218,17 @@ private fun FinancialEventRow(
     formatter: NumberFormat,
     onClick: () -> Unit
 ) {
-    val periodAmountPresentation =
-        rememberFinancialEventPeriodAmount(
-            event = event,
-            formatter = formatter
-        )
+    val (amountText, amountColor) = when {
+        event.effectiveCost > 0.0 -> {
+            formatter.format(event.effectiveCost) to AppColors.Expense
+        }
+        event.effectiveCost < 0.0 -> {
+            formatter.format(kotlin.math.abs(event.effectiveCost)) to AppColors.Income
+        }
+        else -> {
+            formatter.format(0.0) to MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    }
 
     Column(
         modifier =
@@ -234,7 +240,6 @@ private fun FinancialEventRow(
                 .padding(
                     vertical = 10.dp
                 ),
-
         verticalArrangement =
             Arrangement.spacedBy(
                 6.dp
@@ -244,7 +249,6 @@ private fun FinancialEventRow(
         Row(
             modifier =
                 Modifier.fillMaxWidth(),
-
             verticalAlignment =
                 Alignment.CenterVertically
         ) {
@@ -257,11 +261,9 @@ private fun FinancialEventRow(
                 Text(
                     text =
                         event.groupName,
-
                     style =
                         MaterialTheme.typography
                             .bodyLarge,
-
                     fontWeight =
                         FontWeight.Medium
                 )
@@ -269,15 +271,12 @@ private fun FinancialEventRow(
                 if (
                     event.category.isNotBlank()
                 ) {
-
                     Text(
                         text =
                             event.category,
-
                         style =
                             MaterialTheme.typography
                                 .labelMedium,
-
                         color =
                             MaterialTheme.colorScheme
                                 .onSurfaceVariant
@@ -285,33 +284,20 @@ private fun FinancialEventRow(
                 }
 
                 /*
-                 * Show a small indicator when the Financial Event
-                 * has linked transactions in more than one month.
+                 * Show indicator when the Financial Event
+                 * spans multiple months.
                  *
                  * Example:
-                 *
-                 * Spans Jun–Jul 2026
+                 * Spans Jun–Jul 2026 • Final Month
                  */
-                if (
-                    event.coveredMonths.size > 1
-                ) {
-
+                if (event.coveredMonths.size > 1) {
+                    val periodText = formatEventPeriod(event.coveredMonths)
+                    val statusText = if (event.isFinalMonth) " • Final Month" else " • Ongoing"
                     Text(
-                        text =
-                            formatEventPeriod(
-                                event.coveredMonths
-                            ),
-
-                        style =
-                            MaterialTheme.typography
-                                .labelSmall,
-
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant,
-
-                        fontWeight =
-                            FontWeight.Medium
+                        text = periodText + statusText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
@@ -324,41 +310,19 @@ private fun FinancialEventRow(
             )
 
             /*
-             * IMPORTANT:
-             *
-             * This amount represents the Financial Event's
-             * activity within the CURRENTLY SELECTED REPORT
-             * PERIOD.
-             *
-             * It must not blindly use effectiveCost because:
-             *
-             * June:
-             *   reimbursement only
-             *   effectiveCost = -₹25,474.09
-             *
-             * The user should see:
-             *
-             *   ₹25,474.09
-             *
-             * in GREEN, not:
-             *
-             *   -₹25,474.09
-             *
-             * in RED.
+             * Prominent amount represents the effective actual cost
+             * (Net out-of-pocket expense) for the event.
              */
             Text(
                 text =
-                    periodAmountPresentation.amountText,
-
+                    amountText,
                 style =
                     MaterialTheme.typography
                         .bodyLarge,
-
                 fontWeight =
                     FontWeight.Bold,
-
                 color =
-                    periodAmountPresentation.color
+                    amountColor
             )
 
             Spacer(
@@ -372,10 +336,8 @@ private fun FinancialEventRow(
                 imageVector =
                     Icons.AutoMirrored.Filled
                         .ArrowForward,
-
                 contentDescription =
                     "Open Financial Event",
-
                 tint =
                     MaterialTheme.colorScheme
                         .onSurfaceVariant
@@ -383,59 +345,61 @@ private fun FinancialEventRow(
         }
 
         /*
-         * Detailed period activity.
-         *
-         * Expense is always RED.
-         * Reimbursement is always GREEN.
+         * Detailed period and cumulative activity.
          */
         Row(
-            horizontalArrangement =
-                Arrangement.spacedBy(
-                    16.dp
-                )
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
-            if (
-                event.expenseAmount > 0.0
+            Row(
+                horizontalArrangement =
+                    Arrangement.spacedBy(
+                        12.dp
+                    )
             ) {
+                if (event.expenseAmount > 0.0) {
+                    Text(
+                        text =
+                            "${formatter.format(event.expenseAmount)} expense",
+                        style =
+                            MaterialTheme.typography
+                                .labelMedium,
+                        color =
+                            AppColors.Expense,
+                        fontWeight =
+                            FontWeight.Medium
+                    )
+                }
 
-                Text(
-                    text =
-                        "${formatter.format(
-                            event.expenseAmount
-                        )} expense",
+                if (event.reimbursedAmount > 0.0) {
+                    Text(
+                        text =
+                            "${formatter.format(event.reimbursedAmount)} reimbursed",
+                        style =
+                            MaterialTheme.typography
+                                .labelMedium,
+                        color =
+                            AppColors.Income,
+                        fontWeight =
+                            FontWeight.Medium
+                    )
+                }
 
-                    style =
-                        MaterialTheme.typography
-                            .labelMedium,
-
-                    color =
-                        AppColors.Expense,
-
-                    fontWeight =
-                        FontWeight.Medium
-                )
+                if (event.expenseAmount == 0.0 && event.reimbursedAmount == 0.0) {
+                    Text(
+                        text = "No transactions this month",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            if (
-                event.reimbursedAmount > 0.0
-            ) {
-
+            if (event.coveredMonths.size > 1) {
                 Text(
-                    text =
-                        "${formatter.format(
-                            event.reimbursedAmount
-                        )} reimbursed",
-
-                    style =
-                        MaterialTheme.typography
-                            .labelMedium,
-
-                    color =
-                        AppColors.Income,
-
-                    fontWeight =
-                        FontWeight.Medium
+                    text = "Total: ${formatter.format(event.totalEventExpense)} exp · ${formatter.format(event.totalEventReimbursement)} reimb",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -448,177 +412,6 @@ private fun FinancialEventRow(
         )
     }
 }
-
-/**
- * Determines how the prominent amount on a Financial Event
- * should be displayed for the CURRENTLY SELECTED REPORT PERIOD.
- *
- * Rules:
- *
- * 1. Reimbursement only
- *
- *    expense = ₹0
- *    reimbursement = ₹25,474.09
- *
- *    -> ₹25,474.09 GREEN
- *
- * 2. Expense only
- *
- *    expense = ₹26,950.45
- *    reimbursement = ₹0
- *
- *    -> ₹26,950.45 RED
- *
- * 3. Both expense and reimbursement
- *
- *    expense = ₹26,950.45
- *    reimbursement = ₹25,474.09
- *
- *    effective cost = ₹1,476.36
- *
- *    -> ₹1,476.36 RED
- *
- * 4. Reimbursement exceeds expense
- *
- *    expense = ₹1,000
- *    reimbursement = ₹1,500
- *
- *    effective cost = -₹500
- *
- *    -> ₹500 GREEN
- *
- * 5. Fully reimbursed
- *
- *    expense = ₹1,000
- *    reimbursement = ₹1,000
- *
- *    -> ₹0
- *
- * This function deliberately separates:
- *
- * - transaction direction during the selected period
- * - the Financial Event's overall business meaning
- */
-@Composable
-private fun rememberFinancialEventPeriodAmount(
-    event: ReportsFinancialEvent,
-    formatter: NumberFormat
-): FinancialEventPeriodAmount {
-
-    val expense =
-        event.expenseAmount
-
-    val reimbursement =
-        event.reimbursedAmount
-
-    /*
-     * --------------------------------------------------------
-     * REIMBURSEMENT ONLY
-     * --------------------------------------------------------
-     *
-     * This is the important June case for Train.
-     */
-    if (
-        expense <= 0.0 &&
-        reimbursement > 0.0
-    ) {
-
-        return FinancialEventPeriodAmount(
-            amountText =
-                formatter.format(
-                    reimbursement
-                ),
-
-            color =
-                AppColors.Income
-        )
-    }
-
-    /*
-     * --------------------------------------------------------
-     * EXPENSE ONLY
-     * --------------------------------------------------------
-     */
-    if (
-        expense > 0.0 &&
-        reimbursement <= 0.0
-    ) {
-
-        return FinancialEventPeriodAmount(
-            amountText =
-                formatter.format(
-                    expense
-                ),
-
-            color =
-                AppColors.Expense
-        )
-    }
-
-    /*
-     * --------------------------------------------------------
-     * BOTH EXPENSE + REIMBURSEMENT
-     * --------------------------------------------------------
-     *
-     * Use the period's net direction.
-     */
-    val effectiveCost =
-        expense -
-            reimbursement
-
-    if (
-        effectiveCost < 0.0
-    ) {
-
-        return FinancialEventPeriodAmount(
-            amountText =
-                formatter.format(
-                    kotlin.math.abs(
-                        effectiveCost
-                    )
-                ),
-
-            color =
-                AppColors.Income
-        )
-    }
-
-    if (
-        effectiveCost > 0.0
-    ) {
-
-        return FinancialEventPeriodAmount(
-            amountText =
-                formatter.format(
-                    effectiveCost
-                ),
-
-            color =
-                AppColors.Expense
-        )
-    }
-
-    /*
-     * --------------------------------------------------------
-     * FULLY OFFSET
-     * --------------------------------------------------------
-     */
-    return FinancialEventPeriodAmount(
-        amountText =
-            formatter.format(
-                0.0
-            ),
-
-        color =
-            MaterialTheme.colorScheme
-                .onSurfaceVariant
-    )
-}
-
-private data class FinancialEventPeriodAmount(
-    val amountText: String,
-    val color: androidx.compose.ui.graphics.Color
-)
 
 /**
  * Creates a concise user-facing description of the months
