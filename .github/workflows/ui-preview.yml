@@ -1,0 +1,104 @@
+name: Varsel UI Preview
+
+on:
+  push:
+    branches:
+      - report-ui-preview
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "varsell-ui-preview"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Compose Web Preview
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.8"
+
+      - name: Build Compose Web Preview
+        working-directory: ui-preview
+        run: |
+          set -euo pipefail
+
+          gradle wasmJsBrowserDistribution --no-daemon
+
+      - name: Locate browser distribution
+        run: |
+          set -euo pipefail
+
+          echo "Searching for generated browser distribution..."
+
+          DIST_DIR="ui-preview/build/dist/wasmJs/productionExecutable"
+
+          if [ ! -d "$DIST_DIR" ]; then
+            echo "::error::Expected distribution directory was not found:"
+            echo "$DIST_DIR"
+
+            echo ""
+            echo "Available build directories:"
+            find ui-preview/build -maxdepth 6 -type d 2>/dev/null | sort || true
+
+            exit 1
+          fi
+
+          echo "Found:"
+          find "$DIST_DIR" -maxdepth 2 -type f | sort
+
+      - name: Prepare GitHub Pages artifact
+        run: |
+          set -euo pipefail
+
+          rm -rf _site
+          mkdir -p _site
+
+          cp -R \
+            ui-preview/build/dist/wasmJs/productionExecutable/. \
+            _site/
+
+          echo ""
+          echo "GitHub Pages contents:"
+          find _site -maxdepth 3 -type f | sort
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy Compose Web Preview
+    needs: build
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
