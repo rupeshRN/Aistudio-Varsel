@@ -125,6 +125,12 @@ composable(AppDestination.Reports.route) {
     ReportsScreen(
         viewModel = hiltViewModel(),
 
+        onTransactionClick = { transactionId ->
+            navController.navigate(
+                "transaction_detail/$transactionId"
+            )
+        },
+
         onFinancialEventClick = { transactionLinkId ->
 
             navController.navigate(

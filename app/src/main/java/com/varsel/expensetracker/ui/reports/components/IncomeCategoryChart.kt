@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.ui.reports.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,18 +15,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.design.AppColors
 import com.varsel.expensetracker.ui.design.CategoryPalette
 import com.varsel.expensetracker.ui.reports.ReportsIncomeCategory
 import java.text.NumberFormat
 import java.util.Locale
+import kotlin.math.atan2
 import kotlin.math.max
+import kotlin.math.sqrt
 
 @Composable
 fun IncomeCategoryChart(
     categories: List<ReportsIncomeCategory>,
     selectedCategory: String?,
+    onCategoryClick: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (categories.isEmpty()) {
@@ -111,6 +116,41 @@ fun IncomeCategoryChart(
                     Modifier
                         .height(200.dp)
                         .fillMaxWidth()
+                        .pointerInput(validCategories, total) {
+                            if (onCategoryClick != null) {
+                                detectTapGestures { offset ->
+                                    val centerX = size.width / 2f
+                                    val centerY = size.height / 2f
+                                    val dx = offset.x - centerX
+                                    val dy = offset.y - centerY
+                                    val dist = sqrt(dx * dx + dy * dy)
+
+                                    val defaultStrokeWidth = 32.dp.toPx()
+                                    val selectedStrokeWidth = 42.dp.toPx()
+                                    val diameter = minOf(size.width, size.height) - selectedStrokeWidth
+                                    val outerRadius = diameter / 2f + selectedStrokeWidth / 2f
+                                    val innerRadius = diameter / 2f - selectedStrokeWidth / 2f
+
+                                    if (dist in innerRadius..outerRadius) {
+                                        var angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
+                                        var normalizedAngle = (angle + 90f)
+                                        if (normalizedAngle < 0f) {
+                                            normalizedAngle += 360f
+                                        }
+
+                                        var currentAngle = 0f
+                                        for (cat in validCategories) {
+                                            val sweep = (cat.totalAmount / total).toFloat() * 360f
+                                            if (normalizedAngle >= currentAngle && normalizedAngle < currentAngle + sweep) {
+                                                onCategoryClick(cat.category)
+                                                break
+                                            }
+                                            currentAngle += sweep
+                                        }
+                                    }
+                                }
+                            }
+                        }
             ) {
 
                 val defaultStrokeWidth =

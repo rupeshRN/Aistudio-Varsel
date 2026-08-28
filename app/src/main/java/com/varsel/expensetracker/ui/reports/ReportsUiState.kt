@@ -83,7 +83,12 @@ data class ReportsUiState(
     /**
      * Financial Events for the selected period/filter.
      */
-    val financialEvents: List<ReportsFinancialEvent> = emptyList()
+    val financialEvents: List<ReportsFinancialEvent> = emptyList(),
+
+    /**
+     * Detailed category drill-down state.
+     */
+    val drillDownState: CategoryDrillDownState = CategoryDrillDownState()
 ) {
 
     /**

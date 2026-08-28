@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.ui.reports.components.CategoryDrillDownBottomSheet
 import com.varsel.expensetracker.ui.reports.components.ExpenseCategoryChart
 import com.varsel.expensetracker.ui.reports.components.ExpenseCategoryList
 import com.varsel.expensetracker.ui.reports.components.FinancialEventsCard
@@ -51,6 +52,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ReportsScreen(
     viewModel: ReportsViewModel = hiltViewModel(),
+    onTransactionClick: (Long) -> Unit = {},
     onFinancialEventClick: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -59,7 +61,12 @@ fun ReportsScreen(
         mutableStateOf(false)
     }
 
-    val sheetState =
+    val filterSheetState =
+        androidx.compose.material3.rememberModalBottomSheetState(
+            skipPartiallyExpanded = true
+        )
+
+    val drillDownSheetState =
         androidx.compose.material3.rememberModalBottomSheetState(
             skipPartiallyExpanded = true
         )
@@ -83,11 +90,19 @@ fun ReportsScreen(
             viewModel::selectFlow,
 
         onExpenseCategorySelected = {
-            viewModel.selectExpenseCategory(it)
+            if (it == null) {
+                viewModel.clearCategorySelection()
+            } else {
+                viewModel.selectExpenseCategory(it)
+            }
         },
 
         onIncomeCategorySelected = {
-            viewModel.selectIncomeCategory(it)
+            if (it == null) {
+                viewModel.clearCategorySelection()
+            } else {
+                viewModel.selectIncomeCategory(it)
+            }
         },
 
         onFinancialEventClick =
@@ -104,7 +119,7 @@ fun ReportsScreen(
                 uiState.selectedAccountIds,
 
             sheetState =
-                sheetState,
+                filterSheetState,
 
             onDismiss = {
                 filterSheetVisible = false
@@ -117,10 +132,26 @@ fun ReportsScreen(
                 )
 
                 scope.launch {
-                    sheetState.hide()
+                    filterSheetState.hide()
                     filterSheetVisible = false
                 }
             }
+        )
+    }
+
+    if (uiState.drillDownState.isVisible) {
+        CategoryDrillDownBottomSheet(
+            state = uiState.drillDownState,
+            sheetState = drillDownSheetState,
+            onDismiss = {
+                scope.launch {
+                    drillDownSheetState.hide()
+                    viewModel.dismissCategoryDrillDown()
+                }
+            },
+            onSearchQueryChange = viewModel::updateDrillDownSearch,
+            onTransactionClick = onTransactionClick,
+            onFinancialEventClick = onFinancialEventClick
         )
     }
 }
@@ -242,7 +273,10 @@ private fun ReportsScreenContent(
                                             uiState.expenseCategories,
 
                                         selectedCategory =
-                                            uiState.selectedExpenseCategory
+                                            uiState.selectedExpenseCategory,
+
+                                        onCategoryClick =
+                                            onExpenseCategorySelected
                                     )
 
                                     ExpenseCategoryList(
@@ -272,7 +306,10 @@ private fun ReportsScreenContent(
                                             uiState.incomeCategories,
 
                                         selectedCategory =
-                                            uiState.selectedIncomeCategory
+                                            uiState.selectedIncomeCategory,
+
+                                        onCategoryClick =
+                                            onIncomeCategorySelected
                                     )
 
                                     IncomeCategoryList(

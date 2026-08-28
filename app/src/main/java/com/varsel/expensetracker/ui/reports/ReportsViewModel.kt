@@ -221,7 +221,8 @@ class ReportsViewModel @Inject constructor(
             _uiState.value.copy(
                 selectedFlow = flow,
                 selectedExpenseCategory = null,
-                selectedIncomeCategory = null
+                selectedIncomeCategory = null,
+                drillDownState = CategoryDrillDownState()
             )
     }
 
@@ -232,6 +233,9 @@ class ReportsViewModel @Inject constructor(
             _uiState.value.copy(
                 selectedExpenseCategory = category
             )
+        if (category != null) {
+            openCategoryDrillDown(category, ReportsFlow.EXPENSES)
+        }
     }
 
     fun selectIncomeCategory(
@@ -241,13 +245,196 @@ class ReportsViewModel @Inject constructor(
             _uiState.value.copy(
                 selectedIncomeCategory = category
             )
+        if (category != null) {
+            openCategoryDrillDown(category, ReportsFlow.INCOME)
+        }
+    }
+
+    fun openCategoryDrillDown(
+        categoryName: String,
+        flow: ReportsFlow = _uiState.value.selectedFlow
+    ) {
+        val state = _uiState.value
+        val items = buildCategoryDrillDownItems(
+            categoryName = categoryName,
+            flow = flow,
+            selectedMonth = state.selectedMonth,
+            selectedAccountIds = state.selectedAccountIds
+        )
+
+        val totalCategoryAmount = when (flow) {
+            ReportsFlow.EXPENSES -> {
+                state.expenseCategories.firstOrNull { it.category.equals(categoryName, ignoreCase = true) }?.totalAmount
+                    ?: items.sumOf { it.amount }
+            }
+            ReportsFlow.INCOME -> {
+                state.incomeCategories.firstOrNull { it.category.equals(categoryName, ignoreCase = true) }?.totalAmount
+                    ?: items.sumOf { it.amount }
+            }
+        }
+
+        val totalFlowAmount = when (flow) {
+            ReportsFlow.EXPENSES -> state.cashFlow.effectiveExpense
+            ReportsFlow.INCOME -> state.cashFlow.actualIncome
+        }
+
+        val percent = if (totalFlowAmount > 0.0) {
+            (totalCategoryAmount / totalFlowAmount) * 100.0
+        } else {
+            0.0
+        }
+
+        _uiState.value = _uiState.value.copy(
+            drillDownState = CategoryDrillDownState(
+                isVisible = true,
+                categoryName = categoryName,
+                flow = flow,
+                totalCategoryAmount = totalCategoryAmount,
+                percentOfTotal = percent,
+                month = state.selectedMonth,
+                items = items,
+                searchQuery = ""
+            )
+        )
+    }
+
+    fun updateDrillDownSearch(query: String) {
+        _uiState.value = _uiState.value.copy(
+            drillDownState = _uiState.value.drillDownState.copy(searchQuery = query)
+        )
+    }
+
+    fun dismissCategoryDrillDown() {
+        _uiState.value = _uiState.value.copy(
+            drillDownState = _uiState.value.drillDownState.copy(isVisible = false)
+        )
+    }
+
+    private fun buildCategoryDrillDownItems(
+        categoryName: String,
+        flow: ReportsFlow,
+        selectedMonth: YearMonth,
+        selectedAccountIds: Set<String>
+    ): List<CategoryDrillDownItem> {
+        val periodTransactions = latestTransactions.filter { it.belongsToMonth(selectedMonth) }
+        val filteredTransactions = filterByAccounts(periodTransactions, selectedAccountIds)
+        val allFilteredTransactions = filterByAccounts(latestTransactions, selectedAccountIds)
+        val resolvedEvents = resolveFinancialEvents(allFilteredTransactions, latestGroups, latestAllocations)
+
+        val result = mutableListOf<CategoryDrillDownItem>()
+
+        if (flow == ReportsFlow.EXPENSES) {
+            // 1. Regular expense transactions
+            filteredTransactions
+                .filter { tx ->
+                    (tx.type == TransactionType.EXPENSE || tx.type == TransactionType.DEBIT) &&
+                        tx.role == TransactionRole.NORMAL &&
+                        tx.transferLinkId == null &&
+                        tx.category.equals(categoryName, ignoreCase = true)
+                }
+                .forEach { tx ->
+                    val unallocated = getUnallocatedAmount(tx, latestAllocations)
+                    if (unallocated > 0.0) {
+                        result.add(
+                            CategoryDrillDownItem(
+                                transactionId = tx.id,
+                                description = tx.description,
+                                category = tx.category,
+                                dateTimestamp = tx.dateTimestamp,
+                                amount = unallocated,
+                                isExpense = true,
+                                accountLast4 = tx.accountLast4,
+                                isEventAllocation = false
+                            )
+                        )
+                    }
+                }
+
+            // 2. Financial event net expenses if final month matches
+            resolvedEvents.forEach { event ->
+                if (event.group.category.equals(categoryName, ignoreCase = true) &&
+                    event.finalMonth == selectedMonth &&
+                    event.netCost > 0.0
+                ) {
+                    // Include event root/rep item or top transaction
+                    val primaryTx = event.eventTransactions.firstOrNull()
+                    result.add(
+                        CategoryDrillDownItem(
+                            transactionId = primaryTx?.id ?: 0L,
+                            description = event.group.groupName,
+                            category = event.group.category,
+                            dateTimestamp = primaryTx?.dateTimestamp ?: System.currentTimeMillis(),
+                            amount = event.netCost,
+                            isExpense = true,
+                            accountLast4 = primaryTx?.accountLast4,
+                            isEventAllocation = true,
+                            eventName = event.group.groupName,
+                            eventLinkId = event.group.transactionLinkId
+                        )
+                    )
+                }
+            }
+        } else {
+            // Income
+            filteredTransactions
+                .filter { tx ->
+                    tx.type == TransactionType.INCOME &&
+                        tx.role == TransactionRole.NORMAL &&
+                        tx.transferLinkId == null &&
+                        tx.category.equals(categoryName, ignoreCase = true)
+                }
+                .forEach { tx ->
+                    val unallocated = getUnallocatedAmount(tx, latestAllocations)
+                    if (unallocated > 0.0) {
+                        result.add(
+                            CategoryDrillDownItem(
+                                transactionId = tx.id,
+                                description = tx.description,
+                                category = tx.category,
+                                dateTimestamp = tx.dateTimestamp,
+                                amount = unallocated,
+                                isExpense = false,
+                                accountLast4 = tx.accountLast4,
+                                isEventAllocation = false
+                            )
+                        )
+                    }
+                }
+
+            // Surplus events
+            resolvedEvents.forEach { event ->
+                if (event.group.category.equals(categoryName, ignoreCase = true) &&
+                    event.finalMonth == selectedMonth &&
+                    event.netCost < 0.0
+                ) {
+                    val primaryTx = event.eventTransactions.firstOrNull()
+                    result.add(
+                        CategoryDrillDownItem(
+                            transactionId = primaryTx?.id ?: 0L,
+                            description = event.group.groupName + " (Surplus)",
+                            category = event.group.category,
+                            dateTimestamp = primaryTx?.dateTimestamp ?: System.currentTimeMillis(),
+                            amount = kotlin.math.abs(event.netCost),
+                            isExpense = false,
+                            accountLast4 = primaryTx?.accountLast4,
+                            isEventAllocation = true,
+                            eventName = event.group.groupName,
+                            eventLinkId = event.group.transactionLinkId
+                        )
+                    )
+                }
+            }
+        }
+
+        return result.sortedByDescending { it.dateTimestamp }
     }
 
     fun clearCategorySelection() {
         _uiState.value =
             _uiState.value.copy(
                 selectedExpenseCategory = null,
-                selectedIncomeCategory = null
+                selectedIncomeCategory = null,
+                drillDownState = CategoryDrillDownState()
             )
     }
 
