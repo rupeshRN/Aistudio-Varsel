@@ -1,5 +1,6 @@
 package com.varsel.expensetracker.data.repository
 
+import com.varsel.expensetracker.category.DescriptionNormalizer
 import com.varsel.expensetracker.category.KnowledgeRecord
 import com.varsel.expensetracker.data.local.dao.CustomRuleDao
 import com.varsel.expensetracker.data.local.entity.CustomRuleEntity
@@ -10,9 +11,8 @@ import javax.inject.Singleton
 
 @Singleton
 class CustomRuleRepository @Inject constructor(
-
-    private val customRuleDao: CustomRuleDao
-
+    private val customRuleDao: CustomRuleDao,
+    private val descriptionNormalizer: DescriptionNormalizer
 ) {
 
     //--------------------------------------------------
@@ -20,25 +20,29 @@ class CustomRuleRepository @Inject constructor(
     //--------------------------------------------------
 
     suspend fun loadRuleCache(): Map<String, KnowledgeRecord> {
+        val rules = getAllRules().first()
+        val cache = mutableMapOf<String, KnowledgeRecord>()
 
-        return getAllRules()
-            .first()
-            .associate { rule ->
+        rules.forEach { rule ->
+            val record = KnowledgeRecord(
+                displayDescription = rule.displayDescription,
+                categoryName = rule.categoryName
+            )
 
-                rule.pattern.lowercase() to
-
-                    KnowledgeRecord(
-
-                        displayDescription =
-                            rule.displayDescription,
-
-                        categoryName =
-                            rule.categoryName
-
-                    )
-
+            // Cache with canonical normalized pattern for resilient matching
+            val normalized = descriptionNormalizer.normalize(rule.pattern)
+            if (normalized.isNotBlank()) {
+                cache[normalized] = record
             }
 
+            // Also cache exact trimmed lowercase pattern
+            val lower = rule.pattern.trim().lowercase()
+            if (lower.isNotBlank()) {
+                cache[lower] = record
+            }
+        }
+
+        return cache
     }
 
     //--------------------------------------------------

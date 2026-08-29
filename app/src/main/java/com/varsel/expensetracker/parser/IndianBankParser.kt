@@ -128,7 +128,7 @@ val category =
                     description = description,
                     category = category.category,
                     dateTimestamp = date.time,
-                    referenceNumber = null
+                    referenceNumber = fields.reference
                 )
             )
         }

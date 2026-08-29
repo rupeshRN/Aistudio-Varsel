@@ -302,7 +302,7 @@ diagnosticsCollector.recordReconciliation(
 return StatementImportResult(
     summary = summary,
     reconciliation = reconciliation,
-    transactions = fingerprintedTransactions,
+    transactions = transactions,
     accountId = accountIdentity?.accountId,
     accountLast4 = accountIdentity?.accountLast4
 )
