@@ -118,6 +118,7 @@ fun selectPeriod(
     _uiState.value =
         _uiState.value.copy(
             periodFilter = periodFilter,
+            selectedMonth = YearMonth.now(),
 
             period =
                 when (periodFilter) {
