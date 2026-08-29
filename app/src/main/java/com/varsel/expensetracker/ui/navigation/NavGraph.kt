@@ -7,8 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Info
@@ -204,9 +206,15 @@ composable(AppDestination.Reports.route) {
         }
 
         composable(
-            route = "loan_detail/{loanId}"
+            route = "loan_detail/{loanId}",
+            arguments = listOf(
+                navArgument("loanId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
         ) { backStackEntry ->
-            val loanId = backStackEntry.arguments?.getString("loanId")?.toLongOrNull() ?: return@composable
+            val loanId = backStackEntry.arguments?.getLong("loanId") ?: 0L
 
             LoanDetailScreen(
                 loanId = loanId,
@@ -220,9 +228,15 @@ composable(AppDestination.Reports.route) {
         }
 
         composable(
-            route = "add_edit_loan?loanId={loanId}"
+            route = "add_edit_loan?loanId={loanId}",
+            arguments = listOf(
+                navArgument("loanId") {
+                    type = NavType.LongType
+                    defaultValue = 0L
+                }
+            )
         ) { backStackEntry ->
-            val loanId = backStackEntry.arguments?.getString("loanId")?.toLongOrNull() ?: 0L
+            val loanId = backStackEntry.arguments?.getLong("loanId") ?: 0L
 
             AddEditLoanScreen(
                 loanId = loanId,

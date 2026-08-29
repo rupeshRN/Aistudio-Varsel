@@ -296,7 +296,7 @@ private fun LoanOverviewTab(
                     )
                 }
 
-                // Monthly EMI Info
+                // Monthly EMI and Balance Tenure Info
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
@@ -319,6 +319,20 @@ private fun LoanOverviewTab(
                                 text = currencyFormatter.format(loanSummary.nextEmiAmount),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Balance Tenure",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${loanSummary.remainingTenureMonths} mo left",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
 
@@ -353,15 +367,15 @@ private fun LoanOverviewTab(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             DetailMetricCard(
-                title = "Interest Rate",
-                value = "${loan.annualInterestRate}% p.a.",
-                icon = Icons.Outlined.Percent,
+                title = "Balance Tenure",
+                value = "${loanSummary.remainingTenureMonths} of ${loan.totalTenureMonths} M",
+                icon = Icons.Outlined.HourglassTop,
                 modifier = Modifier.weight(1f)
             )
             DetailMetricCard(
-                title = "Total Tenure",
-                value = "${loan.totalTenureMonths} Months",
-                icon = Icons.Outlined.CalendarMonth,
+                title = "Interest Rate",
+                value = "${loan.annualInterestRate}% p.a.",
+                icon = Icons.Outlined.Percent,
                 modifier = Modifier.weight(1f)
             )
         }

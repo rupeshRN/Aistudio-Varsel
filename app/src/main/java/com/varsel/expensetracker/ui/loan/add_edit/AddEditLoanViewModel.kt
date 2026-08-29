@@ -52,7 +52,12 @@ class AddEditLoanViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val editLoanId: Long = savedStateHandle.get<Long>("loanId") ?: 0L
+    private val editLoanId: Long = when (val raw = savedStateHandle.get<Any>("loanId")) {
+        is Long -> raw
+        is String -> raw.toLongOrNull() ?: 0L
+        is Number -> raw.toLong()
+        else -> 0L
+    }
 
     private val _uiState = MutableStateFlow(AddEditLoanUiState(loanId = editLoanId))
     val uiState: StateFlow<AddEditLoanUiState> = _uiState.asStateFlow()
@@ -66,14 +71,18 @@ class AddEditLoanViewModel @Inject constructor(
 
     private fun loadBankAccounts() {
         viewModelScope.launch {
-            val snapshots = statementSnapshotRepository.getAllSnapshots()
-            val accounts = snapshots.mapNotNull { snap ->
-                val id = snap.accountId ?: return@mapNotNull null
-                val last4 = snap.accountLast4 ?: "••••"
-                BankAccountOption(accountId = id, accountLast4 = last4, bankName = "Account (•••• $last4)")
-            }.distinctBy { it.accountId }
+            try {
+                val snapshots = statementSnapshotRepository.getAllSnapshots()
+                val accounts = snapshots.mapNotNull { snap ->
+                    val id = snap.accountId ?: return@mapNotNull null
+                    val last4 = snap.accountLast4 ?: "••••"
+                    BankAccountOption(accountId = id, accountLast4 = last4, bankName = "Account (•••• $last4)")
+                }.distinctBy { it.accountId }
 
-            _uiState.value = _uiState.value.copy(bankAccounts = accounts)
+                _uiState.value = _uiState.value.copy(bankAccounts = accounts)
+            } catch (e: Exception) {
+                // If snapshots are not available, continue with empty bank accounts list
+            }
         }
     }
 

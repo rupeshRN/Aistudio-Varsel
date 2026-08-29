@@ -20,7 +20,12 @@ class LoanDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val loanId: Long = savedStateHandle.get<Long>("loanId") ?: 0L
+    private val loanId: Long = when (val raw = savedStateHandle.get<Any>("loanId")) {
+        is Long -> raw
+        is String -> raw.toLongOrNull() ?: 0L
+        is Number -> raw.toLong()
+        else -> 0L
+    }
 
     private val _uiState = MutableStateFlow(LoanDetailUiState())
     val uiState: StateFlow<LoanDetailUiState> = _uiState.asStateFlow()
