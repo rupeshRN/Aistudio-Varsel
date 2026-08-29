@@ -417,7 +417,11 @@ private fun updateSelectedMonth(
         selectedMonth: YearMonth,
         selectedAccountIds: Set<String>
     ): List<CategoryDrillDownItem> {
-        val periodTransactions = latestTransactions.filter { it.belongsToMonth(selectedMonth) }
+        val periodTransactions = latestTransactions.filter { transaction ->
+        transaction.belongsToDateRange(
+            _uiState.value.dateRange
+        )
+    }
         val filteredTransactions = filterByAccounts(periodTransactions, selectedAccountIds)
         val allFilteredTransactions = filterByAccounts(latestTransactions, selectedAccountIds)
         val resolvedEvents = resolveFinancialEvents(allFilteredTransactions, latestGroups, latestAllocations)
