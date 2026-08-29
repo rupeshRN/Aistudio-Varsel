@@ -6,6 +6,8 @@ import com.varsel.expensetracker.data.local.AppDatabase
 import com.varsel.expensetracker.data.local.dao.CategoryDao
 import com.varsel.expensetracker.data.local.dao.CustomRuleDao
 import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
+import com.varsel.expensetracker.data.local.dao.LoanAccountDao
+import com.varsel.expensetracker.data.local.dao.LoanPaymentDao
 import com.varsel.expensetracker.data.local.dao.StatementSnapshotDao
 import com.varsel.expensetracker.data.local.dao.TransactionDao
 import com.varsel.expensetracker.data.local.dao.TransactionLinkGroupDao
@@ -102,7 +104,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_7_8,
                 AppDatabase.MIGRATION_8_9,
                 AppDatabase.MIGRATION_9_10,
-                AppDatabase.MIGRATION_10_11
+                AppDatabase.MIGRATION_10_11,
+                AppDatabase.MIGRATION_11_12
             )
             .addCallback(
                 AppDatabase.SeedCallback(
@@ -149,4 +152,16 @@ object DatabaseModule {
         database: AppDatabase
     ): FinancialEventAllocationDao =
         database.financialEventAllocationDao()
+
+    @Provides
+    fun provideLoanAccountDao(
+        db: AppDatabase
+    ): LoanAccountDao =
+        db.loanAccountDao()
+
+    @Provides
+    fun provideLoanPaymentDao(
+        db: AppDatabase
+    ): LoanPaymentDao =
+        db.loanPaymentDao()
 }

@@ -6,20 +6,24 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.varsel.expensetracker.data.local.dao.CategoryDao
 import com.varsel.expensetracker.data.local.dao.CustomRuleDao
+import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
+import com.varsel.expensetracker.data.local.dao.LoanAccountDao
+import com.varsel.expensetracker.data.local.dao.LoanPaymentDao
 import com.varsel.expensetracker.data.local.dao.StatementSnapshotDao
 import com.varsel.expensetracker.data.local.dao.TransactionDao
+import com.varsel.expensetracker.data.local.dao.TransactionLinkGroupDao
 import com.varsel.expensetracker.data.local.entity.CategoryEntity
 import com.varsel.expensetracker.data.local.entity.CustomRuleEntity
+import com.varsel.expensetracker.data.local.entity.FinancialEventAllocationEntity
+import com.varsel.expensetracker.data.local.entity.LoanAccountEntity
+import com.varsel.expensetracker.data.local.entity.LoanPaymentEntity
 import com.varsel.expensetracker.data.local.entity.StatementSnapshotEntity
 import com.varsel.expensetracker.data.local.entity.TransactionEntity
 import com.varsel.expensetracker.data.local.entity.TransactionLinkGroupEntity
-import com.varsel.expensetracker.data.local.dao.TransactionLinkGroupDao
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Provider
-import com.varsel.expensetracker.data.local.entity.FinancialEventAllocationEntity
-import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
 
 @Database(
     entities = [
@@ -28,9 +32,11 @@ import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
         CustomRuleEntity::class,
         StatementSnapshotEntity::class,
         TransactionLinkGroupEntity::class,
-        FinancialEventAllocationEntity::class
+        FinancialEventAllocationEntity::class,
+        LoanAccountEntity::class,
+        LoanPaymentEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -47,6 +53,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun statementSnapshotDao(): StatementSnapshotDao
 
     abstract fun transactionLinkGroupDao(): TransactionLinkGroupDao
+
+    abstract fun loanAccountDao(): LoanAccountDao
+
+    abstract fun loanPaymentDao(): LoanPaymentDao
 
     companion object {
 
@@ -337,7 +347,68 @@ val MIGRATION_8_9 =
                 )
             }
         }
-}
+
+        val MIGRATION_11_12 =
+            object : Migration(11, 12) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS loan_accounts (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            name TEXT NOT NULL,
+                            loanType TEXT NOT NULL,
+                            principal REAL NOT NULL,
+                            annualInterestRate REAL NOT NULL,
+                            emiAmount REAL NOT NULL,
+                            totalTenureMonths INTEGER NOT NULL,
+                            startDateTimestamp INTEGER NOT NULL,
+                            collateralOrNotes TEXT,
+                            status TEXT NOT NULL DEFAULT 'ACTIVE',
+                            linkedBankAccountId TEXT,
+                            bankAccountLast4 TEXT,
+                            lenderName TEXT,
+                            loanAccountNumber TEXT,
+                            createdAt INTEGER NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+
+                    database.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS loan_payments (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            loanId INTEGER NOT NULL,
+                            paymentDateTimestamp INTEGER NOT NULL,
+                            amount REAL NOT NULL,
+                            principalComponent REAL NOT NULL,
+                            interestComponent REAL NOT NULL,
+                            paymentType TEXT NOT NULL DEFAULT 'REGULAR_EMI',
+                            linkedTransactionId INTEGER,
+                            notes TEXT,
+                            createdAt INTEGER NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+
+                    database.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS index_loan_payments_loanId
+                        ON loan_payments(loanId)
+                        """.trimIndent()
+                    )
+
+                    database.execSQL(
+                        """
+                        CREATE INDEX IF NOT EXISTS index_loan_payments_linkedTransactionId
+                        ON loan_payments(linkedTransactionId)
+                        """.trimIndent()
+                    )
+                }
+            }
+    }
     class SeedCallback(
         private val categoryDaoProvider: Provider<CategoryDao>
     ) : RoomDatabase.Callback() {

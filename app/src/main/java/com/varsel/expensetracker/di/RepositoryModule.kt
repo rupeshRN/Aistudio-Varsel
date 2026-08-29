@@ -1,16 +1,18 @@
 package com.varsel.expensetracker.di
 
+import com.varsel.expensetracker.data.repository.LoanRepositoryImpl
+import com.varsel.expensetracker.data.repository.StatementSnapshotRepositoryImpl
+import com.varsel.expensetracker.data.repository.TransactionLinkGroupRepositoryImpl
 import com.varsel.expensetracker.data.repository.TransactionRepositoryImpl
+import com.varsel.expensetracker.domain.repository.LoanRepository
+import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
+import com.varsel.expensetracker.domain.repository.TransactionLinkGroupRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
-import com.varsel.expensetracker.data.repository.StatementSnapshotRepositoryImpl
-import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
-import com.varsel.expensetracker.data.repository.TransactionLinkGroupRepositoryImpl
-import com.varsel.expensetracker.domain.repository.TransactionLinkGroupRepository
 
 /**
  * Hilt Dependency Injection module responsible for binding domain repository interfaces 
@@ -47,9 +49,15 @@ abstract class RepositoryModule {
 
     /** Binds [TransactionLinkGroupRepositoryImpl] to the [TransactionLinkGroupRepository] interface contract */
     @Binds
-@Singleton
-abstract fun bindTransactionLinkGroupRepository(
-    impl: TransactionLinkGroupRepositoryImpl
-): TransactionLinkGroupRepository
-  
+    @Singleton
+    abstract fun bindTransactionLinkGroupRepository(
+        impl: TransactionLinkGroupRepositoryImpl
+    ): TransactionLinkGroupRepository
+
+    /** Binds [LoanRepositoryImpl] to the [LoanRepository] interface contract */
+    @Binds
+    @Singleton
+    abstract fun bindLoanRepository(
+        impl: LoanRepositoryImpl
+    ): LoanRepository
 }

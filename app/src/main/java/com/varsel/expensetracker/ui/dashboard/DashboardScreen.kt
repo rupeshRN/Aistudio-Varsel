@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.varsel.expensetracker.ui.model.TransactionUiModel
 import com.varsel.expensetracker.ui.dashboard.components.BalanceCard
+import com.varsel.expensetracker.ui.dashboard.components.DashboardLoanWidget
 import com.varsel.expensetracker.ui.dashboard.components.GreetingHeader
 import com.varsel.expensetracker.ui.dashboard.components.InsightsCard
 import com.varsel.expensetracker.ui.dashboard.components.DashboardRecentSection
@@ -26,16 +27,17 @@ import com.varsel.expensetracker.ui.dashboard.components.DashboardRecentSection
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    onNavigateToAllTransactions: () -> Unit
+    onNavigateToAllTransactions: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToLoans: () -> Unit = {}
 ) {
     // Lifecycle-aware flow collection to prevent background CPU cycles
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var selectedTransaction by remember { mutableStateOf<Transaction?>(null) }
 
-    
     Box(
-    modifier = Modifier.fillMaxSize()
-) {
+        modifier = Modifier.fillMaxSize()
+    ) {
 
     if (uiState.isLoading) {
 
@@ -60,7 +62,9 @@ fun DashboardScreen(
 
             item(key = "greeting") {
 
-                GreetingHeader()
+                GreetingHeader(
+                    onSettingsClick = onNavigateToSettings
+                )
 
             }
 
@@ -68,6 +72,15 @@ fun DashboardScreen(
 
                 BalanceCard(
                     summary = uiState.balanceSummary
+                )
+
+            }
+
+            item(key = "loans_widget") {
+
+                DashboardLoanWidget(
+                    loans = uiState.loans,
+                    onNavigateToLoans = onNavigateToLoans
                 )
 
             }

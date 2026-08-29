@@ -9,21 +9,24 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.varsel.expensetracker.ui.category.CategoryScreen
-import com.varsel.expensetracker.ui.dashboard.DashboardScreen
-import com.varsel.expensetracker.ui.import_statement.ImportScreen
-import com.varsel.expensetracker.ui.more.MoreScreen
-import com.varsel.expensetracker.ui.transaction.TransactionScreen
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
-import com.varsel.expensetracker.ui.more.SettingsDetailScreen
+import com.varsel.expensetracker.ui.category.CategoryScreen
+import com.varsel.expensetracker.ui.dashboard.DashboardScreen
 import com.varsel.expensetracker.ui.developer.DeveloperSettingsScreen
-import com.varsel.expensetracker.ui.transaction.TransactionDetailScreen
 import com.varsel.expensetracker.ui.financialevent.FinancialEventScreen
+import com.varsel.expensetracker.ui.import_statement.ImportScreen
+import com.varsel.expensetracker.ui.loan.LoansScreen
+import com.varsel.expensetracker.ui.loan.add_edit.AddEditLoanScreen
+import com.varsel.expensetracker.ui.loan.detail.LoanDetailScreen
+import com.varsel.expensetracker.ui.more.MoreScreen
+import com.varsel.expensetracker.ui.more.SettingsDetailScreen
 import com.varsel.expensetracker.ui.reports.ReportsScreen
+import com.varsel.expensetracker.ui.settings.SettingsScreen
+import com.varsel.expensetracker.ui.transaction.TransactionDetailScreen
+import com.varsel.expensetracker.ui.transaction.TransactionScreen
 
 @Composable
 fun NavGraph(
@@ -43,6 +46,12 @@ fun NavGraph(
                 viewModel = hiltViewModel(),
                 onNavigateToAllTransactions = {
                     navController.navigate(AppDestination.Transactions.route)
+                },
+                onNavigateToSettings = {
+                    navController.navigate("settings")
+                },
+                onNavigateToLoans = {
+                    navController.navigate("loans")
                 }
             )
         }
@@ -143,30 +152,86 @@ composable(AppDestination.Reports.route) {
         composable(AppDestination.More.route) {
 
             MoreScreen(
-
+                onLoansClick = {
+                    navController.navigate("loans")
+                },
                 onImportClick = {
                     navController.navigate("import_statement")
                 },
+                onSettingsClick = {
+                    navController.navigate("settings")
+                }
+            )
+        }
 
+        composable("settings") {
+
+            SettingsScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
                 onCategoriesClick = {
                     navController.navigate("categories")
                 },
-
                 onLearningRulesClick = {
-    navController.navigate("learning_rules")
-},
+                    navController.navigate("learning_rules")
+                },
+                onAppearanceClick = {
+                    navController.navigate("appearance")
+                },
+                onDeveloperClick = {
+                    navController.navigate("developer")
+                },
+                onAboutClick = {
+                    navController.navigate("about")
+                }
+            )
+        }
 
-onAppearanceClick = {
-    navController.navigate("appearance")
-},
+        composable("loans") {
 
-onDeveloperClick = {
-    navController.navigate("developer")
-},
+            LoansScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onAddLoanClick = {
+                    navController.navigate("add_edit_loan?loanId=0")
+                },
+                onLoanClick = { loanId ->
+                    navController.navigate("loan_detail/$loanId")
+                }
+            )
+        }
 
-onAboutClick = {
-    navController.navigate("about")
-}
+        composable(
+            route = "loan_detail/{loanId}"
+        ) { backStackEntry ->
+            val loanId = backStackEntry.arguments?.getString("loanId")?.toLongOrNull() ?: return@composable
+
+            LoanDetailScreen(
+                loanId = loanId,
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onEditLoanClick = { editId ->
+                    navController.navigate("add_edit_loan?loanId=$editId")
+                }
+            )
+        }
+
+        composable(
+            route = "add_edit_loan?loanId={loanId}"
+        ) { backStackEntry ->
+            val loanId = backStackEntry.arguments?.getString("loanId")?.toLongOrNull() ?: 0L
+
+            AddEditLoanScreen(
+                loanId = loanId,
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onLoanSaved = {
+                    navController.popBackStack()
+                }
             )
         }
 
