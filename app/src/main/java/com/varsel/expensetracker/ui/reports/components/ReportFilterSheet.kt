@@ -168,6 +168,13 @@ FlowRow(
         }
     )
 }
+
+if (selectedPeriod == PeriodFilter.CUSTOM) {
+
+    Spacer(
+        modifier = Modifier.height(12.dp)
+    )
+}
             Text(
                 text = "Accounts",
                 style =
@@ -475,24 +482,6 @@ private fun PeriodFilterChip(
 }
         }
     }
-}
-
-if (selectedPeriod == PeriodFilter.CUSTOM) {
-
-    Spacer(
-        modifier = Modifier.height(12.dp)
-    )
-
-    CustomDateRangeSelector(
-        initialStartDate =
-            customStartDate,
-
-        initialEndDate =
-            customEndDate,
-
-        onDateRangeSelected =
-            onCustomDateRangeSelected
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
