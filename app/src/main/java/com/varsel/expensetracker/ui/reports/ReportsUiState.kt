@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.ui.reports
 
 import java.time.YearMonth
+import java.time.LocalDate
 
 /**
  * Complete UI state for the Reports feature.
@@ -13,6 +14,26 @@ data class ReportsUiState(
     val isLoading: Boolean = true,
 
     val errorMessage: String? = null,
+
+    /**
+ * Current user-selected reporting period.
+ */
+val periodFilter: PeriodFilter = PeriodFilter.THIS_MONTH,
+
+/**
+ * Custom range start date.
+ *
+ * Used only when periodFilter == CUSTOM.
+ */
+val customStartDate: LocalDate = LocalDate.now()
+    .withDayOfMonth(1),
+
+/**
+ * Custom range end date.
+ *
+ * Used only when periodFilter == CUSTOM.
+ */
+val customEndDate: LocalDate = LocalDate.now(),
 
     /**
      * Currently selected reporting period.
@@ -140,6 +161,84 @@ data class ReportsUiState(
 
             return "${selectedAccountIds.size} Accounts"
         }
+
+    /**
+ * Actual inclusive date range represented by the report.
+ */
+val dateRange: ReportDateRange
+    get() {
+
+        return when (periodFilter) {
+
+            PeriodFilter.THIS_MONTH -> {
+
+                ReportDateRange(
+                    startDate =
+                        selectedMonth
+                            .atDay(1),
+
+                    endDate =
+                        selectedMonth
+                            .atEndOfMonth()
+                )
+            }
+
+            PeriodFilter.LAST_3_MONTHS -> {
+
+                val startMonth =
+                    selectedMonth
+                        .minusMonths(2)
+
+                ReportDateRange(
+                    startDate =
+                        startMonth.atDay(1),
+
+                    endDate =
+                        selectedMonth.atEndOfMonth()
+                )
+            }
+
+            PeriodFilter.LAST_6_MONTHS -> {
+
+                val startMonth =
+                    selectedMonth
+                        .minusMonths(5)
+
+                ReportDateRange(
+                    startDate =
+                        startMonth.atDay(1),
+
+                    endDate =
+                        selectedMonth.atEndOfMonth()
+                )
+            }
+
+            PeriodFilter.YEAR_TO_DATE -> {
+
+                ReportDateRange(
+                    startDate =
+                        selectedMonth
+                            .withMonth(1)
+                            .atDay(1),
+
+                    endDate =
+                        selectedMonth
+                            .atEndOfMonth()
+                )
+            }
+
+            PeriodFilter.CUSTOM -> {
+
+                ReportDateRange(
+                    startDate =
+                        customStartDate,
+
+                    endDate =
+                        customEndDate
+                )
+            }
+        }
+    }
 }
 
 /**
