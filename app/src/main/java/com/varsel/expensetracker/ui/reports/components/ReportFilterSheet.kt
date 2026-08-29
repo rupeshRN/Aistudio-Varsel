@@ -35,6 +35,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 /**
  * Account/report filter sheet.
@@ -44,6 +47,7 @@ import androidx.compose.foundation.BorderStroke
  * Changes are not applied to the report until the user
  * presses Apply.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ReportFilterSheet(
     accounts: List<ReportsAccount>,
