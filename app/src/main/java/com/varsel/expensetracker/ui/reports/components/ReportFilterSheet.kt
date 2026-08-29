@@ -79,6 +79,23 @@ fun ReportFilterSheet(
         mutableStateOf(selectedAccountIds)
     }
 
+val zoneId = ZoneId.systemDefault()
+
+val customPickerState =
+    rememberDateRangePickerState(
+        initialSelectedStartDateMillis =
+            customStartDate
+                .atStartOfDay(zoneId)
+                .toInstant()
+                .toEpochMilli(),
+
+        initialSelectedEndDateMillis =
+            customEndDate
+                .atStartOfDay(zoneId)
+                .toInstant()
+                .toEpochMilli()
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState
@@ -259,13 +276,53 @@ FlowRow(
                     modifier = Modifier.size(8.dp)
                 )
 
-                Button(
-                    onClick = {
-                        onApply(
-                            temporarySelectedAccounts
-                        )
-                    }
-                ) {
+Button(
+    onClick = {
+
+        if (
+            selectedPeriod ==
+                PeriodFilter.CUSTOM
+        ) {
+
+            val startMillis =
+                customPickerState
+                    .selectedStartDateMillis
+
+            val endMillis =
+                customPickerState
+                    .selectedEndDateMillis
+
+            if (
+                startMillis != null &&
+                endMillis != null
+            ) {
+
+                val startDate =
+                    Instant
+                        .ofEpochMilli(startMillis)
+                        .atZone(zoneId)
+                        .toLocalDate()
+
+                val endDate =
+                    Instant
+                        .ofEpochMilli(endMillis)
+                        .atZone(zoneId)
+                        .toLocalDate()
+
+                onCustomDateRangeSelected(
+                    startDate,
+                    endDate
+                )
+            }
+        }
+
+        onApply(
+            temporarySelectedAccounts
+        )
+    }
+) {
+    Text("Apply")
+} {
                     Text("Apply")
                 }
             }
@@ -377,19 +434,45 @@ private fun PeriodFilterChip(
                 }
             )
 
-            if (selected) {
+         if (selectedPeriod == PeriodFilter.CUSTOM) {
 
-                Spacer(
-                    modifier = Modifier.width(5.dp)
-                )
+    Spacer(
+        modifier = Modifier.height(12.dp)
+    )
 
-                Text(
-                    text = "✓",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+    DateRangePicker(
+        state = customPickerState,
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        title = {
+            Text(
+                text = "Select date range",
+                modifier = Modifier.padding(
+                    horizontal = 24.dp
                 )
-            }
+            )
+        },
+
+        headline = {
+            Text(
+                text =
+                    formatSelectedDateRange(
+                        customPickerState,
+                        zoneId
+                    ),
+                modifier = Modifier.padding(
+                    horizontal = 24.dp
+                ),
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleMedium
+            )
+        }
+    )
+}
         }
     }
 }
@@ -409,73 +492,6 @@ if (selectedPeriod == PeriodFilter.CUSTOM) {
 
         onDateRangeSelected =
             onCustomDateRangeSelected
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CustomDateRangeSelector(
-    initialStartDate: LocalDate,
-    initialEndDate: LocalDate,
-    onDateRangeSelected:
-        (LocalDate, LocalDate) -> Unit
-) {
-
-    val zoneId =
-        ZoneId.systemDefault()
-
-    val initialStartMillis =
-        initialStartDate
-            .atStartOfDay(zoneId)
-            .toInstant()
-            .toEpochMilli()
-
-    val initialEndMillis =
-        initialEndDate
-            .atStartOfDay(zoneId)
-            .toInstant()
-            .toEpochMilli()
-
-    val pickerState =
-        rememberDateRangePickerState(
-            initialSelectedStartDateMillis =
-                initialStartMillis,
-
-            initialSelectedEndDateMillis =
-                initialEndMillis
-        )
-
-    DateRangePicker(
-        state = pickerState,
-
-        modifier =
-            Modifier.fillMaxWidth(),
-
-        title = {
-            Text(
-                text = "Select date range",
-                modifier = Modifier.padding(
-                    horizontal = 24.dp
-                )
-            )
-        },
-
-        headline = {
-            Text(
-                text =
-                    formatSelectedDateRange(
-                        pickerState,
-                        zoneId
-                    ),
-                modifier = Modifier.padding(
-                    horizontal = 24.dp
-                ),
-                style =
-                    MaterialTheme
-                        .typography
-                        .titleMedium
-            )
-        }
     )
 }
 
