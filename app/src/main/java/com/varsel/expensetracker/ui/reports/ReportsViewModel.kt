@@ -187,22 +187,48 @@ fun setCustomDateRange(
     rebuildReport()
 }
 
+    fun previousPeriod() {
+        if (_uiState.value.periodFilter == PeriodFilter.CUSTOM) return
+        navigatePeriod(_uiState.value.selectedMonth.minusMonths(1))
+    }
+
+    fun nextPeriod() {
+        val state = _uiState.value
+        if (state.periodFilter == PeriodFilter.CUSTOM) return
+        if (state.periodFilter == PeriodFilter.YEAR_TO_DATE && state.selectedMonth >= YearMonth.now()) {
+            return
+        }
+        navigatePeriod(state.selectedMonth.plusMonths(1))
+    }
+
     fun previousMonth() {
-        updateSelectedMonth(
-            _uiState.value.selectedMonth.minusMonths(1)
-        )
+        previousPeriod()
     }
 
     fun nextMonth() {
-        updateSelectedMonth(
-            _uiState.value.selectedMonth.plusMonths(1)
-        )
+        nextPeriod()
     }
 
     fun selectMonth(
         month: YearMonth
     ) {
         updateSelectedMonth(month)
+    }
+
+    private fun navigatePeriod(
+        month: YearMonth
+    ) {
+        _uiState.value =
+            _uiState.value.copy(
+                selectedMonth = month,
+                selectedExpenseCategory = null,
+                selectedIncomeCategory = null,
+                drillDownState = CategoryDrillDownState(),
+                errorMessage = null,
+                isLoading = true
+            )
+
+        rebuildReport()
     }
 
 private fun updateSelectedMonth(
@@ -390,6 +416,7 @@ private fun updateSelectedMonth(
                 flow = flow,
                 totalCategoryAmount = totalCategoryAmount,
                 percentOfTotal = percent,
+                periodLabel = state.formattedPeriodLabel,
                 month = state.selectedMonth,
                 items = items,
                 searchQuery = ""
@@ -417,11 +444,12 @@ private fun updateSelectedMonth(
         selectedMonth: YearMonth,
         selectedAccountIds: Set<String>
     ): List<CategoryDrillDownItem> {
+        val reportRange = _uiState.value.dateRange
         val periodTransactions = latestTransactions.filter { transaction ->
-        transaction.belongsToDateRange(
-            _uiState.value.dateRange
-        )
-    }
+            transaction.belongsToDateRange(
+                reportRange
+            )
+        }
         val filteredTransactions = filterByAccounts(periodTransactions, selectedAccountIds)
         val allFilteredTransactions = filterByAccounts(latestTransactions, selectedAccountIds)
         val resolvedEvents = resolveFinancialEvents(allFilteredTransactions, latestGroups, latestAllocations)
@@ -455,10 +483,11 @@ private fun updateSelectedMonth(
                     }
                 }
 
-            // 2. Financial event net expenses if final month matches
+            // 2. Financial event net expenses if final month falls within report range
             resolvedEvents.forEach { event ->
                 if (event.group.category.equals(categoryName, ignoreCase = true) &&
-                    event.finalMonth == selectedMonth &&
+                    event.finalMonth != null &&
+                    reportRange.contains(event.finalMonth.atDay(1)) &&
                     event.netCost > 0.0
                 ) {
                     // Include event root/rep item or top transaction
@@ -509,7 +538,8 @@ private fun updateSelectedMonth(
             // Surplus events
             resolvedEvents.forEach { event ->
                 if (event.group.category.equals(categoryName, ignoreCase = true) &&
-                    event.finalMonth == selectedMonth &&
+                    event.finalMonth != null &&
+                    reportRange.contains(event.finalMonth.atDay(1)) &&
                     event.netCost < 0.0
                 ) {
                     val primaryTx = event.eventTransactions.firstOrNull()

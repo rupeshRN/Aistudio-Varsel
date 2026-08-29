@@ -27,6 +27,7 @@ data class CategoryDrillDownState(
     val flow: ReportsFlow = ReportsFlow.EXPENSES,
     val totalCategoryAmount: Double = 0.0,
     val percentOfTotal: Double = 0.0,
+    val periodLabel: String = "",
     val month: YearMonth = YearMonth.now(),
     val items: List<CategoryDrillDownItem> = emptyList(),
     val searchQuery: String = ""

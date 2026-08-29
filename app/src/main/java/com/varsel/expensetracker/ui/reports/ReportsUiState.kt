@@ -163,9 +163,57 @@ val customEndDate: LocalDate = LocalDate.now(),
         }
 
     /**
- * Actual inclusive date range represented by the report.
- */
-val dateRange: ReportDateRange
+     * Formatted string for the current reporting period.
+     */
+    val formattedPeriodLabel: String
+        get() {
+            val monthYearFormatter = java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", java.util.Locale.ENGLISH)
+            val fullMonthYearFormatter = java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.ENGLISH)
+            val dateFormatter = java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH)
+
+            return when (periodFilter) {
+                PeriodFilter.THIS_MONTH -> {
+                    selectedMonth.format(fullMonthYearFormatter)
+                }
+                PeriodFilter.LAST_3_MONTHS -> {
+                    val startMonth = selectedMonth.minusMonths(2)
+                    "${startMonth.format(monthYearFormatter)} – ${selectedMonth.format(monthYearFormatter)}"
+                }
+                PeriodFilter.LAST_6_MONTHS -> {
+                    val startMonth = selectedMonth.minusMonths(5)
+                    "${startMonth.format(monthYearFormatter)} – ${selectedMonth.format(monthYearFormatter)}"
+                }
+                PeriodFilter.YEAR_TO_DATE -> {
+                    val startMonth = selectedMonth.withMonth(1)
+                    if (selectedMonth.monthValue == 1) {
+                        startMonth.format(fullMonthYearFormatter)
+                    } else {
+                        "${startMonth.format(monthYearFormatter)} – ${selectedMonth.format(monthYearFormatter)}"
+                    }
+                }
+                PeriodFilter.CUSTOM -> {
+                    "${customStartDate.format(dateFormatter)} – ${customEndDate.format(dateFormatter)}"
+                }
+            }
+        }
+
+    val isPreviousPeriodEnabled: Boolean
+        get() = periodFilter != PeriodFilter.CUSTOM
+
+    val isNextPeriodEnabled: Boolean
+        get() {
+            if (periodFilter == PeriodFilter.CUSTOM) return false
+            val currentMonth = YearMonth.now()
+            if (periodFilter == PeriodFilter.YEAR_TO_DATE) {
+                return selectedMonth < currentMonth
+            }
+            return true
+        }
+
+    /**
+     * Actual inclusive date range represented by the report.
+     */
+    val dateRange: ReportDateRange
     get() {
 
         return when (periodFilter) {

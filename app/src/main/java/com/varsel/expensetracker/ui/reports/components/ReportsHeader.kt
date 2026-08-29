@@ -44,20 +44,16 @@ import java.util.Locale
  */
 @Composable
 fun ReportsHeader(
-    selectedMonth: YearMonth,
+    periodLabel: String,
     accountFilterLabel: String,
     hasActiveAccountFilter: Boolean,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
+    onPreviousPeriod: () -> Unit,
+    onNextPeriod: () -> Unit,
     onFilterClick: () -> Unit,
+    isPreviousEnabled: Boolean = true,
+    isNextEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val monthFormatter =
-        DateTimeFormatter.ofPattern(
-            "MMMM yyyy",
-            Locale.getDefault()
-        )
-
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -77,18 +73,6 @@ fun ReportsHeader(
 
             /*
              * Period selector.
-             *
-             * At this stage it represents Month.
-             *
-             * Later this area can become:
-             *
-             * Week
-             * Month
-             * Quarter
-             * Year
-             * Custom
-             *
-             * without changing the filter button.
              */
             Surface(
                 modifier = Modifier.weight(1f),
@@ -107,34 +91,50 @@ fun ReportsHeader(
                 ) {
 
                     IconButton(
-                        onClick = onPreviousMonth
+                        onClick = onPreviousPeriod,
+                        enabled = isPreviousEnabled
                     ) {
                         Icon(
                             imageVector =
                                 Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription =
-                                "Previous month"
+                                "Previous period",
+                            tint =
+                                if (isPreviousEnabled) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                }
                         )
                     }
 
                     Text(
-                        text = monthFormatter.format(
-                            selectedMonth
-                        ),
+                        text = periodLabel,
                         style =
                             MaterialTheme.typography.titleMedium,
                         fontWeight =
-                            FontWeight.SemiBold
+                            FontWeight.SemiBold,
+                        color =
+                            MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
 
                     IconButton(
-                        onClick = onNextMonth
+                        onClick = onNextPeriod,
+                        enabled = isNextEnabled
                     ) {
                         Icon(
                             imageVector =
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription =
-                                "Next month"
+                                "Next period",
+                            tint =
+                                if (isNextEnabled) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+                                }
                         )
                     }
                 }

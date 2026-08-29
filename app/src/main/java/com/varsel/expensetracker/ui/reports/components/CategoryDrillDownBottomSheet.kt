@@ -177,7 +177,7 @@ fun CategoryDrillDownBottomSheet(
                             )
 
                             Text(
-                                text = "${state.month.format(monthFormatter)} (${state.items.size})",
+                                text = "${state.periodLabel.ifBlank { state.month.format(monthFormatter) }} (${state.items.size})",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,

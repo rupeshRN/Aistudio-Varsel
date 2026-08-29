@@ -234,8 +234,14 @@ private fun ReportsScreenContent(
                 ) {
 
                     ReportsHeader(
-                        selectedMonth =
-                            uiState.selectedMonth,
+                        periodLabel =
+                            uiState.formattedPeriodLabel,
+
+                        isPreviousEnabled =
+                            uiState.isPreviousPeriodEnabled,
+
+                        isNextEnabled =
+                            uiState.isNextPeriodEnabled,
 
                         accountFilterLabel =
                             uiState.accountFilterLabel,
@@ -243,10 +249,10 @@ private fun ReportsScreenContent(
                         hasActiveAccountFilter =
                             !uiState.isAllAccountsSelected,
 
-                        onPreviousMonth =
+                        onPreviousPeriod =
                             onPreviousMonth,
 
-                        onNextMonth =
+                        onNextPeriod =
                             onNextMonth,
 
                         onFilterClick =
