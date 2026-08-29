@@ -38,6 +38,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.DateRangePickerState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberDateRangePickerState
+import java.time.Instant
+import java.time.ZoneId
+
 
 /**
  * Account/report filter sheet.
@@ -47,7 +54,10 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
  * Changes are not applied to the report until the user
  * presses Apply.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(
+    ExperimentalLayoutApi::class,
+    ExperimentalMaterial3Api::class
+)
 @Composable
 fun ReportFilterSheet(
     accounts: List<ReportsAccount>,
@@ -382,4 +392,124 @@ private fun PeriodFilterChip(
             }
         }
     }
+}
+
+if (selectedPeriod == PeriodFilter.CUSTOM) {
+
+    Spacer(
+        modifier = Modifier.height(12.dp)
+    )
+
+    CustomDateRangeSelector(
+        initialStartDate =
+            customStartDate,
+
+        initialEndDate =
+            customEndDate,
+
+        onDateRangeSelected =
+            onCustomDateRangeSelected
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomDateRangeSelector(
+    initialStartDate: LocalDate,
+    initialEndDate: LocalDate,
+    onDateRangeSelected:
+        (LocalDate, LocalDate) -> Unit
+) {
+
+    val zoneId =
+        ZoneId.systemDefault()
+
+    val initialStartMillis =
+        initialStartDate
+            .atStartOfDay(zoneId)
+            .toInstant()
+            .toEpochMilli()
+
+    val initialEndMillis =
+        initialEndDate
+            .atStartOfDay(zoneId)
+            .toInstant()
+            .toEpochMilli()
+
+    val pickerState =
+        rememberDateRangePickerState(
+            initialSelectedStartDateMillis =
+                initialStartMillis,
+
+            initialSelectedEndDateMillis =
+                initialEndMillis
+        )
+
+    DateRangePicker(
+        state = pickerState,
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        title = {
+            Text(
+                text = "Select date range",
+                modifier = Modifier.padding(
+                    horizontal = 24.dp
+                )
+            )
+        },
+
+        headline = {
+            Text(
+                text =
+                    formatSelectedDateRange(
+                        pickerState,
+                        zoneId
+                    ),
+                modifier = Modifier.padding(
+                    horizontal = 24.dp
+                ),
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleMedium
+            )
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+private fun formatSelectedDateRange(
+    state: DateRangePickerState,
+    zoneId: ZoneId
+): String {
+
+    val startMillis =
+        state.selectedStartDateMillis
+
+    val endMillis =
+        state.selectedEndDateMillis
+
+    if (startMillis == null) {
+        return "Select start date"
+    }
+
+    val startDate =
+        Instant
+            .ofEpochMilli(startMillis)
+            .atZone(zoneId)
+            .toLocalDate()
+
+    if (endMillis == null) {
+        return "$startDate → Select end date"
+    }
+
+    val endDate =
+        Instant
+            .ofEpochMilli(endMillis)
+            .atZone(zoneId)
+            .toLocalDate()
+
+    return "$startDate → $endDate"
 }
