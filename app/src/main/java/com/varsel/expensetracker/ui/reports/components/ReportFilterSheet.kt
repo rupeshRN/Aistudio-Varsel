@@ -29,6 +29,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.reports.ReportsAccount
+import java.time.LocalDate
+import com.varsel.expensetracker.ui.reports.PeriodFilter
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.BorderStroke
 
 /**
  * Account/report filter sheet.
@@ -42,8 +48,15 @@ import com.varsel.expensetracker.ui.reports.ReportsAccount
 fun ReportFilterSheet(
     accounts: List<ReportsAccount>,
     selectedAccountIds: Set<String>,
+    selectedPeriod: PeriodFilter,
+    customStartDate: LocalDate,
+    customEndDate: LocalDate,
+    onPeriodSelected: (PeriodFilter) -> Unit,
+    onCustomDateRangeSelected:
+        (LocalDate, LocalDate) -> Unit,
     onApply: (Set<String>) -> Unit,
     onDismiss: () -> Unit,
+    
     sheetState: SheetState
 ) {
     var temporarySelectedAccounts by remember(
@@ -73,6 +86,57 @@ fun ReportFilterSheet(
                     MaterialTheme.typography.headlineSmall
             )
 
+Text(
+    text = "Period",
+    style = MaterialTheme.typography.titleMedium
+)
+
+FlowRow(
+    modifier = Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp)
+) {
+
+    PeriodFilterChip(
+        label = "This Month",
+        selected = selectedPeriod == PeriodFilter.THIS_MONTH,
+        onClick = {
+            onPeriodSelected(PeriodFilter.THIS_MONTH)
+        }
+    )
+
+    PeriodFilterChip(
+        label = "Last 3M",
+        selected = selectedPeriod == PeriodFilter.LAST_3_MONTHS,
+        onClick = {
+            onPeriodSelected(PeriodFilter.LAST_3_MONTHS)
+        }
+    )
+
+    PeriodFilterChip(
+        label = "Last 6M",
+        selected = selectedPeriod == PeriodFilter.LAST_6_MONTHS,
+        onClick = {
+            onPeriodSelected(PeriodFilter.LAST_6_MONTHS)
+        }
+    )
+
+    PeriodFilterChip(
+        label = "Year to Date",
+        selected = selectedPeriod == PeriodFilter.YEAR_TO_DATE,
+        onClick = {
+            onPeriodSelected(PeriodFilter.YEAR_TO_DATE)
+        }
+    )
+
+    PeriodFilterChip(
+        label = "Custom Range",
+        selected = selectedPeriod == PeriodFilter.CUSTOM,
+        onClick = {
+            onPeriodSelected(PeriodFilter.CUSTOM)
+        }
+    )
+}
             Text(
                 text = "Accounts",
                 style =
@@ -238,5 +302,80 @@ private fun FilterAccountRow(
             style =
                 MaterialTheme.typography.bodyLarge
         )
+    }
+}
+
+@Composable
+private fun PeriodFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+
+        shape = RoundedCornerShape(12.dp),
+
+        color = if (selected) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+
+        tonalElevation = if (selected) {
+            2.dp
+        } else {
+            0.dp
+        },
+
+        border = if (selected) {
+            BorderStroke(
+                1.dp,
+                MaterialTheme.colorScheme.primary
+            )
+        } else {
+            null
+        }
+    ) {
+
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 8.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) {
+                    FontWeight.Bold
+                } else {
+                    FontWeight.Medium
+                },
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+
+            if (selected) {
+
+                Spacer(
+                    modifier = Modifier.width(5.dp)
+                )
+
+                Text(
+                    text = "✓",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
     }
 }
