@@ -118,6 +118,21 @@ fun ReportsScreen(
             selectedAccountIds =
                 uiState.selectedAccountIds,
 
+                selectedPeriod =
+        uiState.periodFilter,
+
+    customStartDate =
+        uiState.customStartDate,
+
+    customEndDate =
+        uiState.customEndDate,
+
+    onPeriodSelected =
+        viewModel::selectPeriod,
+
+    onCustomDateRangeSelected =
+        viewModel::setCustomDateRange,
+
             sheetState =
                 filterSheetState,
 
