@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.text.NumberFormat
+import java.util.Locale
 
 /**
  * ViewModel for the production Reports feature.
@@ -102,6 +104,30 @@ class ReportsViewModel @Inject constructor(
 
     init {
         observeReportData()
+    }
+
+    // ------------------------------------------------------------------------
+    // Tab & Comparison Actions
+    // ------------------------------------------------------------------------
+
+    fun selectReportsTab(tab: ReportsTab) {
+        _uiState.value = _uiState.value.copy(currentTab = tab)
+    }
+
+    fun selectComparisonWindow(window: ComparisonWindow) {
+        _uiState.value = _uiState.value.copy(
+            comparisonWindow = window,
+            isLoading = true
+        )
+        rebuildReport()
+    }
+
+    fun selectComparisonFlow(flow: ReportsFlow) {
+        _uiState.value = _uiState.value.copy(
+            comparisonFlow = flow,
+            isLoading = true
+        )
+        rebuildReport()
     }
 
     // ------------------------------------------------------------------------
@@ -751,6 +777,28 @@ val financialEvents =
                     latestTransactions
                 )
 
+            /*
+             * Step 5:
+             *
+             * Build Month-over-Month Category Comparison data
+             * with multi-month sparkline sequences.
+             */
+            val (comparisonItems, comparisonSummary) =
+                buildComparisonData(
+                    anchorMonth =
+                        state.selectedMonth,
+                    window =
+                        state.comparisonWindow,
+                    flow =
+                        state.comparisonFlow,
+                    accountFilteredAllTransactions =
+                        accountFilteredAllTransactions,
+                    resolvedEvents =
+                        resolvedEvents,
+                    allocations =
+                        latestAllocations
+                )
+
             _uiState.value =
                 state.copy(
                     isLoading = false,
@@ -762,7 +810,11 @@ val financialEvents =
                     incomeCategories =
                         incomeCategories,
                     financialEvents =
-                        financialEvents
+                        financialEvents,
+                    comparisonItems =
+                        comparisonItems,
+                    comparisonSummary =
+                        comparisonSummary
                 )
 
         } catch (exception: Exception) {
@@ -834,6 +886,158 @@ val financialEvents =
             .sortedBy {
                 it.accountLast4 ?: ""
             }
+    }
+
+    // ------------------------------------------------------------------------
+    // Month-over-Month Category Comparison
+    // ------------------------------------------------------------------------
+
+    private fun buildComparisonData(
+        anchorMonth: YearMonth,
+        window: ComparisonWindow,
+        flow: ReportsFlow,
+        accountFilteredAllTransactions: List<Transaction>,
+        resolvedEvents: List<ResolvedFinancialEvent>,
+        allocations: List<FinancialEventAllocationEntity>
+    ): Pair<List<CategoryComparisonItem>, ComparisonOverviewSummary?> {
+        val count = window.monthsCount
+        val months = (count - 1 downTo 0).map { offset ->
+            anchorMonth.minusMonths(offset.toLong())
+        }
+
+        val currencyFormatter = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+        val monthCategoryAmounts = mutableMapOf<YearMonth, Map<String, Double>>()
+        val monthTotalAmounts = mutableMapOf<YearMonth, Double>()
+
+        months.forEach { month ->
+            val range = ReportDateRange(month.atDay(1), month.atEndOfMonth())
+            val monthTxs = accountFilteredAllTransactions.filter { it.belongsToDateRange(range) }
+
+            if (flow == ReportsFlow.EXPENSES) {
+                val categories = buildExpenseCategories(
+                    transactions = monthTxs,
+                    reportRange = range,
+                    resolvedEvents = resolvedEvents,
+                    allocations = allocations
+                )
+                val catMap = categories.associate { it.category to it.totalAmount }
+                monthCategoryAmounts[month] = catMap
+                monthTotalAmounts[month] = categories.sumOf { it.totalAmount }
+            } else {
+                val categories = buildIncomeCategories(
+                    transactions = monthTxs,
+                    reportRange = range,
+                    resolvedEvents = resolvedEvents,
+                    allocations = allocations
+                )
+                val catMap = categories.associate { it.category to it.totalAmount }
+                monthCategoryAmounts[month] = catMap
+                monthTotalAmounts[month] = categories.sumOf { it.totalAmount }
+            }
+        }
+
+        val allCategories = monthCategoryAmounts.values
+            .flatMap { it.keys }
+            .distinct()
+            .filter { it.isNotBlank() }
+
+        val baselineMonth = if (months.size >= 2) months[months.size - 2] else months.first()
+        val targetMonth = months.last()
+
+        val comparisonItems = allCategories.map { category ->
+            val monthlyTotals = months.map { m ->
+                val amt = monthCategoryAmounts[m]?.get(category) ?: 0.0
+                CategoryMonthTotal(
+                    month = m,
+                    amount = amt,
+                    formattedAmount = currencyFormatter.format(amt)
+                )
+            }
+
+            val baseAmt = monthCategoryAmounts[baselineMonth]?.get(category) ?: 0.0
+            val targetAmt = monthCategoryAmounts[targetMonth]?.get(category) ?: 0.0
+            val changeAmt = targetAmt - baseAmt
+            val pctChange = if (baseAmt > 0.0) {
+                (changeAmt / baseAmt) * 100.0
+            } else if (targetAmt > 0.0) {
+                100.0
+            } else {
+                0.0
+            }
+
+            val isNew = baseAmt == 0.0 && targetAmt > 0.0
+            val isElim = baseAmt > 0.0 && targetAmt == 0.0
+            val peak = monthlyTotals.maxOfOrNull { it.amount } ?: 0.0
+            val lowest = monthlyTotals.minOfOrNull { it.amount } ?: 0.0
+
+            CategoryComparisonItem(
+                category = category,
+                flow = flow,
+                monthlyTotals = monthlyTotals,
+                baselineMonth = baselineMonth,
+                targetMonth = targetMonth,
+                baselineAmount = baseAmt,
+                targetAmount = targetAmt,
+                changeAmount = changeAmt,
+                percentageChange = pctChange,
+                isNew = isNew,
+                isEliminated = isElim,
+                peakAmount = peak,
+                lowestAmount = lowest
+            )
+        }.filter { item ->
+            item.monthlyTotals.any { it.amount > 0.0 }
+        }.sortedWith(
+            compareByDescending<CategoryComparisonItem> { it.targetAmount }
+                .thenByDescending { kotlin.math.abs(it.changeAmount) }
+        )
+
+        val totalMonthlyTotals = months.map { m ->
+            val amt = monthTotalAmounts[m] ?: 0.0
+            CategoryMonthTotal(
+                month = m,
+                amount = amt,
+                formattedAmount = currencyFormatter.format(amt)
+            )
+        }
+
+        val totalBase = monthTotalAmounts[baselineMonth] ?: 0.0
+        val totalTarget = monthTotalAmounts[targetMonth] ?: 0.0
+        val totalChange = totalTarget - totalBase
+        val totalPctChange = if (totalBase > 0.0) {
+            (totalChange / totalBase) * 100.0
+        } else if (totalTarget > 0.0) {
+            100.0
+        } else {
+            0.0
+        }
+
+        val topIncreased = comparisonItems
+            .filter { it.changeAmount > 0.0 }
+            .maxByOrNull { it.changeAmount }
+
+        val topDecreased = comparisonItems
+            .filter { it.changeAmount < 0.0 }
+            .minByOrNull { it.changeAmount }
+
+        val avgMonthly = if (months.isNotEmpty()) totalMonthlyTotals.sumOf { it.amount } / months.size else 0.0
+
+        val summary = ComparisonOverviewSummary(
+            flow = flow,
+            months = months,
+            totalMonthlyTotals = totalMonthlyTotals,
+            totalBaselineAmount = totalBase,
+            totalTargetAmount = totalTarget,
+            totalChangeAmount = totalChange,
+            totalPercentageChange = totalPctChange,
+            topIncreasedCategory = topIncreased?.category,
+            topIncreasedAmount = topIncreased?.changeAmount ?: 0.0,
+            topDecreasedCategory = topDecreased?.category,
+            topDecreasedAmount = topDecreased?.changeAmount ?: 0.0,
+            averageMonthlyAmount = avgMonthly
+        )
+
+        return Pair(comparisonItems, summary)
     }
 
     // ------------------------------------------------------------------------

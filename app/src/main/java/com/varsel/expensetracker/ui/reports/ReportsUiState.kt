@@ -112,7 +112,32 @@ val customEndDate: LocalDate = LocalDate.now(),
     /**
      * Detailed category drill-down state.
      */
-    val drillDownState: CategoryDrillDownState = CategoryDrillDownState()
+    val drillDownState: CategoryDrillDownState = CategoryDrillDownState(),
+
+    /**
+     * Active tab on the Reports screen (Overview vs Compare/Trends).
+     */
+    val currentTab: ReportsTab = ReportsTab.OVERVIEW,
+
+    /**
+     * Time window for month-over-month category comparisons.
+     */
+    val comparisonWindow: ComparisonWindow = ComparisonWindow.THREE_MONTHS,
+
+    /**
+     * Selected flow for the comparison view (Expenses vs Income).
+     */
+    val comparisonFlow: ReportsFlow = ReportsFlow.EXPENSES,
+
+    /**
+     * List of category comparison items with multi-month data and sparklines.
+     */
+    val comparisonItems: List<CategoryComparisonItem> = emptyList(),
+
+    /**
+     * Overall summary of trends across all categories in the comparison window.
+     */
+    val comparisonSummary: ComparisonOverviewSummary? = null
 ) {
 
     /**
