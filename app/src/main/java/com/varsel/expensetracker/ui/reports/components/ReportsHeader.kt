@@ -1,5 +1,6 @@
 package com.varsel.expensetracker.ui.reports.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,9 +25,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.varsel.expensetracker.ui.reports.ComparisonWindow
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -38,6 +41,7 @@ import java.util.Locale
  * - Display Reports title.
  * - Display the currently selected reporting period.
  * - Navigate between months.
+ * - Display the 3M/6M comparison window selector when in comparison mode.
  * - Display the account-filter button.
  *
  * Account selection itself is deliberately kept outside this component.
@@ -52,6 +56,9 @@ fun ReportsHeader(
     onFilterClick: () -> Unit,
     isPreviousEnabled: Boolean = true,
     isNextEnabled: Boolean = true,
+    showComparisonWindowSelector: Boolean = false,
+    selectedComparisonWindow: ComparisonWindow = ComparisonWindow.THREE_MONTHS,
+    onComparisonWindowSelected: (ComparisonWindow) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -67,7 +74,7 @@ fun ReportsHeader(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
 
@@ -136,6 +143,47 @@ fun ReportsHeader(
                                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
                                 }
                         )
+                    }
+                }
+            }
+
+            /*
+             * Consolidated 3M / 6M Comparison Window Selector
+             * Reclaims vertical space by living right alongside the Date Header.
+             */
+            if (showComparisonWindowSelector) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    modifier = Modifier.height(48.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        ComparisonWindow.values().forEach { window ->
+                            val isSelected = window == selectedComparisonWindow
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { onComparisonWindowSelected(window) },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                            ) {
+                                Text(
+                                    text = when (window) {
+                                        ComparisonWindow.THREE_MONTHS -> "3M"
+                                        ComparisonWindow.SIX_MONTHS -> "6M"
+                                    },
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }

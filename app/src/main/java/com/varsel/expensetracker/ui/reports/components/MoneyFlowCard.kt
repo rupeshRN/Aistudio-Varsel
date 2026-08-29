@@ -40,20 +40,17 @@ fun MoneyFlowCard(
                 Arrangement.spacedBy(20.dp)
         ) {
 
-            Text(
-                text = "Money Flow",
-                style =
-                    MaterialTheme.typography.titleLarge,
-                fontWeight =
-                    FontWeight.Bold
-            )
-
-            FlowSelector(
-                selectedFlow =
-                    selectedFlow,
-                onFlowSelected =
-                    onFlowSelected
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (selectedFlow == ReportsFlow.EXPENSES) "Expense Breakdown" else "Income Breakdown",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
             content()
         }

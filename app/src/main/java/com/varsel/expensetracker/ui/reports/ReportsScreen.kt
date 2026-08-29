@@ -32,7 +32,11 @@ import com.varsel.expensetracker.ui.reports.components.MoneyFlowCard
 import com.varsel.expensetracker.ui.reports.components.NetCashFlowCard
 import com.varsel.expensetracker.ui.reports.components.ReportFilterSheet
 import com.varsel.expensetracker.ui.reports.components.ReportsHeader
+import com.varsel.expensetracker.ui.reports.components.ReportsStickyControls
 import com.varsel.expensetracker.ui.reports.components.ReportsTabSelector
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import kotlinx.coroutines.launch
 
 /**
@@ -235,168 +239,122 @@ private fun ReportsScreenContent(
             }
 
             else -> {
-
-                val scrollState =
-                    rememberScrollState()
+                val scrollState = rememberScrollState()
 
                 Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .verticalScroll(
-                                scrollState
-                            )
-                            .padding(
-                                16.dp
-                            ),
-
-                    verticalArrangement =
-                        Arrangement.spacedBy(
-                            16.dp
-                        )
+                    modifier = Modifier.fillMaxSize()
                 ) {
-
+                    // Pinned Header Section (Date navigation + 3M/6M window selector + filter)
                     ReportsHeader(
-                        periodLabel =
-                            uiState.formattedPeriodLabel,
-
-                        isPreviousEnabled =
-                            uiState.isPreviousPeriodEnabled,
-
-                        isNextEnabled =
-                            uiState.isNextPeriodEnabled,
-
-                        accountFilterLabel =
-                            uiState.accountFilterLabel,
-
-                        hasActiveAccountFilter =
-                            !uiState.isAllAccountsSelected,
-
-                        onPreviousPeriod =
-                            onPreviousMonth,
-
-                        onNextPeriod =
-                            onNextMonth,
-
-                        onFilterClick =
-                            onFilterClick
+                        periodLabel = uiState.formattedPeriodLabel,
+                        isPreviousEnabled = uiState.isPreviousPeriodEnabled,
+                        isNextEnabled = uiState.isNextPeriodEnabled,
+                        accountFilterLabel = uiState.accountFilterLabel,
+                        hasActiveAccountFilter = !uiState.isAllAccountsSelected,
+                        showComparisonWindowSelector = uiState.currentTab == ReportsTab.COMPARE,
+                        selectedComparisonWindow = uiState.comparisonWindow,
+                        onComparisonWindowSelected = onComparisonWindowSelected,
+                        onPreviousPeriod = onPreviousMonth,
+                        onNextPeriod = onNextMonth,
+                        onFilterClick = onFilterClick,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
                     )
 
-                    ReportsTabSelector(
-                        selectedTab = uiState.currentTab,
-                        onTabSelected = onTabSelected
-                    )
+                    // Sticky Segment Controls (Overview vs Compare & Expenses vs Income)
+                    // Remains pinned during scroll to prevent context loss
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.background,
+                        shadowElevation = if (scrollState.value > 0) 3.dp else 0.dp
+                    ) {
+                        ReportsStickyControls(
+                            selectedTab = uiState.currentTab,
+                            onTabSelected = onTabSelected,
+                            selectedFlow = if (uiState.currentTab == ReportsTab.COMPARE) uiState.comparisonFlow else uiState.selectedFlow,
+                            onFlowSelected = { flow ->
+                                if (uiState.currentTab == ReportsTab.COMPARE) {
+                                    onComparisonFlowSelected(flow)
+                                } else {
+                                    onFlowSelected(flow)
+                                }
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
 
-                    when (uiState.currentTab) {
-                        ReportsTab.OVERVIEW -> {
-                            NetCashFlowCard(
-                                actualIncome =
-                                    uiState.cashFlow.actualIncome,
+                    // Scrollable Report Body
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        when (uiState.currentTab) {
+                            ReportsTab.OVERVIEW -> {
+                                NetCashFlowCard(
+                                    actualIncome = uiState.cashFlow.actualIncome,
+                                    effectiveExpense = uiState.cashFlow.effectiveExpense,
+                                    netCashFlow = uiState.cashFlow.netCashFlow
+                                )
 
-                                effectiveExpense =
-                                    uiState.cashFlow.effectiveExpense,
-
-                                netCashFlow =
-                                    uiState.cashFlow.netCashFlow
-                            )
-
-                            MoneyFlowCard(
-                                selectedFlow =
-                                    uiState.selectedFlow,
-
-                                onFlowSelected =
-                                    onFlowSelected
-                            ) {
-
-                                when (uiState.selectedFlow) {
-
-                                    ReportsFlow.EXPENSES -> {
-
-                                        Column(
-                                            verticalArrangement =
-                                                Arrangement.spacedBy(
-                                                    16.dp
+                                MoneyFlowCard(
+                                    selectedFlow = uiState.selectedFlow,
+                                    onFlowSelected = onFlowSelected
+                                ) {
+                                    when (uiState.selectedFlow) {
+                                        ReportsFlow.EXPENSES -> {
+                                            Column(
+                                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                                            ) {
+                                                ExpenseCategoryChart(
+                                                    categories = uiState.expenseCategories,
+                                                    selectedCategory = uiState.selectedExpenseCategory,
+                                                    onCategoryClick = onExpenseCategorySelected
                                                 )
-                                        ) {
 
-                                            ExpenseCategoryChart(
-                                                categories =
-                                                    uiState.expenseCategories,
-
-                                                selectedCategory =
-                                                    uiState.selectedExpenseCategory,
-
-                                                onCategoryClick =
-                                                    onExpenseCategorySelected
-                                            )
-
-                                            ExpenseCategoryList(
-                                                categories =
-                                                    uiState.expenseCategories,
-
-                                                selectedCategory =
-                                                    uiState.selectedExpenseCategory,
-
-                                                onCategorySelected =
-                                                    onExpenseCategorySelected
-                                            )
+                                                ExpenseCategoryList(
+                                                    categories = uiState.expenseCategories,
+                                                    selectedCategory = uiState.selectedExpenseCategory,
+                                                    onCategorySelected = onExpenseCategorySelected
+                                                )
+                                            }
                                         }
-                                    }
 
-                                    ReportsFlow.INCOME -> {
-
-                                        Column(
-                                            verticalArrangement =
-                                                Arrangement.spacedBy(
-                                                    16.dp
+                                        ReportsFlow.INCOME -> {
+                                            Column(
+                                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                                            ) {
+                                                IncomeCategoryChart(
+                                                    categories = uiState.incomeCategories,
+                                                    selectedCategory = uiState.selectedIncomeCategory,
+                                                    onCategoryClick = onIncomeCategorySelected
                                                 )
-                                        ) {
 
-                                            IncomeCategoryChart(
-                                                categories =
-                                                    uiState.incomeCategories,
-
-                                                selectedCategory =
-                                                    uiState.selectedIncomeCategory,
-
-                                                onCategoryClick =
-                                                    onIncomeCategorySelected
-                                            )
-
-                                            IncomeCategoryList(
-                                                categories =
-                                                    uiState.incomeCategories,
-
-                                                selectedCategory =
-                                                    uiState.selectedIncomeCategory,
-
-                                                onCategorySelected =
-                                                    onIncomeCategorySelected
-                                            )
+                                                IncomeCategoryList(
+                                                    categories = uiState.incomeCategories,
+                                                    selectedCategory = uiState.selectedIncomeCategory,
+                                                    onCategorySelected = onIncomeCategorySelected
+                                                )
+                                            }
                                         }
                                     }
                                 }
+
+                                FinancialEventsCard(
+                                    financialEvents = uiState.financialEvents,
+                                    onFinancialEventClick = onFinancialEventClick
+                                )
                             }
 
-                            FinancialEventsCard(
-                                financialEvents =
-                                    uiState.financialEvents,
-
-                                onFinancialEventClick =
-                                    onFinancialEventClick
-                            )
-                        }
-
-                        ReportsTab.COMPARE -> {
-                            CategoryComparisonView(
-                                items = uiState.comparisonItems,
-                                summary = uiState.comparisonSummary,
-                                selectedWindow = uiState.comparisonWindow,
-                                selectedFlow = uiState.comparisonFlow,
-                                onWindowSelected = onComparisonWindowSelected,
-                                onFlowSelected = onComparisonFlowSelected,
-                                onCategoryClick = onComparisonCategoryClick
-                            )
+                            ReportsTab.COMPARE -> {
+                                CategoryComparisonView(
+                                    items = uiState.comparisonItems,
+                                    summary = uiState.comparisonSummary,
+                                    selectedWindow = uiState.comparisonWindow,
+                                    onCategoryClick = onComparisonCategoryClick
+                                )
+                            }
                         }
                     }
                 }

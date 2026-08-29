@@ -77,6 +77,17 @@ fun ComparisonSummaryHeroCard(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Header Title + Flow
+            val baselineMonthName = remember(summary.months) {
+                if (summary.months.size >= 2) {
+                    summary.months[summary.months.size - 2].format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault()))
+                } else "Prev"
+            }
+            val targetMonthName = remember(summary.months) {
+                if (summary.months.isNotEmpty()) {
+                    summary.months.last().format(DateTimeFormatter.ofPattern("MMM", Locale.getDefault()))
+                } else "Current"
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -100,7 +111,7 @@ fun ComparisonSummaryHeroCard(
                     }
                 }
 
-                // Month-over-Month Delta badge
+                // Month-over-Month Delta badge with explicit "vs. Month"
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = badgeColor.copy(alpha = 0.12f)
@@ -114,12 +125,12 @@ fun ComparisonSummaryHeroCard(
                             imageVector = if (change >= 0) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                             contentDescription = null,
                             tint = badgeColor,
-                            modifier = Modifier.size(15.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                         val prefix = if (change > 0) "+" else ""
                         Text(
-                            text = "$prefix${String.format(Locale.ENGLISH, "%.1f", pct)}%",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "vs. $baselineMonthName $prefix${String.format(Locale.ENGLISH, "%.1f", pct)}%",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = badgeColor
                         )
@@ -135,7 +146,7 @@ fun ComparisonSummaryHeroCard(
             ) {
                 Column {
                     Text(
-                        text = "Current Month",
+                        text = "Current Month ($targetMonthName)",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -149,7 +160,7 @@ fun ComparisonSummaryHeroCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = "vs. Previous",
+                        text = "vs. $baselineMonthName (MoM)",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

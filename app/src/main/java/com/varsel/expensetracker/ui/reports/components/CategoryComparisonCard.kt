@@ -97,13 +97,20 @@ fun CategoryComparisonCard(
                         maxLines = 1
                     )
 
-                    // Month A -> Month B comparison values
+                    // Month A -> Month B comparison values with explicit month labels
+                    val baselineMonthLabel = remember(item.baselineMonth) {
+                        item.baselineMonth.format(monthShortFormatter)
+                    }
+                    val targetMonthLabel = remember(item.targetMonth) {
+                        item.targetMonth.format(monthShortFormatter)
+                    }
+
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(
-                            text = currencyFormatter.format(item.baselineAmount),
+                            text = "$baselineMonthLabel: ${currencyFormatter.format(item.baselineAmount)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -113,12 +120,16 @@ fun CategoryComparisonCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                         Text(
-                            text = currencyFormatter.format(item.targetAmount),
+                            text = "$targetMonthLabel: ${currencyFormatter.format(item.targetAmount)}",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                }
+
+                val baselineMonthLabel = remember(item.baselineMonth) {
+                    item.baselineMonth.format(monthShortFormatter)
                 }
 
                 // Delta Badge
@@ -128,6 +139,7 @@ fun CategoryComparisonCard(
                     isNew = item.isNew,
                     isEliminated = item.isEliminated,
                     flow = item.flow,
+                    baselineMonthLabel = baselineMonthLabel,
                     currencyFormatter = currencyFormatter
                 )
 
@@ -224,6 +236,7 @@ private fun DeltaBadge(
     isNew: Boolean,
     isEliminated: Boolean,
     flow: ReportsFlow,
+    baselineMonthLabel: String,
     currencyFormatter: NumberFormat
 ) {
     val (badgeColor, textColor, text, icon) = when {
@@ -239,7 +252,7 @@ private fun DeltaBadge(
             Quadruple(
                 AppColors.Success.copy(alpha = 0.15f),
                 AppColors.Success,
-                "-100%",
+                "vs. $baselineMonthLabel -100%",
                 Icons.AutoMirrored.Filled.TrendingDown
             )
         }
@@ -249,7 +262,7 @@ private fun DeltaBadge(
                 Quadruple(
                     AppColors.Success.copy(alpha = 0.15f),
                     AppColors.Success,
-                    "${String.format(Locale.ENGLISH, "%.1f", abs(percentageChange))}%",
+                    "vs. $baselineMonthLabel -${String.format(Locale.ENGLISH, "%.1f", abs(percentageChange))}%",
                     Icons.AutoMirrored.Filled.TrendingDown
                 )
             } else if (changeAmount > 0) {
@@ -257,7 +270,7 @@ private fun DeltaBadge(
                 Quadruple(
                     AppColors.Expense.copy(alpha = 0.12f),
                     AppColors.Expense,
-                    "+${String.format(Locale.ENGLISH, "%.1f", percentageChange)}%",
+                    "vs. $baselineMonthLabel +${String.format(Locale.ENGLISH, "%.1f", percentageChange)}%",
                     Icons.AutoMirrored.Filled.TrendingUp
                 )
             } else {
@@ -265,7 +278,7 @@ private fun DeltaBadge(
                 Quadruple(
                     MaterialTheme.colorScheme.surfaceVariant,
                     MaterialTheme.colorScheme.onSurfaceVariant,
-                    "0%",
+                    "vs. $baselineMonthLabel 0%",
                     null
                 )
             }
@@ -277,7 +290,7 @@ private fun DeltaBadge(
                 Quadruple(
                     AppColors.Success.copy(alpha = 0.15f),
                     AppColors.Success,
-                    "+${String.format(Locale.ENGLISH, "%.1f", percentageChange)}%",
+                    "vs. $baselineMonthLabel +${String.format(Locale.ENGLISH, "%.1f", percentageChange)}%",
                     Icons.AutoMirrored.Filled.TrendingUp
                 )
             } else if (changeAmount < 0) {
@@ -285,14 +298,14 @@ private fun DeltaBadge(
                 Quadruple(
                     AppColors.Expense.copy(alpha = 0.12f),
                     AppColors.Expense,
-                    "-${String.format(Locale.ENGLISH, "%.1f", abs(percentageChange))}%",
+                    "vs. $baselineMonthLabel -${String.format(Locale.ENGLISH, "%.1f", abs(percentageChange))}%",
                     Icons.AutoMirrored.Filled.TrendingDown
                 )
             } else {
                 Quadruple(
                     MaterialTheme.colorScheme.surfaceVariant,
                     MaterialTheme.colorScheme.onSurfaceVariant,
-                    "0%",
+                    "vs. $baselineMonthLabel 0%",
                     null
                 )
             }
