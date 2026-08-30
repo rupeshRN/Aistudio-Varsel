@@ -6,29 +6,31 @@ object Category {
     const val UNCATEGORIZED = "Uncategorized"
     const val TRANSFER = "Transfer"
 
-    // Expense Categories
+    // Standard Expense Categories (Matches Category Management & Room Seed exactly)
     const val FOOD = "Dining & Food"
     const val FOOD_SHORT = "Food"
     const val GROCERIES = "Groceries"
-    const val TRAVEL = "Travel & Transport"
-    const val TRAVEL_SHORT = "Travel"
-    const val FUEL = "Fuel"
-    const val SHOPPING = "Shopping"
+    const val FUEL_AND_TRANSPORT = "Fuel & Transport"
+    const val TRAVEL = "Fuel & Transport"
+    const val TRAVEL_SHORT = "Fuel & Transport"
+    const val FUEL = "Fuel & Transport"
     const val UTILITIES = "Utilities"
-    const val BILLS = "Bills"
+    const val BILLS = "Utilities"
+    const val MOBILE = "Utilities"
     const val HEALTHCARE = "Healthcare"
+    const val SHOPPING = "Shopping"
     const val ENTERTAINMENT = "Entertainment"
     const val EDUCATION = "Education"
-    const val MOBILE = "Mobile & Internet"
     const val PERSONAL_CARE = "Personal Care"
 
-    // Income Categories
+    // Standard Income Categories (Matches Category Management & Room Seed exactly)
     const val SALARY = "Salary"
     const val INVESTMENTS = "Investments"
-    const val INVESTMENT = "Investment"
+    const val INVESTMENT = "Investments"
     const val FREELANCE = "Freelance & Side Hustle"
     const val REFUNDS = "Refunds & Cashback"
     const val RENTAL = "Rental & Property"
     const val GIFTS = "Gifts & Grants"
     const val OTHER_INCOME = "Other Income"
 }
+

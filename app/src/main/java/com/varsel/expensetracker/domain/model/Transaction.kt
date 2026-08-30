@@ -66,4 +66,8 @@ data class Transaction(
     val role:
         TransactionRole =
             TransactionRole.NORMAL
-)
+) {
+    val isImported: Boolean
+        get() = !transactionFingerprint.isNullOrBlank() || !referenceNumber.isNullOrBlank()
+}
+

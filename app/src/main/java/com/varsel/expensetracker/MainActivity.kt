@@ -51,16 +51,16 @@ class MainActivity : ComponentActivity() {
                     showBottomBar = showBottomBar,
 
                     onDestinationSelected = { destination ->
-
-                        navController.navigate(destination.route) {
-
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
+                        if (destination.route == AppDestination.Home.route) {
+                            navController.popBackStack(AppDestination.Home.route, inclusive = false)
+                        } else {
+                            navController.navigate(destination.route) {
+                                popUpTo(AppDestination.Home.route) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-
-                            launchSingleTop = true
-
-                            restoreState = true
                         }
                     }
 

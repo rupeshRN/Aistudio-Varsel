@@ -63,7 +63,8 @@ class TransactionDetailViewModel @Inject constructor(
                 return@launch
             }
 
-            val categories = loadCategories()
+            val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
+            val categories = loadCategories(isIncome)
 
             _uiState.value = TransactionDetailUiState.Loaded(
                 transaction = transaction,
@@ -95,8 +96,8 @@ class TransactionDetailViewModel @Inject constructor(
         }
     }
 
-    private fun loadCategories(): List<String> {
-        return CategoryMetadata.all
+    private fun loadCategories(isIncome: Boolean): List<String> {
+        return CategoryMetadata.categoriesFor(isIncome)
             .map { it.id }
             .filter { it.isNotBlank() }
             .distinct()
@@ -111,25 +112,37 @@ class TransactionDetailViewModel @Inject constructor(
             combine(
                 transactionRepository.getAllTransactions(),
                 transactionLinkGroupRepository.getAllGroups(),
-                financialEventAllocationRepository.observeAllAllocations()
-            ) { allTransactions, allGroups, allAllocations ->
-                Triple(allTransactions, allGroups, allAllocations)
-            }.collectLatest { (allTransactions, allGroups, allAllocations) ->
+                financialEventAllocationRepository.observeAllAllocations(),
+                categoryDao.getAllCategories()
+            ) { allTransactions, allGroups, allAllocations, dbCategories ->
+                val currentTx = allTransactions.firstOrNull { it.id == transactionId }
+                val isIncome = currentTx?.let { it.type == TransactionType.INCOME || it.type == TransactionType.CREDIT } ?: false
+                val staticCategoryNames = CategoryMetadata.categoriesFor(isIncome).map { it.id }
+                val filteredDbCategories = dbCategories
+                    .filter { it.type == "BOTH" || (isIncome && it.type == "INCOME") || (!isIncome && it.type == "EXPENSE") }
+                    .map { it.name }
+                val categoryNames = (filteredDbCategories + staticCategoryNames).distinct()
+                Quad(allTransactions, allGroups, allAllocations, categoryNames)
+            }.collectLatest { (allTransactions, allGroups, allAllocations, categoryNames) ->
                 updateTransactionDetailState(
                     transactionId = transactionId,
                     allTransactions = allTransactions,
                     allGroups = allGroups,
-                    allAllocations = allAllocations
+                    allAllocations = allAllocations,
+                    categoryNames = categoryNames
                 )
             }
         }
     }
 
+    private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
     private suspend fun updateTransactionDetailState(
         transactionId: Long,
         allTransactions: List<Transaction>,
         allGroups: List<TransactionLinkGroup>,
-        allAllocations: List<FinancialEventAllocationEntity>
+        allAllocations: List<FinancialEventAllocationEntity>,
+        categoryNames: List<String>
     ) {
         val currentState = _uiState.value as? TransactionDetailUiState.Loaded ?: return
 
@@ -230,7 +243,7 @@ class TransactionDetailViewModel @Inject constructor(
 
         _uiState.value = currentState.copy(
             transaction = currentTransaction,
-            categories = currentState.categories,
+            categories = categoryNames,
             allocations = allocationUiModels,
             totalAllocatedAmount = totalAllocated,
             remainingUnallocatedAmount = remainingUnallocated,
@@ -593,7 +606,7 @@ class TransactionDetailViewModel @Inject constructor(
     // Save transaction changes
     //--------------------------------------------------
 
-    fun saveChanges() {
+    fun saveChanges(createSmartRule: Boolean = true) {
         val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
         if (current.isSaving) return
 
@@ -606,9 +619,10 @@ class TransactionDetailViewModel @Inject constructor(
                 role = current.selectedRole
             )
 
-            if (current.transaction.description != current.editableDescription ||
+            if (createSmartRule && (
+                current.transaction.description != current.editableDescription ||
                 current.transaction.category != current.selectedCategory
-            ) {
+            )) {
                 customRuleRepository.saveRule(
                     pattern = current.transaction.description,
                     displayDescription = current.editableDescription,
@@ -626,6 +640,34 @@ class TransactionDetailViewModel @Inject constructor(
                 isSaving = false,
                 transferErrorMessage = null
             )
+        }
+    }
+
+    fun createCategory(name: String, isIncome: Boolean) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            val emoji = CategoryMetadata.emojiForCategory(name, isIncome)
+            val typeStr = if (isIncome) "INCOME" else "EXPENSE"
+            val newCategory = com.varsel.expensetracker.data.local.entity.CategoryEntity(
+                name = name.trim(),
+                type = typeStr,
+                colorHex = if (isIncome) "#4CAF50" else "#2196F3",
+                iconName = emoji,
+                budgetLimit = 0.0,
+                keywords = name.trim().uppercase()
+            )
+            categoryDao.insertCategory(newCategory)
+            updateCategory(name.trim())
+        }
+    }
+
+    fun deleteTransaction(onDeleted: () -> Unit) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        if (current.transaction.isImported) return
+
+        viewModelScope.launch {
+            transactionRepository.deleteTransaction(current.transaction)
+            onDeleted()
         }
     }
 
