@@ -87,14 +87,10 @@ fun TransactionRoleSection(
     ) {
 
         Text(
-
-            text =
-                "Transaction Role",
-
-            style =
-                MaterialTheme
-                    .typography
-                    .titleSmall
+            text = "Transaction Role",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
         )
 
         Row(
