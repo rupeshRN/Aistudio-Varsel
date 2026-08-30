@@ -1,86 +1,123 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.varsel.expensetracker.ui.design.AppDimensions
+import androidx.compose.ui.unit.sp
+import com.varsel.expensetracker.ui.model.FinancialInsight
+import com.varsel.expensetracker.ui.model.InsightType
 
 @Composable
 fun InsightsCard(
+    insights: List<FinancialInsight>,
     modifier: Modifier = Modifier
 ) {
+    if (insights.isEmpty()) return
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = AppDimensions.ScreenPadding),
-
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
         )
     ) {
-
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFFFB300).copy(alpha = 0.15f),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lightbulb,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB300),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
 
-            Icon(
-                imageVector = Icons.Outlined.Lightbulb,
-                contentDescription = null,
-                tint = Color(0xFFFFB300)
-            )
+                Text(
+                    text = "Financial Insights",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
 
-            Text(
-                text = "Quick Insights",
-                style = MaterialTheme.typography.titleMedium
-            )
+            insights.forEachIndexed { index, insight ->
+                if (index > 0) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                        thickness = 1.dp
+                    )
+                }
 
-            HorizontalDivider()
-
-            InsightRow("🍛", "Food was your biggest expense")
-
-            InsightRow("☕", "Tea purchased 23 times this month")
-
-            InsightRow("📈", "You're spending less than last month")
+                InsightItemRow(insight = insight)
+            }
         }
     }
 }
 
 @Composable
-private fun InsightRow(
-    emoji: String,
-    text: String
+private fun InsightItemRow(
+    insight: FinancialInsight
 ) {
-
-    Column {
-
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         Text(
-            text = "$emoji  $text",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            text = insight.emoji,
+            fontSize = 18.sp,
+            modifier = Modifier.padding(top = 2.dp)
         )
 
-        Spacer(
-            modifier = Modifier.height(4.dp)
-        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = insight.title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = when (insight.type) {
+                    InsightType.POSITIVE -> Color(0xFF2E7D32)
+                    InsightType.ATTENTION -> MaterialTheme.colorScheme.error
+                    InsightType.NEUTRAL -> MaterialTheme.colorScheme.onSurface
+                }
+            )
+
+            Text(
+                text = insight.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 16.sp
+            )
+        }
     }
 }

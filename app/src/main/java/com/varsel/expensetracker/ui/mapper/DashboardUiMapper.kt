@@ -7,6 +7,8 @@ import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.ui.dashboard.DashboardUiState
 import com.varsel.expensetracker.ui.model.AccountBalanceUiModel
 import com.varsel.expensetracker.ui.model.BalanceSummaryUiModel
+import com.varsel.expensetracker.ui.model.FinancialInsight
+import com.varsel.expensetracker.ui.model.InsightType
 import java.util.Calendar
 import javax.inject.Inject
 import kotlin.math.abs
@@ -135,10 +137,6 @@ class DashboardUiMapper @Inject constructor(
 
         //--------------------------------------------------
         // Account balances
-        //
-        // IMPORTANT:
-        // This remains independent from monthly
-        // income/expense reporting.
         //--------------------------------------------------
 
         val accountBalances =
@@ -151,6 +149,14 @@ class DashboardUiMapper @Inject constructor(
             accountBalances.sumOf {
                 it.balance
             }
+
+        val insights = generateInsights(
+            currentMonthTransactions = currentMonthTransactions,
+            currentMonthIncome = currentMonthIncome,
+            currentMonthExpense = currentMonthExpense,
+            previousMonthExpense = previousMonthExpense,
+            expenseChangePercent = expenseChangePercent
+        )
 
         //--------------------------------------------------
         // Dashboard state
@@ -198,6 +204,8 @@ class DashboardUiMapper @Inject constructor(
                     .map {
                         transactionUiMapper.map(it)
                     },
+
+            insights = insights,
 
             isLoading = false
         )
@@ -421,11 +429,13 @@ private fun calculateEffectiveExpense(
                         .firstOrNull()
                         ?.accountLast4
 
+            val bankName = detectBankName(accountTransactions)
+
             result.add(
                 AccountBalanceUiModel(
 
                     bankName =
-                        "Bank Account",
+                        bankName,
 
                     accountDisplayName =
                         accountLast4
@@ -463,14 +473,16 @@ private fun calculateEffectiveExpense(
                     }
                 }
 
+            val legacyBankName = detectBankName(legacyTransactions)
+
             result.add(
                 AccountBalanceUiModel(
 
                     bankName =
-                        "Other",
+                        if (legacyBankName != "Bank Account") legacyBankName else "Other",
 
                     accountDisplayName =
-                        "Unlinked",
+                        "Manual",
 
                     balance =
                         legacyBalance
@@ -531,5 +543,125 @@ private fun calculateEffectiveExpense(
             }
 
         return balance
+    }
+
+    private fun detectBankName(transactions: List<Transaction>): String {
+        for (t in transactions) {
+            val combined = "${t.description} ${t.referenceNumber.orEmpty()} ${t.transactionFingerprint.orEmpty()}".uppercase()
+            when {
+                combined.contains("HDFC") -> return "HDFC Bank"
+                combined.contains("SBI") || combined.contains("STATE BANK") || combined.contains("SBIN") -> return "SBI"
+                combined.contains("ICICI") -> return "ICICI Bank"
+                combined.contains("AXIS") || combined.contains("UTIB") -> return "Axis Bank"
+                combined.contains("KOTAK") || combined.contains("KKBK") -> return "Kotak Bank"
+                combined.contains("CANARA") || combined.contains("CNRB") -> return "Canara Bank"
+                combined.contains("BARODA") || combined.contains("BOB") || combined.contains("BARB") -> return "Bank of Baroda"
+                combined.contains("PNB") || combined.contains("PUNJAB") || combined.contains("PUNB") -> return "PNB"
+                combined.contains("IDFC") -> return "IDFC FIRST"
+                combined.contains("FEDERAL") || combined.contains("FDRL") -> return "Federal Bank"
+                combined.contains("INDUSIND") || combined.contains("INDB") -> return "IndusInd Bank"
+                combined.contains("UNION") || combined.contains("UBIN") -> return "Union Bank"
+                combined.contains("PAYTM") || combined.contains("PYTM") -> return "Paytm Payments"
+                combined.contains("AIRTEL") -> return "Airtel Payments"
+                combined.contains("YES BANK") || combined.contains("YESB") -> return "Yes Bank"
+            }
+        }
+        return "Bank Account"
+    }
+
+    private fun generateInsights(
+        currentMonthTransactions: List<Transaction>,
+        currentMonthIncome: Double,
+        currentMonthExpense: Double,
+        previousMonthExpense: Double,
+        expenseChangePercent: Double?
+    ): List<FinancialInsight> {
+        val insights = mutableListOf<FinancialInsight>()
+
+        // 1. Top Spending Category
+        val expenseTransactions = currentMonthTransactions.filter {
+            it.type == TransactionType.EXPENSE && it.role != TransactionRole.TRANSFER_OUT
+        }
+        if (expenseTransactions.isNotEmpty() && currentMonthExpense > 0) {
+            val topCategory = expenseTransactions
+                .groupBy { it.category.ifBlank { "Uncategorized" } }
+                .mapValues { entry -> entry.value.sumOf { it.amount } }
+                .maxByOrNull { it.value }
+
+            if (topCategory != null && topCategory.value > 0) {
+                val percentage = ((topCategory.value / currentMonthExpense) * 100).toInt()
+                val emoji = com.varsel.expensetracker.category.CategoryMetadata.emojiForCategory(topCategory.key, isIncome = false)
+                insights.add(
+                    FinancialInsight(
+                        emoji = emoji,
+                        title = "${topCategory.key} is top expense",
+                        description = "Accounts for $percentage% (₹%,.0f) of your spending this month.".format(topCategory.value),
+                        type = InsightType.NEUTRAL
+                    )
+                )
+            }
+        }
+
+        // 2. Month-over-Month Velocity
+        if (expenseChangePercent != null && previousMonthExpense > 0) {
+            val diff = abs(currentMonthExpense - previousMonthExpense)
+            if (expenseChangePercent < 0) {
+                insights.add(
+                    FinancialInsight(
+                        emoji = "📉",
+                        title = "Spending is down",
+                        description = "You spent ₹%,.0f less than this time last month (↓ %d%%).".format(diff, abs(expenseChangePercent.toInt())),
+                        type = InsightType.POSITIVE
+                    )
+                )
+            } else if (expenseChangePercent > 10) {
+                insights.add(
+                    FinancialInsight(
+                        emoji = "📈",
+                        title = "Spending has increased",
+                        description = "You're spending %d%% (₹%,.0f) more compared to last month.".format(expenseChangePercent.toInt(), diff),
+                        type = InsightType.ATTENTION
+                    )
+                )
+            }
+        }
+
+        // 3. Savings Rate / Net Cash Flow
+        if (currentMonthIncome > 0) {
+            val netSavings = currentMonthIncome - currentMonthExpense
+            val savingsRate = ((netSavings / currentMonthIncome) * 100).toInt()
+            if (netSavings >= 0) {
+                insights.add(
+                    FinancialInsight(
+                        emoji = "💰",
+                        title = "Net Savings: $savingsRate%",
+                        description = "₹%,.0f net surplus saved from this month's income.".format(netSavings),
+                        type = InsightType.POSITIVE
+                    )
+                )
+            } else {
+                insights.add(
+                    FinancialInsight(
+                        emoji = "⚠️",
+                        title = "Deficit this month",
+                        description = "Expenses exceeded total income by ₹%,.0f this month.".format(abs(netSavings)),
+                        type = InsightType.ATTENTION
+                    )
+                )
+            }
+        }
+
+        if (insights.isEmpty()) {
+            insights.add(
+                FinancialInsight(
+                    emoji = "💡",
+                    title = "Automated Insights",
+                    description = "Import your monthly bank statements to view instant spending analytics and savings rates.",
+                    type = InsightType.NEUTRAL
+                )
+            )
+        }
+
+        return insights
     }
 }

@@ -1,24 +1,34 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import com.varsel.expensetracker.ui.design.AppDimensions
-import com.varsel.expensetracker.ui.design.AppShapes
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.varsel.expensetracker.ui.components.BankLogoBadge
+import com.varsel.expensetracker.ui.model.AccountBalanceUiModel
 import com.varsel.expensetracker.ui.model.BalanceSummaryUiModel
 import kotlin.math.abs
 
@@ -27,345 +37,265 @@ fun BalanceCard(
     summary: BalanceSummaryUiModel,
     modifier: Modifier = Modifier
 ) {
+    var isBalanceHidden by remember { mutableStateOf(false) }
 
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = AppDimensions.ScreenPadding
-            ),
-
-        shape = AppShapes.HeroCard,
-
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = AppDimensions.CardElevation
-        )
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-
-        Column(
-            modifier = Modifier.padding(
-                AppDimensions.CardPadding
-            )
+        //--------------------------------------------------
+        // Main Hero Balance Card
+        //--------------------------------------------------
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-
-            //--------------------------------------------------
-            // Total Balance
-            //--------------------------------------------------
-
-            Text(
-                text = "Total Balance",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(
-                modifier = Modifier.height(
-                    AppDimensions.SmallSpacing
-                )
-            )
-
-            Text(
-                text = "₹%,.2f".format(
-                    summary.totalBalance
-                ),
-                style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            //--------------------------------------------------
-            // Account-wise balance
-            //--------------------------------------------------
-
-            if (summary.accounts.isNotEmpty()) {
-
-                Spacer(
-                    modifier = Modifier.height(
-                        AppDimensions.LargeSpacing
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Total Balance Header + Eye Toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Net Liquid Balance",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                     )
-                )
 
-                HorizontalDivider()
-
-                Spacer(
-                    modifier = Modifier.height(
-                        AppDimensions.MediumSpacing
-                    )
-                )
-
-                Text(
-                    text = "Account Wise Balance",
-                    style = MaterialTheme.typography.titleSmall
-                )
-
-                Spacer(
-                    modifier = Modifier.height(
-                        AppDimensions.SmallSpacing
-                    )
-                )
-
-                summary.accounts.forEach { account ->
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement =
-                            Arrangement.SpaceBetween,
-                        verticalAlignment =
-                            Alignment.CenterVertically
+                    IconButton(
+                        onClick = { isBalanceHidden = !isBalanceHidden },
+                        modifier = Modifier.size(32.dp)
                     ) {
-
-                        Text(
-                            text =
-                                "${account.bankName} " +
-                                account.accountDisplayName,
-
-                            style =
-                                MaterialTheme.typography.bodyMedium
-                        )
-
-                        Text(
-                            text =
-                                "₹%,.2f".format(
-                                    account.balance
-                                ),
-
-                            style =
-                                MaterialTheme.typography.bodyMedium,
-
-                            fontWeight =
-                                androidx.compose.ui.text.font.FontWeight.SemiBold
+                        Icon(
+                            imageVector = if (isBalanceHidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                            contentDescription = if (isBalanceHidden) "Show balance" else "Hide balance",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
+                }
 
-                    Spacer(
-                        modifier = Modifier.height(
-                            AppDimensions.SmallSpacing
-                        )
+                // Balance Amount Display
+                Text(
+                    text = if (isBalanceHidden) "₹ ••••••••" else "₹%,.2f".format(summary.totalBalance),
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    letterSpacing = (-0.5).sp
+                )
+
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
+                    thickness = 1.dp
+                )
+
+                // Monthly Income and Expense Pills
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    IncomeExpensePill(
+                        modifier = Modifier.weight(1f),
+                        title = "Income",
+                        amount = summary.totalIncome,
+                        isIncome = true,
+                        isBalanceHidden = isBalanceHidden,
+                        changePercent = summary.incomeChangePercent
+                    )
+
+                    IncomeExpensePill(
+                        modifier = Modifier.weight(1f),
+                        title = "Expense",
+                        amount = summary.totalExpense,
+                        isIncome = false,
+                        isBalanceHidden = isBalanceHidden,
+                        changePercent = summary.expenseChangePercent
                     )
                 }
             }
+        }
 
-            //--------------------------------------------------
-            // Current month income / expense
-            //--------------------------------------------------
-
-            Spacer(
-                modifier = Modifier.height(
-                    AppDimensions.LargeSpacing
-                )
-            )
-
-            HorizontalDivider()
-
-            Spacer(
-                modifier = Modifier.height(
-                    AppDimensions.LargeSpacing
-                )
-            )
-
-            Row(
+        //--------------------------------------------------
+        // Account-wise Section with Bank Badges
+        //--------------------------------------------------
+        if (summary.accounts.isNotEmpty()) {
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.SpaceBetween,
-                verticalAlignment =
-                    Alignment.Top
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Bank Accounts (${summary.accounts.size})",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
-                MonthlyMetricItem(
-                    modifier =
-                        Modifier.fillMaxWidth(0.5f),
-
-                    title = "Income",
-
-                    amount =
-                        summary.totalIncome,
-
-                    previousAmount =
-                        summary.previousMonthIncome,
-
-                    changePercent =
-                        summary.incomeChangePercent,
-
-                    positiveColor =
-                        MaterialTheme.colorScheme.primary
-                )
-
-                MonthlyMetricItem(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(
-                                start =
-                                    AppDimensions.SmallSpacing
-                            ),
-
-                    title = "Expense",
-
-                    amount =
-                        summary.totalExpense,
-
-                    previousAmount =
-                        summary.previousMonthExpense,
-
-                    changePercent =
-                        summary.expenseChangePercent,
-
-                    positiveColor =
-                        MaterialTheme.colorScheme.primary
-                )
+                // If 1 or 2 accounts, show 2-column or stacked cards; if more, use scrollable row
+                if (summary.accounts.size <= 2) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        summary.accounts.forEach { account ->
+                            BankAccountCard(
+                                account = account,
+                                isBalanceHidden = isBalanceHidden,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        items(summary.accounts) { account ->
+                            BankAccountCard(
+                                account = account,
+                                isBalanceHidden = isBalanceHidden,
+                                modifier = Modifier.width(220.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun MonthlyMetricItem(
+private fun IncomeExpensePill(
     modifier: Modifier = Modifier,
     title: String,
     amount: Double,
-    previousAmount: Double,
-    changePercent: Double?,
-    positiveColor: Color
+    isIncome: Boolean,
+    isBalanceHidden: Boolean,
+    changePercent: Double?
 ) {
-
-    Column(
-        modifier = modifier
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
     ) {
-
-        //--------------------------------------------------
-        // Title
-        //--------------------------------------------------
-
-        Text(
-            text = title,
-            style =
-                MaterialTheme.typography.labelMedium,
-
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(
-            modifier = Modifier.height(
-                AppDimensions.ExtraSmallSpacing
-            )
-        )
-
-        //--------------------------------------------------
-        // Amount + percentage
-        //--------------------------------------------------
-
-        Row(
-            verticalAlignment =
-                Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-
-            Text(
-                text =
-                    "₹%,.2f".format(amount),
-
-                style =
-                    MaterialTheme.typography.titleMedium,
-
-                fontWeight =
-                    androidx.compose.ui.text.font.FontWeight.Bold,
-
-                color =
-                    MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(
-                modifier = Modifier.width(
-                    AppDimensions.ExtraSmallSpacing
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = if (isIncome) Icons.Outlined.ArrowDownward else Icons.Outlined.ArrowUpward,
+                    contentDescription = null,
+                    tint = if (isIncome) Color(0xFF2E7D32) else Color(0xFFC62828),
+                    modifier = Modifier.size(14.dp)
                 )
-            )
-
-            val percent =
-                changePercent ?: 0.0
-
-            val isIncrease =
-                percent > 0.0
-
-            val isDecrease =
-                percent < 0.0
-
-            //--------------------------------------------------
-            // Keep the original visual language:
-            //
-            // ↑ increase
-            // ↓ decrease
-            // → no change
-            //--------------------------------------------------
-
-            val arrow =
-                when {
-                    isIncrease -> "↑"
-                    isDecrease -> "↓"
-                    else -> "↑"
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                changePercent?.let { pct ->
+                    val arrow = if (pct > 0) "↑" else "↓"
+                    Text(
+                        text = "$arrow${abs(pct).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isIncome) {
+                            if (pct >= 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                        } else {
+                            if (pct <= 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                        }
+                    )
                 }
-
-            val changeColor =
-                when {
-
-                    // Income:
-                    // Increase = good
-                    title == "Income" &&
-                        isIncrease ->
-                        positiveColor
-
-                    // Income:
-                    // Decrease = bad
-                    title == "Income" &&
-                        isDecrease ->
-                        MaterialTheme.colorScheme.error
-
-                    // Expense:
-                    // Increase = bad
-                    title == "Expense" &&
-                        isIncrease ->
-                        MaterialTheme.colorScheme.error
-
-                    // Expense:
-                    // Decrease = good
-                    title == "Expense" &&
-                        isDecrease ->
-                        positiveColor
-
-                    else ->
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                }
+            }
 
             Text(
-                text =
-                    "$arrow${abs(percent).toInt()}%",
-
-                style =
-                    MaterialTheme.typography.titleMedium,
-
-                color =
-                    changeColor
+                text = if (isBalanceHidden) "₹ ••••" else "₹%,.2f".format(amount),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
+    }
+}
 
-        Spacer(
-            modifier = Modifier.height(
-                AppDimensions.ExtraSmallSpacing
-            )
+@Composable
+private fun BankAccountCard(
+    account: AccountBalanceUiModel,
+    isBalanceHidden: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
         )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                BankLogoBadge(
+                    bankName = account.bankName,
+                    size = 32.dp
+                )
 
-        //--------------------------------------------------
-        // Previous month
-        //--------------------------------------------------
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = account.bankName,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = account.accountDisplayName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
-        Text(
-            text =
-                "Compared to ₹%,.2f last\nmonth"
-                    .format(previousAmount),
-
-            style =
-                MaterialTheme.typography.bodyMedium,
-
-            color =
-                MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            Column {
+                Text(
+                    text = "Available Balance",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = if (isBalanceHidden) "₹ •••••" else "₹%,.2f".format(account.balance),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
     }
 }

@@ -49,6 +49,15 @@ fun NavGraph(
                 onNavigateToAllTransactions = {
                     navController.navigate(AppDestination.Transactions.route)
                 },
+                onNavigateToImport = {
+                    navController.navigate("import_statement")
+                },
+                onNavigateToAnalytics = {
+                    navController.navigate(AppDestination.Reports.route)
+                },
+                onNavigateToTransactionDetail = { transactionId ->
+                    navController.navigate("transaction_detail/$transactionId")
+                },
                 onNavigateToSettings = {
                     navController.navigate("settings")
                 },
