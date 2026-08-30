@@ -19,8 +19,9 @@ import com.varsel.expensetracker.domain.model.TransactionType
 fun CategorySection(
     selectedCategory: String,
     transactionType: TransactionType = TransactionType.EXPENSE,
+    availableCategories: List<String> = emptyList(),
     onCategorySelected: (String) -> Unit,
-    onNewCategoryClick: (() -> Unit)? = null
+    onNewCategoryClick: () -> Unit
 ) {
     val isIncome = transactionType == TransactionType.INCOME || transactionType == TransactionType.CREDIT
 
@@ -30,17 +31,19 @@ fun CategorySection(
         modifier = Modifier.padding(bottom = 8.dp)
     )
 
-    val baseCategories = remember(transactionType) {
-        CategoryMetadata.categoriesFor(transactionType)
-    }
-
-    // Ensure currently selected category is visible even if custom or non-standard
-    val displayCategories = remember(baseCategories, selectedCategory) {
-        if (selectedCategory.isNotBlank() && baseCategories.none { it.id.equals(selectedCategory, ignoreCase = true) }) {
-            baseCategories + CategoryUi(selectedCategory, "🏷️", isIncome = isIncome)
-        } else {
-            baseCategories
+    val displayCategories = remember(transactionType, availableCategories, selectedCategory) {
+        val staticCategories = CategoryMetadata.categoriesFor(transactionType)
+        val dynamicCategoryUis = availableCategories.map { name ->
+            val emoji = CategoryMetadata.emojiForCategory(name, isIncome)
+            CategoryUi(id = name, icon = emoji, isIncome = isIncome)
         }
+
+        val combined = (staticCategories + dynamicCategoryUis).distinctBy { it.id.lowercase() }.toMutableList()
+
+        if (selectedCategory.isNotBlank() && combined.none { it.id.equals(selectedCategory, ignoreCase = true) }) {
+            combined.add(CategoryUi(selectedCategory, CategoryMetadata.emojiForCategory(selectedCategory, isIncome), isIncome = isIncome))
+        }
+        combined
     }
 
     Column(
@@ -62,19 +65,27 @@ fun CategorySection(
                     )
                 }
 
-                repeat(3 - row.size) { index ->
-                    if (index == 0 && onNewCategoryClick != null) {
-                        NewCategoryCard(
-                            modifier = Modifier.weight(1f),
-                            onClick = onNewCategoryClick
-                        )
-                    } else {
-                        NewCategoryCard(
-                            modifier = Modifier.weight(1f),
-                            onClick = onNewCategoryClick ?: {}
-                        )
-                    }
+                repeat(3 - row.size) {
+                    NewCategoryCard(
+                        modifier = Modifier.weight(1f),
+                        onClick = onNewCategoryClick
+                    )
                 }
+            }
+        }
+
+        // If categories evenly divide by 3, provide a dedicated row with NewCategoryCard
+        if (displayCategories.size % 3 == 0) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                NewCategoryCard(
+                    modifier = Modifier.weight(1f),
+                    onClick = onNewCategoryClick
+                )
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
+                androidx.compose.foundation.layout.Spacer(modifier = Modifier.weight(1f))
             }
         }
     }
