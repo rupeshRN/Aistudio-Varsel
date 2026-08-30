@@ -1,0 +1,74 @@
+package com.varsel.expensetracker.parser
+
+import javax.inject.Inject
+
+class TextNormalizer @Inject constructor() {
+
+    fun normalize(rawText: String): String {
+
+        var text = rawText
+
+        // ------------------------------------------------------------
+        // Remove everything before ACCOUNT ACTIVITY
+        // ------------------------------------------------------------
+
+        val activityIndex = text.indexOf("ACCOUNT ACTIVITY", ignoreCase = true)
+
+        if (activityIndex >= 0) {
+            text = text.substring(activityIndex)
+        }
+
+        // ------------------------------------------------------------
+        // Put first transaction onto a new line
+        //
+        // Example:
+        // Date Transaction Details Debits Credits Balance 28 Jul 2026
+        //
+        // becomes
+        //
+        // Date Transaction Details Debits Credits Balance
+        // 28 Jul 2026
+        // ------------------------------------------------------------
+
+        text = text.replace(
+            Regex("(Balance)\\s+(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4})"),
+            "$1\n$2"
+        )
+
+        // ------------------------------------------------------------
+        // Every date starts a new transaction
+        // ------------------------------------------------------------
+
+        text = text.replace(
+            Regex("(\\S)\\s+(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4})"),
+            "$1\n$2"
+        )
+
+        // ------------------------------------------------------------
+        // Split merged balances
+        //
+        // INR 1774.00INR 3298.59
+        //
+        // becomes
+        //
+        // INR 1774.00
+        // INR 3298.59
+        // ------------------------------------------------------------
+
+        text = text.replace(
+            Regex("(INR\\s*[\\d,]+\\.\\d{2})(INR\\s*[\\d,]+\\.\\d{2})"),
+            "$1\n$2"
+        )
+
+        // ------------------------------------------------------------
+        // Remove duplicate blank lines
+        // ------------------------------------------------------------
+
+        text = text.replace(
+            Regex("\\n{3,}"),
+            "\n\n"
+        )
+
+        return text.trim()
+    }
+}

@@ -1,0 +1,69 @@
+# ==============================================================================
+# Android & Gradle Build Outputs
+# ==============================================================================
+.gradle/
+build/
+app/build/
+**/build/
+bin/
+gen/
+out/
+
+# Compiled class files & packages
+*.class
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# ==============================================================================
+# Local Environment & Secrets (NEVER COMMIT TO GIT)
+# ==============================================================================
+# Contains local Android SDK path and developer specific configurations
+local.properties
+
+# KeyStore / Release Signing Keys
+*.jks
+*.keystore
+*.p12
+*.pem
+*.pk8
+
+# Log Files
+*.log
+
+# ==============================================================================
+# Android Studio & IntelliJ IDEA Files
+# ==============================================================================
+.idea/
+*.iml
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+cmake/
+.shelf/
+
+# ==============================================================================
+# Operating System Generated Files
+# ==============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ==============================================================================
+# IMPORTANT: Explicitly Keep Gradle Wrapper Files for CI/CD
+# ==============================================================================
+# Force Git to track gradlew scripts and wrapper binaries needed for GitHub Actions
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!gradlew
+!grad
+lew.bat
