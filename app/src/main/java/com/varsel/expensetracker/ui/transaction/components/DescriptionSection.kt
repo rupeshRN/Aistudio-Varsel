@@ -25,20 +25,20 @@ fun DescriptionSection(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 6.dp)
         )
 
         OutlinedTextField(
             value = description,
             onValueChange = onDescriptionChanged,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surface,
                 unfocusedContainerColor = MaterialTheme.colorScheme.surface
             ),
-            singleLine = false,
-            minLines = 2,
+            singleLine = true,
+            maxLines = 2,
             placeholder = {
                 Text("Enter transaction narration or merchant name")
             }
