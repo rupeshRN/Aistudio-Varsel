@@ -55,6 +55,7 @@ object CategoryIconCatalog {
     const val GIFT = "ic_gift"
     const val INCOME = "ic_paid"
     const val CATEGORY = "ic_help"
+    const val WORK = "ic_work"
 
     val availableIcons: List<IconOption> = listOf(
         IconOption("ic_salary", "Salary", Icons.Filled.Work),
@@ -64,6 +65,7 @@ object CategoryIconCatalog {
         IconOption("ic_gift", "Gift", Icons.Filled.CardGiftcard),
         IconOption("ic_swap", "Transfer / Reversal", Icons.Filled.SwapHoriz),
         IconOption("ic_home", "Home / Rent", Icons.Filled.Home),
+        IconOption("ic_work", "Work / Freelance", Icons.Filled.Work),
         IconOption("ic_restaurant", "Food & Dining", Icons.Filled.Restaurant),
         IconOption("ic_fastfood", "Fast Food", Icons.Filled.Fastfood),
         IconOption("ic_cart", "Groceries", Icons.Filled.LocalGroceryStore),
@@ -100,6 +102,36 @@ object CategoryIconCatalog {
         "#607D8B", // Blue Grey
         "#757575"  // Grey
     )
+
+    fun iconKeyForCategory(categoryName: String, isIncome: Boolean = false): String {
+        val key = categoryName.trim().lowercase()
+        return when {
+            key.contains("salary") || key.contains("payroll") -> SALARY
+            key.contains("invest") || key.contains("stock") || key.contains("dividend") -> INVESTMENT
+            key.contains("freelance") || key.contains("work") || key.contains("consult") -> WORK
+            key.contains("rent") || key.contains("property") -> HOME
+            key.contains("gift") || key.contains("reward") || key.contains("bonus") -> GIFT
+            key.contains("refund") || key.contains("cashback") || key.contains("transfer") || key.contains("swap") -> TRANSFER
+            key.contains("food") || key.contains("dining") || key.contains("restaurant") || key.contains("eat") -> FOOD
+            key.contains("fastfood") || key.contains("burger") || key.contains("pizza") -> "ic_fastfood"
+            key.contains("cafe") || key.contains("coffee") || key.contains("tea") -> COFFEE
+            key.contains("travel") || key.contains("transit") || key.contains("flight") || key.contains("train") -> TRAVEL
+            key.contains("grocer") || key.contains("cart") || key.contains("supermarket") || key.contains("mart") -> GROCERIES
+            key.contains("fuel") || key.contains("gas") || key.contains("petrol") || key.contains("diesel") -> FUEL
+            key.contains("shop") || key.contains("mall") || key.contains("cloth") || key.contains("store") -> SHOPPING
+            key.contains("mobile") || key.contains("phone") || key.contains("recharge") -> MOBILE
+            key.contains("utility") || key.contains("electric") || key.contains("water") || key.contains("power") -> UTILITIES
+            key.contains("bill") || key.contains("receipt") || key.contains("invoice") -> BILLS
+            key.contains("health") || key.contains("medic") || key.contains("hospital") || key.contains("doctor") || key.contains("pharm") -> HEALTHCARE
+            key.contains("entertain") || key.contains("movie") || key.contains("cinema") || key.contains("game") -> ENTERTAINMENT
+            key.contains("educat") || key.contains("school") || key.contains("college") || key.contains("course") -> EDUCATION
+            key.contains("subscript") || key.contains("ott") || key.contains("stream") -> SUBSCRIPTIONS
+            key.contains("fit") || key.contains("gym") || key.contains("sport") || key.contains("workout") -> FITNESS
+            key.contains("bank") || key.contains("atm") -> "ic_atm"
+            isIncome -> INCOME
+            else -> CATEGORY
+        }
+    }
 
     fun iconFor(
         categoryOrIconKey: String

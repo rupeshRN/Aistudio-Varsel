@@ -646,13 +646,13 @@ class TransactionDetailViewModel @Inject constructor(
     fun createCategory(name: String, isIncome: Boolean) {
         if (name.isBlank()) return
         viewModelScope.launch {
-            val emoji = CategoryMetadata.emojiForCategory(name, isIncome)
+            val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(name, isIncome)
             val typeStr = if (isIncome) "INCOME" else "EXPENSE"
             val newCategory = com.varsel.expensetracker.data.local.entity.CategoryEntity(
                 name = name.trim(),
                 type = typeStr,
                 colorHex = if (isIncome) "#4CAF50" else "#2196F3",
-                iconName = emoji,
+                iconName = iconKey,
                 budgetLimit = 0.0,
                 keywords = name.trim().uppercase()
             )
