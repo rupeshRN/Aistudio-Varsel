@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,6 +78,7 @@ fun TransactionDetailScreen(
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showImportedLockedInfoDialog by remember { mutableStateOf(false) }
 
     //--------------------------------------------------
     // Load transaction
@@ -118,7 +121,9 @@ fun TransactionDetailScreen(
                 val isImported = state.transaction.isImported
                 BottomActionBar(
                     onDeleteClick = {
-                        if (!isImported) {
+                        if (isImported) {
+                            showImportedLockedInfoDialog = true
+                        } else {
                             showDeleteConfirmDialog = true
                         }
                     },
@@ -126,7 +131,7 @@ fun TransactionDetailScreen(
                         showSaveConfirmDialog = true
                     },
                     saveEnabled = state.hasChanges && !state.isSaving,
-                    deleteEnabled = !isImported
+                    isImported = isImported
                 )
             }
         }
@@ -136,7 +141,7 @@ fun TransactionDetailScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(scrollState)
-                .padding(24.dp),
+                .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             when (val state = uiState) {
@@ -148,29 +153,60 @@ fun TransactionDetailScreen(
                 }
                 is TransactionDetailUiState.Loaded -> {
                     val transaction = state.transaction
+                    val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
 
-                    if (transaction.isImported) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.fillMaxWidth()
+                    // Hero Transaction Header Card
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            Text(
+                                text = (if (isIncome) "+ ₹" else "- ₹") + "%,.2f".format(kotlin.math.abs(transaction.amount)),
+                                style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                color = if (isIncome) Color(0xFF2E7D32) else Color(0xFFC62828)
+                            )
+
                             Row(
-                                modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = "Imported bank transaction • Deletion is locked to preserve statement integrity.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = (if (isIncome) Color(0xFF2E7D32) else Color(0xFFC62828)).copy(alpha = 0.12f)
+                                ) {
+                                    Text(
+                                        text = transaction.type.name,
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = if (isIncome) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+
+                                if (transaction.isImported) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                    ) {
+                                        Text(
+                                            text = "Bank Statement",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -469,5 +505,39 @@ fun TransactionDetailScreen(
             }
         )
     }
+
+    //--------------------------------------------------
+    // Imported Bank Transaction Deletion Locked Dialog
+    //--------------------------------------------------
+    if (showImportedLockedInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportedLockedInfoDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.Lock,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Imported Bank Transaction",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text("This transaction was imported from your official bank statement. Deletion is blocked to preserve bank reconciliation, account statement integrity, and historical balance accuracy.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showImportedLockedInfoDialog = false }
+                ) {
+                    Text("Understood")
+                }
+            }
+        )
+    }
 }
+
 

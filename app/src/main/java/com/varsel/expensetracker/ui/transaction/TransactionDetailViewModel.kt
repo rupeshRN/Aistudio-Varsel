@@ -63,7 +63,8 @@ class TransactionDetailViewModel @Inject constructor(
                 return@launch
             }
 
-            val categories = loadCategories()
+            val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
+            val categories = loadCategories(isIncome)
 
             _uiState.value = TransactionDetailUiState.Loaded(
                 transaction = transaction,
@@ -95,8 +96,8 @@ class TransactionDetailViewModel @Inject constructor(
         }
     }
 
-    private fun loadCategories(): List<String> {
-        return CategoryMetadata.all
+    private fun loadCategories(isIncome: Boolean): List<String> {
+        return CategoryMetadata.categoriesFor(isIncome)
             .map { it.id }
             .filter { it.isNotBlank() }
             .distinct()
@@ -114,7 +115,13 @@ class TransactionDetailViewModel @Inject constructor(
                 financialEventAllocationRepository.observeAllAllocations(),
                 categoryDao.getAllCategories()
             ) { allTransactions, allGroups, allAllocations, dbCategories ->
-                val categoryNames = (dbCategories.map { it.name } + loadCategories()).distinct()
+                val currentTx = allTransactions.firstOrNull { it.id == transactionId }
+                val isIncome = currentTx?.let { it.type == TransactionType.INCOME || it.type == TransactionType.CREDIT } ?: false
+                val staticCategoryNames = CategoryMetadata.categoriesFor(isIncome).map { it.id }
+                val filteredDbCategories = dbCategories
+                    .filter { it.type == "BOTH" || (isIncome && it.type == "INCOME") || (!isIncome && it.type == "EXPENSE") }
+                    .map { it.name }
+                val categoryNames = (filteredDbCategories + staticCategoryNames).distinct()
                 Quad(allTransactions, allGroups, allAllocations, categoryNames)
             }.collectLatest { (allTransactions, allGroups, allAllocations, categoryNames) ->
                 updateTransactionDetailState(
