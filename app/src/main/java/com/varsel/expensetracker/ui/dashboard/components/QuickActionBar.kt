@@ -73,10 +73,10 @@ private fun QuickActionButton(
             .clip(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.20f)
         )
     ) {
         Column(

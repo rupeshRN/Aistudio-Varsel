@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material3.*
@@ -20,7 +21,7 @@ fun DashboardRecentSection(
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -57,8 +58,8 @@ fun DashboardRecentSection(
         if (transactions.isEmpty()) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
             ) {
                 Column(
                     modifier = Modifier
@@ -85,11 +86,35 @@ fun DashboardRecentSection(
                 }
             }
         } else {
-            transactions.take(5).forEach { transaction ->
-                RecentTransactionCard(
-                    transaction = transaction,
-                    onClick = { onTransactionClick(transaction) }
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.20f)
                 )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    transactions.take(5).forEachIndexed { index, transaction ->
+                        RecentTransactionCard(
+                            transaction = transaction,
+                            onClick = { onTransactionClick(transaction) }
+                        )
+
+                        if (index < transactions.take(5).lastIndex) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(horizontal = 14.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f),
+                                thickness = 0.8.dp
+                            )
+                        }
+                    }
+                }
             }
         }
     }

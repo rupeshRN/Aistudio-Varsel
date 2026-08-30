@@ -98,7 +98,9 @@ fun DashboardScreen(
 
                 item(key = "insights") {
                     InsightsCard(
-                        insights = uiState.insights
+                        insights = uiState.insights,
+                        onNavigateToAnalytics = onNavigateToAnalytics,
+                        onNavigateToTransactions = onNavigateToAllTransactions
                     )
                 }
 

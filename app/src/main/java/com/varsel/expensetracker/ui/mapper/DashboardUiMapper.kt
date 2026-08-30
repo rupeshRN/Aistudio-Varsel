@@ -547,30 +547,32 @@ private fun calculateEffectiveExpense(
 
     private fun detectBankName(transactions: List<Transaction>): String {
         for (t in transactions) {
-            val combined = "${t.description} ${t.referenceNumber.orEmpty()} ${t.transactionFingerprint.orEmpty()}".uppercase()
+            val ref = t.referenceNumber.orEmpty().uppercase()
+            val desc = t.description.uppercase()
+            val fp = t.transactionFingerprint.orEmpty().uppercase()
+
             when {
-                combined.contains("INDIAN BANK") || combined.contains("IDIB") || combined.contains("IND BL") -> return "Indian Bank"
-                combined.contains("HDFC") -> return "HDFC Bank"
-                combined.contains("SBI") || combined.contains("STATE BANK") || combined.contains("SBIN") -> return "SBI"
-                combined.contains("ICICI") -> return "ICICI Bank"
-                combined.contains("AXIS") || combined.contains("UTIB") -> return "Axis Bank"
-                combined.contains("KOTAK") || combined.contains("KKBK") -> return "Kotak Bank"
-                combined.contains("CANARA") || combined.contains("CNRB") -> return "Canara Bank"
-                combined.contains("BARODA") || combined.contains("BOB") || combined.contains("BARB") -> return "Bank of Baroda"
-                combined.contains("PNB") || combined.contains("PUNJAB") || combined.contains("PUNB") -> return "PNB"
-                combined.contains("IDFC") -> return "IDFC FIRST"
-                combined.contains("FEDERAL") || combined.contains("FDRL") -> return "Federal Bank"
-                combined.contains("INDUSIND") || combined.contains("INDB") -> return "IndusInd Bank"
-                combined.contains("UNION") || combined.contains("UBIN") -> return "Union Bank"
-                combined.contains("IOB") || combined.contains("IOBA") || combined.contains("OVERSEAS") -> return "Indian Overseas Bank"
-                combined.contains("CENTRAL") || combined.contains("CBIN") -> return "Central Bank"
-                combined.contains("BOI") || combined.contains("BKID") || combined.contains("BANK OF INDIA") -> return "Bank of India"
-                combined.contains("PAYTM") || combined.contains("PYTM") -> return "Paytm Payments"
-                combined.contains("AIRTEL") -> return "Airtel Payments"
-                combined.contains("YES BANK") || combined.contains("YESB") -> return "Yes Bank"
-                combined.contains("RBL") || combined.contains("RATN") -> return "RBL Bank"
-                combined.contains("STANDARD CHARTERED") || combined.contains("SCBL") -> return "Standard Chartered"
-                combined.contains("CITI") -> return "Citi Bank"
+                // Indian Bank (IFSC IDIB or Indian Bank text)
+                ref.contains("IDIB") || desc.contains("INDIAN BANK") || desc.contains("IND BL") || fp.contains("IDIB") -> return "Indian Bank"
+                ref.contains("SBIN") || desc.contains("STATE BANK OF INDIA") || desc.contains("SBI MAIN") -> return "SBI"
+                ref.contains("HDFC") || desc.contains("HDFC BANK") -> return "HDFC Bank"
+                ref.contains("ICIC") || desc.contains("ICICI BANK") -> return "ICICI Bank"
+                ref.contains("UTIB") || desc.contains("AXIS BANK") -> return "Axis Bank"
+                ref.contains("KKBK") || desc.contains("KOTAK MAHINDRA") -> return "Kotak Bank"
+                ref.contains("CNRB") || desc.contains("CANARA BANK") -> return "Canara Bank"
+                ref.contains("BARB") || desc.contains("BANK OF BARODA") -> return "Bank of Baroda"
+                ref.contains("PUNB") || desc.contains("PUNJAB NATIONAL") -> return "PNB"
+                ref.contains("IDFB") || desc.contains("IDFC FIRST") -> return "IDFC FIRST"
+                ref.contains("FDRL") || desc.contains("FEDERAL BANK") -> return "Federal Bank"
+                ref.contains("INDB") || desc.contains("INDUSIND BANK") -> return "IndusInd Bank"
+                ref.contains("UBIN") || desc.contains("UNION BANK") -> return "Union Bank"
+                ref.contains("IOBA") || desc.contains("INDIAN OVERSEAS") -> return "Indian Overseas Bank"
+                ref.contains("CBIN") || desc.contains("CENTRAL BANK") -> return "Central Bank"
+                ref.contains("BKID") || desc.contains("BANK OF INDIA") -> return "Bank of India"
+                ref.contains("YESB") || desc.contains("YES BANK") -> return "Yes Bank"
+                ref.contains("RATN") || desc.contains("RBL BANK") -> return "RBL Bank"
+                ref.contains("SCBL") || desc.contains("STANDARD CHARTERED") -> return "Standard Chartered"
+                ref.contains("CITI") || desc.contains("CITIBANK") -> return "Citi Bank"
             }
         }
         return "Indian Bank"
