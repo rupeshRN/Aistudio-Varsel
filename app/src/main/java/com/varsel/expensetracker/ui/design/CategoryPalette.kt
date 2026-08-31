@@ -71,6 +71,17 @@ object CategoryPalette {
             return Uncategorized
         }
 
+        // 0. Check dynamic cache synced from Category Management
+        com.varsel.expensetracker.category.CategoryIconCatalog.getCategory(categoryName)?.let { entity ->
+            try {
+                if (entity.colorHex.isNotBlank()) {
+                    return Color(android.graphics.Color.parseColor(entity.colorHex.trim()))
+                }
+            } catch (e: Exception) {
+                // Fall back to predefined palette
+            }
+        }
+
         // 1. Income matching
         if (key.contains("salary") || key.contains("payroll") || key.contains("wages") || key.contains("stipend")) {
             return Salary

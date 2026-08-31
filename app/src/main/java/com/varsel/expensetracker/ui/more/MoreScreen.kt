@@ -8,8 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -23,8 +21,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun MoreScreen(
     onLoansClick: () -> Unit,
-    onImportClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onImportClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -69,30 +66,6 @@ fun MoreScreen(
             containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
             iconTint = MaterialTheme.colorScheme.secondary,
             onClick = onImportClick
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "System",
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        MoreMenuItem(
-            icon = Icons.Outlined.Settings,
-            title = "App Settings",
-            subtitle = "Categories, rules, appearance & diagnostics",
-            onClick = onSettingsClick
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -166,4 +139,3 @@ fun ToolHubCard(
         }
     }
 }
-

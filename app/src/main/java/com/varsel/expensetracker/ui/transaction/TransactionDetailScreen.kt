@@ -293,9 +293,7 @@ fun TransactionDetailScreen(
 
                     // Transaction Information
                     TransactionInfoSection(
-                        amount = "₹%.2f".format(transaction.amount),
-                        date = SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(Date(transaction.dateTimestamp)),
-                        type = transaction.type.name
+                        transaction = transaction
                     )
 
                     Spacer(modifier = Modifier.padding(bottom = 24.dp))

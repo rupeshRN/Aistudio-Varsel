@@ -103,8 +103,47 @@ object CategoryIconCatalog {
         "#757575"  // Grey
     )
 
+    private val categoryMap = java.util.concurrent.ConcurrentHashMap<String, com.varsel.expensetracker.data.local.entity.CategoryEntity>()
+
+    init {
+        // Pre-seed with default categories matching Category Management
+        val defaults = listOf(
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Salary", iconName = "ic_salary", colorHex = "#4CAF50", type = "INCOME"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Investments", iconName = "ic_trending_up", colorHex = "#1565C0", type = "INCOME"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Freelance & Side Hustle", iconName = "ic_work", colorHex = "#00897B", type = "INCOME"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Refunds & Cashback", iconName = "ic_swap", colorHex = "#00BCD4", type = "INCOME"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Rental & Property", iconName = "ic_home", colorHex = "#795548", type = "INCOME"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Gifts & Grants", iconName = "ic_gift", colorHex = "#E91E63", type = "INCOME"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Other Income", iconName = "ic_paid", colorHex = "#8BC34A", type = "INCOME"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Dining & Food", iconName = "ic_restaurant", colorHex = "#FF9800", type = "EXPENSE"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Groceries", iconName = "ic_cart", colorHex = "#4CAF50", type = "EXPENSE"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Fuel & Transport", iconName = "ic_car", colorHex = "#9C27B0", type = "EXPENSE"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Utilities", iconName = "ic_lightning", colorHex = "#2196F3", type = "EXPENSE"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Healthcare", iconName = "ic_hospital", colorHex = "#F44336", type = "EXPENSE"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Shopping", iconName = "ic_bag", colorHex = "#E91E63", type = "EXPENSE"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Entertainment", iconName = "ic_movies", colorHex = "#673AB7", type = "EXPENSE"),
+            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Uncategorized", iconName = "ic_help", colorHex = "#9E9E9E", type = "BOTH")
+        )
+        updateCategories(defaults)
+    }
+
+    fun updateCategories(categories: List<com.varsel.expensetracker.data.local.entity.CategoryEntity>) {
+        categories.forEach { category ->
+            categoryMap[category.name.trim().lowercase()] = category
+        }
+    }
+
+    fun getCategory(name: String): com.varsel.expensetracker.data.local.entity.CategoryEntity? {
+        val trimmed = name.trim().lowercase()
+        return categoryMap[trimmed] ?: categoryMap.entries.firstOrNull { 
+            it.key.contains(trimmed) || trimmed.contains(it.key) 
+        }?.value
+    }
+
     fun iconKeyForCategory(categoryName: String, isIncome: Boolean = false): String {
         val key = categoryName.trim().lowercase()
+        categoryMap[key]?.let { return it.iconName }
+
         return when {
             key.contains("salary") || key.contains("payroll") -> SALARY
             key.contains("invest") || key.contains("stock") || key.contains("dividend") -> INVESTMENT
@@ -112,12 +151,12 @@ object CategoryIconCatalog {
             key.contains("rent") || key.contains("property") -> HOME
             key.contains("gift") || key.contains("reward") || key.contains("bonus") -> GIFT
             key.contains("refund") || key.contains("cashback") || key.contains("transfer") || key.contains("swap") -> TRANSFER
-            key.contains("food") || key.contains("dining") || key.contains("restaurant") || key.contains("eat") -> FOOD
+            key.contains("other income") || key == "income" -> INCOME
+            key.contains("dining") || key.contains("food") || key.contains("restaurant") || key.contains("eat") -> FOOD
             key.contains("fastfood") || key.contains("burger") || key.contains("pizza") -> "ic_fastfood"
             key.contains("cafe") || key.contains("coffee") || key.contains("tea") -> COFFEE
-            key.contains("travel") || key.contains("transit") || key.contains("flight") || key.contains("train") -> TRAVEL
+            key.contains("fuel") || key.contains("transport") || key.contains("travel") || key.contains("transit") || key.contains("flight") || key.contains("train") -> TRAVEL
             key.contains("grocer") || key.contains("cart") || key.contains("supermarket") || key.contains("mart") -> GROCERIES
-            key.contains("fuel") || key.contains("gas") || key.contains("petrol") || key.contains("diesel") -> FUEL
             key.contains("shop") || key.contains("mall") || key.contains("cloth") || key.contains("store") -> SHOPPING
             key.contains("mobile") || key.contains("phone") || key.contains("recharge") -> MOBILE
             key.contains("utility") || key.contains("electric") || key.contains("water") || key.contains("power") -> UTILITIES
@@ -138,75 +177,86 @@ object CategoryIconCatalog {
     ): ImageVector {
         val key = categoryOrIconKey.trim().lowercase()
 
-        // Match by IconOption key first
+        // 1. Check if directly matches an IconOption key (e.g. "ic_car", "ic_lightning", "ic_paid", etc.)
         availableIcons.firstOrNull { it.key.equals(key, ignoreCase = true) }?.let {
             return it.icon
         }
 
-        // Otherwise match by category name keywords
+        // 2. Check dynamic cache synced from Category Management
+        getCategory(categoryOrIconKey)?.let { entity ->
+            val iconEntity = availableIcons.firstOrNull { it.key.equals(entity.iconName, ignoreCase = true) }
+            if (iconEntity != null) return iconEntity.icon
+        }
+
+        // 3. Fallback matching to Category Management default categories
         return when {
-            key.contains("salary") || key.contains("payroll") || key.contains("work") ->
+            key.contains("salary") || key.contains("payroll") ->
                 Icons.Filled.Work
 
             key.contains("invest") || key.contains("dividend") || key.contains("stock") ->
                 Icons.Filled.TrendingUp
 
-            key.contains("freelance") || key.contains("consult") ->
+            key.contains("freelance") || key.contains("side hustle") || key.contains("consult") || key.contains("work") ->
                 Icons.Filled.Work
 
-            key.contains("rent") || key.contains("property") ->
+            key.contains("rent") || key.contains("property") || key.contains("lease") ->
                 Icons.Filled.Home
 
-            key.contains("gift") || key.contains("grant") || key.contains("reward") ->
+            key.contains("gift") || key.contains("grant") || key.contains("reward") || key.contains("bonus") ->
                 Icons.Filled.CardGiftcard
 
-            key.contains("refund") || key.contains("cashback") || key.contains("transfer") || key.contains("swap") ->
+            key.contains("refund") || key.contains("cashback") || key.contains("transfer") || key.contains("swap") || key.contains("reversal") ->
                 Icons.Filled.SwapHoriz
 
-            key.contains("food") || key.contains("dining") || key.contains("restaurant") ->
+            key.contains("other income") || key == "income" || key.contains("cash") ->
+                Icons.Filled.Paid
+
+            key.contains("dining") || key.contains("food") || key.contains("restaurant") ->
                 Icons.Filled.Restaurant
 
-            key.contains("cafe") || key.contains("coffee") ->
+            key.contains("cafe") || key.contains("coffee") || key.contains("tea") ->
                 Icons.Filled.LocalCafe
 
-            key.contains("travel") || key.contains("flight") || key.contains("transit") ->
-                Icons.Filled.FlightTakeoff
-
-            key.contains("shopping") || key.contains("bag") || key.contains("store") ->
-                Icons.Filled.ShoppingBag
+            key.contains("fastfood") || key.contains("burger") || key.contains("pizza") ->
+                Icons.Filled.Fastfood
 
             key.contains("grocer") || key.contains("cart") || key.contains("supermarket") ->
                 Icons.Filled.LocalGroceryStore
 
-            key.contains("fuel") || key.contains("gas") || key.contains("petrol") ->
-                Icons.Filled.LocalGasStation
+            // Fuel & Transport -> FlightTakeoff (matches Category Management ic_car)
+            key.contains("fuel") || key.contains("transport") || key.contains("travel") || key.contains("transit") || key.contains("flight") || key.contains("train") || key.contains("cab") || key.contains("uber") || key.contains("ola") ->
+                Icons.Filled.FlightTakeoff
 
-            key.contains("mobile") || key.contains("phone") ->
-                Icons.Filled.LocalPhone
-
-            key.contains("utility") || key.contains("electric") || key.contains("water") ->
+            // Utilities -> Paid / Dollar (matches Category Management ic_lightning)
+            key.contains("utility") || key.contains("electric") || key.contains("water") || key.contains("power") ->
                 Icons.Filled.Paid
+
+            key.contains("shopping") || key.contains("shop") || key.contains("bag") || key.contains("cloth") || key.contains("mall") || key.contains("store") ->
+                Icons.Filled.ShoppingBag
 
             key.contains("bill") || key.contains("receipt") || key.contains("invoice") ->
                 Icons.Filled.ReceiptLong
 
-            key.contains("health") || key.contains("medic") || key.contains("hospital") ->
+            key.contains("health") || key.contains("medic") || key.contains("hospital") || key.contains("doctor") || key.contains("pharm") ->
                 Icons.Filled.LocalHospital
 
-            key.contains("entertain") || key.contains("movie") || key.contains("cinema") ->
+            key.contains("entertain") || key.contains("movie") || key.contains("cinema") || key.contains("theatre") || key.contains("game") ->
                 Icons.Filled.LocalMovies
 
-            key.contains("educat") || key.contains("school") ->
+            key.contains("educat") || key.contains("school") || key.contains("college") || key.contains("course") ->
                 Icons.Filled.School
 
-            key.contains("subscript") ->
+            key.contains("mobile") || key.contains("phone") || key.contains("recharge") ->
+                Icons.Filled.LocalPhone
+
+            key.contains("subscript") || key.contains("ott") || key.contains("stream") ->
                 Icons.Filled.Subscriptions
 
-            key.contains("fit") || key.contains("gym") ->
+            key.contains("fit") || key.contains("gym") || key.contains("sport") || key.contains("workout") ->
                 Icons.Filled.FitnessCenter
 
-            key.contains("bank") ->
-                Icons.Filled.AccountBalance
+            key.contains("bank") || key.contains("atm") ->
+                Icons.Filled.LocalAtm
 
             else ->
                 Icons.Filled.Label

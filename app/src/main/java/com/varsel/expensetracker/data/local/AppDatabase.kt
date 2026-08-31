@@ -60,7 +60,42 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
 
-    val MIGRATION_3_4 = object : Migration(3, 4) {
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS statement_snapshots (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        openingBalance REAL,
+                        endingBalance REAL,
+                        totalDebits REAL,
+                        totalCredits REAL,
+                        importedAt INTEGER NOT NULL,
+                        statementStartDate INTEGER,
+                        statementEndDate INTEGER
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS custom_rules (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        keyword TEXT NOT NULL,
+                        categoryName TEXT NOT NULL,
+                        matchType TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
 
         override fun migrate(
             database: SupportSQLiteDatabase

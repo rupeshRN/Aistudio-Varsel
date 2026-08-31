@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.abs
@@ -49,14 +50,16 @@ class FinancialEventViewModel @Inject constructor(
         observeJob = viewModelScope.launch {
             combine(
                 transactionRepository.getAllTransactions(),
-                financialEventAllocationRepository.observeAllAllocations()
-            ) { transactions, allocations ->
-                Pair(transactions, allocations)
-            }.collectLatest { (transactions, allocations) ->
+                financialEventAllocationRepository.observeAllAllocations(),
+                categoryDao.getAllCategories()
+            ) { transactions, allocations, dbCategories ->
+                Triple(transactions, allocations, dbCategories)
+            }.collectLatest { (transactions, allocations, dbCategories) ->
                 rebuildState(
                     transactionLinkId = transactionLinkId,
                     transactions = transactions,
-                    allocations = allocations
+                    allocations = allocations,
+                    dbCategories = dbCategories.map { it.name }
                 )
             }
         }
@@ -65,11 +68,12 @@ class FinancialEventViewModel @Inject constructor(
     private suspend fun rebuildState(
         transactionLinkId: String,
         transactions: List<Transaction>,
-        allocations: List<FinancialEventAllocationEntity>
+        allocations: List<FinancialEventAllocationEntity>,
+        dbCategories: List<String> = emptyList()
     ) {
         val group = transactionLinkGroupRepository.getGroup(transactionLinkId)
         if (group == null) {
-            _uiState.value = FinancialEventUiState.Error("Financial event not found.")
+            _uiState.value = FinancialEventUiState.EventDeleted
             return
         }
 
@@ -148,8 +152,11 @@ class FinancialEventViewModel @Inject constructor(
         availableExpenses.sortByDescending { it.transaction.dateTimestamp }
         availableReimbursements.sortByDescending { it.transaction.dateTimestamp }
 
-        val categories = CategoryMetadata.all
+        val staticCategories = CategoryMetadata.all
             .map { it.id }
+            .filter { it.isNotBlank() }
+
+        val categories = (dbCategories + staticCategories)
             .filter { it.isNotBlank() }
             .distinct()
 
@@ -294,6 +301,14 @@ class FinancialEventViewModel @Inject constructor(
             val tx = transactionRepository.getTransactionById(transactionId)
             if (tx?.transactionLinkId == linkId) {
                 transactionRepository.unlinkTransaction(transactionId)
+            }
+
+            // Check if any allocations or linked transactions remain for this event
+            val remainingAllocations = financialEventAllocationRepository.getAllocationsForFinancialEvent(linkId)
+            val remainingLinkedTxs = transactionRepository.getAllTransactions().first().filter { it.transactionLinkId == linkId }
+            if (remainingAllocations.isEmpty() && remainingLinkedTxs.isEmpty()) {
+                transactionLinkGroupRepository.deleteGroup(linkId)
+                _uiState.value = FinancialEventUiState.EventDeleted
             }
         }
     }

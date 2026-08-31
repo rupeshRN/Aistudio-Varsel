@@ -103,6 +103,31 @@ class ImportViewModel @Inject constructor(
             )
 
     // --------------------------------------------------
+    // Import history
+    // --------------------------------------------------
+
+    val importHistory: StateFlow<List<StatementSnapshotEntity>> =
+        statementSnapshotRepository
+            .observeAllSnapshots()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+
+    fun deleteSnapshot(snapshotId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            statementSnapshotRepository.deleteSnapshot(snapshotId)
+        }
+    }
+
+    fun deleteSnapshotWithTransactions(snapshot: StatementSnapshotEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            statementSnapshotRepository.deleteSnapshotWithTransactions(snapshot)
+        }
+    }
+
+    // --------------------------------------------------
     // Process selected statement
     // --------------------------------------------------
 

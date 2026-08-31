@@ -162,24 +162,32 @@ class TransactionViewModel @Inject constructor(
                     .trim()
                     .lowercase()
 
+            val cleanAmountQuery = query.replace("₹", "").replace(",", "").trim()
+            val amountDouble = cleanAmountQuery.toDoubleOrNull()
+
             monthTransactions.filter { transaction ->
+                val amountFormatted = "%.2f".format(transaction.amount)
+                val amountIntStr = transaction.amount.toLong().toString()
+                val amountStr = transaction.amount.toString()
 
                 transaction.description
                     .lowercase()
                     .contains(query)
-
-                        ||
-
-                        transaction.category
-                            .lowercase()
-                            .contains(query)
-
-                        ||
-
-                        (transaction.referenceNumber
-                            ?.lowercase()
-                            ?.contains(query) == true)
-
+                    ||
+                    transaction.category
+                        .lowercase()
+                        .contains(query)
+                    ||
+                    (transaction.referenceNumber
+                        ?.lowercase()
+                        ?.contains(query) == true)
+                    ||
+                    (cleanAmountQuery.isNotEmpty() && (
+                        amountFormatted.contains(cleanAmountQuery) ||
+                        amountIntStr.contains(cleanAmountQuery) ||
+                        amountStr.contains(cleanAmountQuery) ||
+                        (amountDouble != null && kotlin.math.abs(transaction.amount - amountDouble) < 0.01)
+                    ))
             }
 
         }

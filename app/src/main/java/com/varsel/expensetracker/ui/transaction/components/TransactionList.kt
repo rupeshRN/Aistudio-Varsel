@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.dashboard.components.RecentTransactionCard
 import com.varsel.expensetracker.ui.model.TransactionUiModel
 
+import androidx.compose.foundation.lazy.items
+
 fun LazyListScope.transactionList(
     transactions: List<TransactionUiModel>,
     onTransactionClick: (TransactionUiModel) -> Unit = {}
@@ -38,37 +40,26 @@ fun LazyListScope.transactionList(
             TransactionEmptyState()
         }
     } else {
-        item(key = "transactions_container") {
+        items(
+            items = transactions,
+            key = { it.id }
+        ) { item ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
                 border = BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                 )
             ) {
-                Column(
-                    modifier = Modifier.padding(vertical = 6.dp)
-                ) {
-                    transactions.forEachIndexed { index, item ->
-                        RecentTransactionCard(
-                            transaction = item,
-                            onClick = { onTransactionClick(item) }
-                        )
-
-                        if (index < transactions.size - 1) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                                thickness = 1.dp
-                            )
-                        }
-                    }
-                }
+                RecentTransactionCard(
+                    transaction = item,
+                    onClick = { onTransactionClick(item) }
+                )
             }
         }
     }

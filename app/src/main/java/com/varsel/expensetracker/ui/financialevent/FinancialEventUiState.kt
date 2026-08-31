@@ -77,5 +77,7 @@ sealed interface FinancialEventUiState {
         val message: String
 
     ) : FinancialEventUiState
+
+    data object EventDeleted : FinancialEventUiState
 }
 

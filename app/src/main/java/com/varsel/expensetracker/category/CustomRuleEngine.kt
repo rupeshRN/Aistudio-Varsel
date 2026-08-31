@@ -117,7 +117,18 @@ class CustomRuleEngine @Inject constructor(
             cache[lower]?.let { return it }
         }
 
-        // 3. Longest contains match
+        // 3. Word token matching (e.g., matching keywords inside long transaction descriptions)
+        val tokens = lower.split(Regex("[^a-z0-9]+")).filter { it.length >= 2 }
+        for (token in tokens) {
+            cache[token]?.let { return it }
+        }
+
+        val normTokens = normalized.split(Regex("[^a-z0-9]+")).filter { it.length >= 2 }
+        for (token in normTokens) {
+            cache[token]?.let { return it }
+        }
+
+        // 4. Longest contains match
         return cache.entries
             .filter { entry ->
                 val key = entry.key

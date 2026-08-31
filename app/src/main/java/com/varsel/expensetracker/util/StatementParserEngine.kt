@@ -345,7 +345,7 @@ return StatementImportResult(
 
                     description =
 
-                        knowledge.displayDescription,
+                        if (knowledge.displayDescription.isNotBlank()) knowledge.displayDescription else transaction.description,
 
                     category =
 

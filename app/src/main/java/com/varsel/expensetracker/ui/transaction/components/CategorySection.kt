@@ -54,15 +54,17 @@ fun CategorySection(
     var isExpanded by remember { mutableStateOf(true) }
 
     val displayCategories = remember(transactionType, availableCategories, selectedCategory) {
-        val staticCategories = CategoryMetadata.categoriesFor(transactionType)
         val dynamicCategoryUis = availableCategories.map { name ->
-            CategoryUi(id = name, iconKey = name, isIncome = isIncome)
+            CategoryUi(id = name, isIncome = isIncome)
+        }
+        val staticCategories = CategoryMetadata.categoriesFor(transactionType).map {
+            CategoryUi(id = it.id, isIncome = isIncome)
         }
 
-        val combined = (staticCategories + dynamicCategoryUis).distinctBy { it.id.lowercase() }.toMutableList()
+        val combined = (dynamicCategoryUis + staticCategories).distinctBy { it.id.lowercase() }.toMutableList()
 
         if (selectedCategory.isNotBlank() && combined.none { it.id.equals(selectedCategory, ignoreCase = true) }) {
-            combined.add(CategoryUi(selectedCategory, selectedCategory, isIncome = isIncome))
+            combined.add(CategoryUi(selectedCategory, isIncome = isIncome))
         }
         combined
     }
@@ -75,9 +77,7 @@ fun CategorySection(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Collapsible Header - Standardized title without extraneous leading icon

@@ -17,14 +17,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.varsel.expensetracker.domain.model.Transaction
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun TransactionInfoSection(
-    amount: String,
-    date: String,
-    type: String,
+    transaction: Transaction,
     modifier: Modifier = Modifier
 ) {
+    val dateFormat = SimpleDateFormat("dd MMMM yyyy, hh:mm a", Locale.ENGLISH)
+    val formattedDate = dateFormat.format(Date(transaction.dateTimestamp))
+
+    val reference = transaction.referenceNumber?.takeIf { it.isNotBlank() } ?: "Not available"
+    val source = if (transaction.referenceNumber.isNullOrBlank()) "Manual Entry" else "Bank Statement Import"
+
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -56,19 +64,28 @@ fun TransactionInfoSection(
             )
 
             InfoRow(
-                title = "Amount",
-                value = amount,
-                isEmphasized = true
+                title = "Date & Time",
+                value = formattedDate
             )
 
             InfoRow(
-                title = "Date",
-                value = date
+                title = "Source",
+                value = source
             )
 
             InfoRow(
-                title = "Type",
-                value = type
+                title = "Reference / UTR",
+                value = reference
+            )
+
+            InfoRow(
+                title = "Transaction ID",
+                value = "#TX-${transaction.id}"
+            )
+
+            InfoRow(
+                title = "Ledger Status",
+                value = "Settled & Verified"
             )
         }
     }
@@ -99,4 +116,5 @@ private fun InfoRow(
         )
     }
 }
+
 

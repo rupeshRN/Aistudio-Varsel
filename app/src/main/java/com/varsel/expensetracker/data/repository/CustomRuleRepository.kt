@@ -12,6 +12,7 @@ import javax.inject.Singleton
 @Singleton
 class CustomRuleRepository @Inject constructor(
     private val customRuleDao: CustomRuleDao,
+    private val categoryDao: com.varsel.expensetracker.data.local.dao.CategoryDao,
     private val descriptionNormalizer: DescriptionNormalizer
 ) {
 
@@ -20,26 +21,57 @@ class CustomRuleRepository @Inject constructor(
     //--------------------------------------------------
 
     suspend fun loadRuleCache(): Map<String, KnowledgeRecord> {
-        val rules = getAllRules().first()
         val cache = mutableMapOf<String, KnowledgeRecord>()
 
-        rules.forEach { rule ->
-            val record = KnowledgeRecord(
-                displayDescription = rule.displayDescription,
-                categoryName = rule.categoryName
-            )
+        // 1. Load Auto-match keywords from Category database
+        try {
+            val categories = categoryDao.getAllCategoriesSnapshot()
+            categories.forEach { category ->
+                if (category.keywords.isNotBlank()) {
+                    val keywordsList = category.keywords.split(",", ";", "\n", " ")
+                        .map { it.trim().lowercase() }
+                        .filter { it.isNotBlank() }
 
-            // Cache with canonical normalized pattern for resilient matching
-            val normalized = descriptionNormalizer.normalize(rule.pattern)
-            if (normalized.isNotBlank()) {
-                cache[normalized] = record
+                    for (kw in keywordsList) {
+                        val record = KnowledgeRecord(
+                            displayDescription = "",
+                            categoryName = category.name
+                        )
+                        cache[kw] = record
+                        val normalizedKw = descriptionNormalizer.normalize(kw)
+                        if (normalizedKw.isNotBlank()) {
+                            cache[normalizedKw] = record
+                        }
+                    }
+                }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-            // Also cache exact trimmed lowercase pattern
-            val lower = rule.pattern.trim().lowercase()
-            if (lower.isNotBlank()) {
-                cache[lower] = record
+        // 2. Load explicit custom merchant rename/reclassification rules (takes priority)
+        try {
+            val rules = getAllRules().first()
+            rules.forEach { rule ->
+                val record = KnowledgeRecord(
+                    displayDescription = rule.displayDescription,
+                    categoryName = rule.categoryName
+                )
+
+                // Cache with canonical normalized pattern for resilient matching
+                val normalized = descriptionNormalizer.normalize(rule.pattern)
+                if (normalized.isNotBlank()) {
+                    cache[normalized] = record
+                }
+
+                // Also cache exact trimmed lowercase pattern
+                val lower = rule.pattern.trim().lowercase()
+                if (lower.isNotBlank()) {
+                    cache[lower] = record
+                }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         return cache

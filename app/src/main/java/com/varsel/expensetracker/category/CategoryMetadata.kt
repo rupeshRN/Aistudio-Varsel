@@ -11,7 +11,13 @@ data class CategoryUi(
     val isIncome: Boolean = false
 ) {
     val icon: ImageVector
-        get() = CategoryIconCatalog.iconFor(iconKey.ifBlank { id })
+        get() {
+            CategoryIconCatalog.getCategory(id)?.let { entity ->
+                val matchingIcon = CategoryIconCatalog.availableIcons.firstOrNull { it.key.equals(entity.iconName, ignoreCase = true) }
+                if (matchingIcon != null) return matchingIcon.icon
+            }
+            return CategoryIconCatalog.iconFor(id.ifBlank { iconKey })
+        }
 
     val color: Color
         get() = CategoryPalette.colorFor(id)

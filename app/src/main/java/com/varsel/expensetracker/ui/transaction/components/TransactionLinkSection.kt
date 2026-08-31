@@ -1,29 +1,47 @@
 package com.varsel.expensetracker.ui.transaction.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,12 +51,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.varsel.expensetracker.category.CategoryIconCatalog
 import com.varsel.expensetracker.category.CategoryMetadata
-import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
+import com.varsel.expensetracker.ui.design.CategoryPalette
 import com.varsel.expensetracker.ui.transaction.TransactionEventAllocationUiModel
 
 @Composable
@@ -76,35 +99,58 @@ fun TransactionLinkSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Financial Event Allocations",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
-            if (allocations.isNotEmpty()) {
-                Text(
-                    text = "${allocations.size} linked",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Event,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
+                Text(
+                    text = "Financial Event Allocations",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            if (allocations.isNotEmpty()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    shape = CircleShape
+                ) {
+                    Text(
+                        text = "${allocations.size} linked",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
             }
         }
 
         // Summary Card
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            )
         ) {
             Column(
                 modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Total Transaction:",
-                        style = MaterialTheme.typography.bodyMedium
+                        text = "Total Transaction Amount:",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "₹%,.2f".format(totalTransactionAmount),
@@ -120,12 +166,13 @@ fun TransactionLinkSection(
                     Text(
                         text = "Allocated to Events:",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = "₹%,.2f".format(totalAllocatedAmount),
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
@@ -135,7 +182,7 @@ fun TransactionLinkSection(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Remaining Balance:",
+                        text = "Remaining Unallocated:",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (remainingUnallocatedAmount > 0.01) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline
                     )
@@ -154,7 +201,10 @@ fun TransactionLinkSection(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
-                            .padding(top = 4.dp)
+                            .clip(CircleShape)
+                            .padding(top = 2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
             }
@@ -191,8 +241,15 @@ fun TransactionLinkSection(
                 OutlinedButton(
                     onClick = onShowAllocateExisting,
                     enabled = !isSavingGroup && remainingUnallocatedAmount > 0.009,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f)
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Link,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text("Link Existing")
                 }
             }
@@ -200,8 +257,15 @@ fun TransactionLinkSection(
             Button(
                 onClick = onShowCreateFinancialEvent,
                 enabled = !isSavingGroup && remainingUnallocatedAmount > 0.009,
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text("New Event")
             }
         }
@@ -249,29 +313,59 @@ private fun AllocationItemCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val categoryColor = CategoryPalette.colorFor(allocation.category)
+    val categoryIcon = CategoryIconCatalog.iconFor(allocation.category)
+
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        )
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = allocation.groupName,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = allocation.category,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(categoryColor.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = categoryIcon,
+                            contentDescription = allocation.category,
+                            tint = categoryColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = allocation.groupName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = allocation.category,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
@@ -289,38 +383,57 @@ private fun AllocationItemCard(
                 }
             }
 
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedButton(
                     onClick = onManage,
-                    modifier = Modifier.padding(end = 4.dp)
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.height(34.dp)
                 ) {
-                    Text("View Event")
+                    Text("View Event", fontSize = 12.sp)
                 }
 
-                IconButton(onClick = onEdit) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Amount",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilledTonalButton(
+                        onClick = onEdit,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Edit", fontSize = 12.sp)
+                    }
 
-                IconButton(onClick = onDelete) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Remove Allocation",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove Allocation",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CreateReportGroupDialog(
     categories: List<String>,
@@ -331,11 +444,11 @@ private fun CreateReportGroupDialog(
     onCreate: (groupName: String, category: String, amount: Double) -> Unit
 ) {
     var groupName by remember { mutableStateOf("") }
-    val availableCategories = remember {
-        CategoryMetadata.all
+    val availableCategories = remember(categories) {
+        val staticCategories = CategoryMetadata.all
             .map { it.id }
             .filter { it.isNotBlank() }
-            .distinct()
+        (categories + staticCategories).filter { it.isNotBlank() }.distinct()
     }
     var category by remember(availableCategories) {
         mutableStateOf(availableCategories.firstOrNull() ?: "")
@@ -353,55 +466,139 @@ private fun CreateReportGroupDialog(
             if (!isSaving) onDismiss()
         },
         title = {
-            Text("Create Event & Allocate")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text("Create Event & Allocate", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
                     value = groupName,
                     onValueChange = { groupName = it },
                     label = { Text("Event Name") },
+                    leadingIcon = {
+                        Icon(imageVector = Icons.Default.Event, contentDescription = null)
+                    },
                     singleLine = true,
                     enabled = !isSaving,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Category dropdown
-                Box(modifier = Modifier.fillMaxWidth()) {
+                // Category dropdown with ExposedDropdownMenuBox
+                ExposedDropdownMenuBox(
+                    expanded = categoryExpanded,
+                    onExpandedChange = { if (!isSaving) categoryExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val currentCategoryColor = CategoryPalette.colorFor(category)
+                    val currentCategoryIcon = CategoryIconCatalog.iconFor(category)
+
                     OutlinedTextField(
                         value = category,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Category") },
-                        trailingIcon = {
-                            Text(if (categoryExpanded) "▲" else "▼")
-                        },
-                        enabled = !isSaving,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(enabled = !isSaving) {
-                                categoryExpanded = !categoryExpanded
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(currentCategoryColor.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = currentCategoryIcon,
+                                    contentDescription = null,
+                                    tint = currentCategoryColor,
+                                    modifier = Modifier.size(14.dp)
+                                )
                             }
+                        },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
+                        enabled = !isSaving,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
                     )
+
+                    ExposedDropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        availableCategories.forEach { cat ->
+                            val catColor = CategoryPalette.colorFor(cat)
+                            val catIcon = CategoryIconCatalog.iconFor(cat)
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(24.dp)
+                                                .clip(CircleShape)
+                                                .background(catColor.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = catIcon,
+                                                contentDescription = null,
+                                                tint = catColor,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                        Text(cat, fontWeight = if (cat == category) FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                },
+                                onClick = {
+                                    category = cat
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
 
-                DropdownMenu(
-                    expanded = categoryExpanded,
-                    onDismissRequest = { categoryExpanded = false }
+                // Quick percentage helper chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    availableCategories.forEach { cat ->
-                        DropdownMenuItem(
-                            text = { Text(cat) },
-                            onClick = {
-                                category = cat
-                                categoryExpanded = false
-                            }
-                        )
+                    listOf(0.25 to "25%", 0.50 to "50%", 0.75 to "75%", 1.0 to "Max").forEach { (ratio, label) ->
+                        val target = maxAmount * ratio
+                        OutlinedButton(
+                            onClick = { amountText = "%.2f".format(target) },
+                            enabled = !isSaving,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f).height(32.dp)
+                        ) {
+                            Text(label, fontSize = 11.sp, maxLines = 1, softWrap = false)
+                        }
                     }
                 }
 
@@ -410,12 +607,13 @@ private fun CreateReportGroupDialog(
                     onValueChange = { amountText = it },
                     label = { Text("Allocated Amount (₹)") },
                     supportingText = {
-                        Text("Max available: ₹%.2f".format(maxAmount))
+                        Text("Max available: ₹%,.2f".format(maxAmount))
                     },
                     isError = amountText.isNotBlank() && !isValidAmount,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     enabled = !isSaving,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -427,9 +625,18 @@ private fun CreateReportGroupDialog(
                         onCreate(groupName, category, amountValue)
                     }
                 },
-                enabled = !isSaving && groupName.isNotBlank() && category.isNotBlank() && isValidAmount
+                enabled = !isSaving && groupName.isNotBlank() && category.isNotBlank() && isValidAmount,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(if (isSaving) "Saving..." else "Create & Allocate")
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Create & Allocate")
+                }
             }
         },
         dismissButton = {
@@ -443,6 +650,7 @@ private fun CreateReportGroupDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AllocateExistingGroupDialog(
     availableGroups: List<TransactionLinkGroup>,
@@ -468,51 +676,130 @@ private fun AllocateExistingGroupDialog(
             if (!isSaving) onDismiss()
         },
         title = {
-            Text("Allocate to Financial Event")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Link,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Text("Allocate to Financial Event", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Event selector
-                Box(modifier = Modifier.fillMaxWidth()) {
+                // Event selector with ExposedDropdownMenuBox
+                ExposedDropdownMenuBox(
+                    expanded = groupDropdownExpanded,
+                    onExpandedChange = { if (!isSaving) groupDropdownExpanded = it },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val group = selectedGroup
+                    val catColor = group?.let { CategoryPalette.colorFor(it.category) } ?: MaterialTheme.colorScheme.primary
+                    val catIcon = group?.let { CategoryIconCatalog.iconFor(it.category) } ?: Icons.Default.Event
+
                     OutlinedTextField(
                         value = selectedGroup?.groupName ?: "Select an Event",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Select Financial Event") },
-                        trailingIcon = {
-                            Text(if (groupDropdownExpanded) "▲" else "▼")
-                        },
-                        enabled = !isSaving,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable(enabled = !isSaving) {
-                                groupDropdownExpanded = !groupDropdownExpanded
+                        label = { Text("Financial Event") },
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(catColor.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = catIcon,
+                                    contentDescription = null,
+                                    tint = catColor,
+                                    modifier = Modifier.size(14.dp)
+                                )
                             }
+                        },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupDropdownExpanded) },
+                        enabled = !isSaving,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
                     )
+
+                    ExposedDropdownMenu(
+                        expanded = groupDropdownExpanded,
+                        onDismissRequest = { groupDropdownExpanded = false }
+                    ) {
+                        availableGroups.forEach { grp ->
+                            val itemColor = CategoryPalette.colorFor(grp.category)
+                            val itemIcon = CategoryIconCatalog.iconFor(grp.category)
+
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(26.dp)
+                                                .clip(CircleShape)
+                                                .background(itemColor.copy(alpha = 0.15f)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = itemIcon,
+                                                contentDescription = null,
+                                                tint = itemColor,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                        Column {
+                                            Text(grp.groupName, fontWeight = if (grp == selectedGroup) FontWeight.Bold else FontWeight.Normal)
+                                            Text(grp.category, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    }
+                                },
+                                onClick = {
+                                    selectedGroup = grp
+                                    groupDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
                 }
 
-                DropdownMenu(
-                    expanded = groupDropdownExpanded,
-                    onDismissRequest = { groupDropdownExpanded = false }
+                // Quick percentage shortcuts
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    availableGroups.forEach { group ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(group.groupName, fontWeight = FontWeight.SemiBold)
-                                    Text(group.category, style = MaterialTheme.typography.bodySmall)
-                                }
-                            },
-                            onClick = {
-                                selectedGroup = group
-                                groupDropdownExpanded = false
-                            }
-                        )
+                    listOf(0.25 to "25%", 0.50 to "50%", 0.75 to "75%", 1.0 to "Max").forEach { (ratio, label) ->
+                        val target = maxAmount * ratio
+                        OutlinedButton(
+                            onClick = { amountText = "%.2f".format(target) },
+                            enabled = !isSaving,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f).height(32.dp)
+                        ) {
+                            Text(label, fontSize = 11.sp, maxLines = 1, softWrap = false)
+                        }
                     }
                 }
 
@@ -521,12 +808,13 @@ private fun AllocateExistingGroupDialog(
                     onValueChange = { amountText = it },
                     label = { Text("Allocated Amount (₹)") },
                     supportingText = {
-                        Text("Max available: ₹%.2f".format(maxAmount))
+                        Text("Max available: ₹%,.2f".format(maxAmount))
                     },
                     isError = amountText.isNotBlank() && !isValidAmount,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     enabled = !isSaving,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -539,9 +827,18 @@ private fun AllocateExistingGroupDialog(
                         onAllocate(group.transactionLinkId, amountValue)
                     }
                 },
-                enabled = !isSaving && selectedGroup != null && isValidAmount
+                enabled = !isSaving && selectedGroup != null && isValidAmount,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(if (isSaving) "Allocating..." else "Allocate")
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text("Allocate")
+                }
             }
         },
         dismissButton = {
@@ -569,31 +866,107 @@ private fun EditAllocationAmountDialog(
     val amountValue = amountText.toDoubleOrNull() ?: 0.0
     val isValidAmount = amountValue > 0.0 && amountValue <= (maxAmount + 0.01)
 
+    val categoryColor = CategoryPalette.colorFor(allocation.category)
+    val categoryIcon = CategoryIconCatalog.iconFor(allocation.category)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Edit Allocated Amount")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Text("Edit Allocated Amount", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = "Event: ${allocation.groupName}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(categoryColor.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = categoryIcon,
+                                contentDescription = null,
+                                tint = categoryColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        Column {
+                            Text(
+                                text = allocation.groupName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = allocation.category,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Quick percentage shortcuts
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(0.25 to "25%", 0.50 to "50%", 0.75 to "75%", 1.0 to "Max").forEach { (ratio, label) ->
+                        val target = maxAmount * ratio
+                        OutlinedButton(
+                            onClick = { amountText = "%.2f".format(target) },
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp),
+                            modifier = Modifier.weight(1f).height(32.dp)
+                        ) {
+                            Text(label, fontSize = 11.sp, maxLines = 1, softWrap = false)
+                        }
+                    }
+                }
 
                 OutlinedTextField(
                     value = amountText,
                     onValueChange = { amountText = it },
                     label = { Text("Amount (₹)") },
                     supportingText = {
-                        Text("Maximum allowed: ₹%.2f".format(maxAmount))
+                        Text("Maximum allowed: ₹%,.2f".format(maxAmount))
                     },
                     isError = amountText.isNotBlank() && !isValidAmount,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -605,9 +978,10 @@ private fun EditAllocationAmountDialog(
                         onSave(amountValue)
                     }
                 },
-                enabled = isValidAmount
+                enabled = isValidAmount,
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Save")
+                Text("Save Changes")
             }
         },
         dismissButton = {

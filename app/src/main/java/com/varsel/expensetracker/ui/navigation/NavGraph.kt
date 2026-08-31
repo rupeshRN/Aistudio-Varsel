@@ -15,6 +15,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
+import com.varsel.expensetracker.ui.about.AboutScreen
+import com.varsel.expensetracker.ui.appearance.AppearanceScreen
 import com.varsel.expensetracker.ui.category.CategoryScreen
 import com.varsel.expensetracker.ui.dashboard.DashboardScreen
 import com.varsel.expensetracker.ui.developer.DeveloperSettingsScreen
@@ -168,9 +170,6 @@ composable(AppDestination.Reports.route) {
                 },
                 onImportClick = {
                     navController.navigate("import_statement")
-                },
-                onSettingsClick = {
-                    navController.navigate("settings")
                 }
             )
         }
@@ -273,56 +272,51 @@ composable(AppDestination.Reports.route) {
             ImportScreen(
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onNavigateToTransactions = {
+                    navController.navigate(AppDestination.Transactions.route) {
+                        popUpTo(AppDestination.Home.route)
+                        launchSingleTop = true
+                    }
                 }
             )
         }
 
         composable("learning_rules") {
 
-    SettingsDetailScreen(
-
-        title = "Learning Rules",
-
-        description = "View and manage the rules that help Varsel automatically categorize your transactions.",
-
-        icon = Icons.Outlined.AutoAwesome
-    )
-}
-
-composable("appearance") {
-
-    SettingsDetailScreen(
-
-        title = "Appearance",
-
-        description = "Customize themes, colors and other display preferences.",
-
-        icon = Icons.Outlined.Palette
-    )
-}
-
-composable("developer") {
-
-    DeveloperSettingsScreen(
-
-        onBackClick = {
-            navController.popBackStack()
+            SettingsDetailScreen(
+                title = "Learning Rules",
+                description = "View and manage the rules that help Varsel automatically categorize your transactions.",
+                icon = Icons.Outlined.AutoAwesome
+            )
         }
 
-    )
-}
+        composable("appearance") {
 
-composable("about") {
+            AppearanceScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
 
-    SettingsDetailScreen(
+        composable("developer") {
 
-        title = "About Varsel",
+            DeveloperSettingsScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
 
-        description = "Varsel is a smart personal finance application designed to automatically import, understand and organize your financial statements.",
+        composable("about") {
 
-        icon = Icons.Outlined.Info
-    )
-}
+            AboutScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                }
+            )
+        }
         
     }
 }

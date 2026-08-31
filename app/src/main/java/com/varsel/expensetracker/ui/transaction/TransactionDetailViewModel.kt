@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
@@ -439,6 +440,12 @@ class TransactionDetailViewModel @Inject constructor(
             if (current.transaction.transactionLinkId == transactionLinkId) {
                 transactionRepository.unlinkTransaction(current.transaction.id)
             }
+
+            val remainingAllocations = financialEventAllocationRepository.getAllocationsForFinancialEvent(transactionLinkId)
+            val remainingLinkedTxs = transactionRepository.getAllTransactions().first().filter { it.transactionLinkId == transactionLinkId }
+            if (remainingAllocations.isEmpty() && remainingLinkedTxs.isEmpty()) {
+                transactionLinkGroupRepository.deleteGroup(transactionLinkId)
+            }
         }
     }
 
@@ -447,6 +454,9 @@ class TransactionDetailViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value = current.copy(isLinking = true)
+
+            val eventIdsToCheck = current.allocations.map { it.transactionLinkId }.toSet() +
+                listOfNotNull(current.transaction.transactionLinkId)
 
             for (alloc in current.allocations) {
                 financialEventAllocationRepository.deleteAllocationForTransactionAndEvent(
@@ -457,6 +467,14 @@ class TransactionDetailViewModel @Inject constructor(
 
             if (current.transaction.transactionLinkId != null) {
                 transactionRepository.unlinkTransaction(current.transaction.id)
+            }
+
+            for (linkId in eventIdsToCheck) {
+                val remainingAllocations = financialEventAllocationRepository.getAllocationsForFinancialEvent(linkId)
+                val remainingLinkedTxs = transactionRepository.getAllTransactions().first().filter { it.transactionLinkId == linkId }
+                if (remainingAllocations.isEmpty() && remainingLinkedTxs.isEmpty()) {
+                    transactionLinkGroupRepository.deleteGroup(linkId)
+                }
             }
         }
     }
