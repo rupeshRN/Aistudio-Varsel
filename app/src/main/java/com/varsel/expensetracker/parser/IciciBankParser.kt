@@ -323,7 +323,8 @@ class IciciBankParser @Inject constructor(
             description = remarksInfo.displayDescription,
             category = finalCategory,
             dateTimestamp = dateTimestamp,
-            referenceNumber = remarksInfo.referenceNumber
+            referenceNumber = remarksInfo.referenceNumber,
+            bankName = "ICICI Bank"
         )
 
         return ParsedBlockResult(transaction, runningBalance)

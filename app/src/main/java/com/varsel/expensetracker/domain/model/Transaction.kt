@@ -65,9 +65,14 @@ data class Transaction(
      */
     val role:
         TransactionRole =
-            TransactionRole.NORMAL
+            TransactionRole.NORMAL,
+
+    /**
+     * Name of the issuing bank (e.g. "Indian Bank", "ICICI Bank").
+     */
+    val bankName: String? = null
 ) {
     val isImported: Boolean
-        get() = !transactionFingerprint.isNullOrBlank() || !referenceNumber.isNullOrBlank()
+        get() = !transactionFingerprint.isNullOrBlank() || !referenceNumber.isNullOrBlank() || !bankName.isNullOrBlank()
 }
 

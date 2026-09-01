@@ -36,7 +36,7 @@ import javax.inject.Provider
         LoanAccountEntity::class,
         LoanPaymentEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -441,6 +441,17 @@ val MIGRATION_8_9 =
                         ON loan_payments(linkedTransactionId)
                         """.trimIndent()
                     )
+                }
+            }
+
+        val MIGRATION_12_13 =
+            object : Migration(12, 13) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE transactions ADD COLUMN bankName TEXT")
+                    database.execSQL("ALTER TABLE statement_snapshots ADD COLUMN bankName TEXT")
                 }
             }
     }

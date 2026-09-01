@@ -75,6 +75,51 @@ object BankInfoHelper {
     }
 
     /**
+     * Resolves the display bank name for a transaction.
+     */
+    fun resolveBankName(transaction: Transaction): String {
+        val explicitBank = transaction.bankName?.trim().orEmpty()
+        if (explicitBank.isNotBlank() && explicitBank != "Bank Account" && explicitBank != "Bank Statement") {
+            return getBankFullName(explicitBank)
+        }
+
+        val detected = detectBankForTransaction(transaction)
+        if (detected.isNotBlank()) {
+            return getBankFullName(detected)
+        }
+
+        return "Not specified"
+    }
+
+    /**
+     * Returns full official bank name.
+     */
+    fun getBankFullName(bankNameOrShort: String): String {
+        val upper = bankNameOrShort.trim().uppercase()
+        return when {
+            upper == "IB" || upper.contains("INDIAN BANK") || upper.contains("INDIANBANK") -> "Indian Bank"
+            upper == "ICICI" || upper.contains("ICICI BANK") -> "ICICI Bank"
+            upper == "HDFC" || upper.contains("HDFC BANK") -> "HDFC Bank"
+            upper == "SBI" || upper.contains("STATE BANK") -> "State Bank of India (SBI)"
+            upper == "AXIS" || upper.contains("AXIS BANK") -> "Axis Bank"
+            upper == "SC" || upper.contains("STANDARD CHARTERED") -> "Standard Chartered"
+            upper == "KOTAK" || upper.contains("KOTAK") -> "Kotak Mahindra Bank"
+            upper == "PNB" || upper.contains("PUNJAB NATIONAL") -> "Punjab National Bank"
+            upper == "BOB" || upper.contains("BARODA") -> "Bank of Baroda"
+            upper == "CANARA" || upper.contains("CANARA BANK") -> "Canara Bank"
+            upper == "UNION BANK" || upper == "UBI" -> "Union Bank of India"
+            upper == "IDFC" || upper.contains("IDFC FIRST") -> "IDFC FIRST Bank"
+            upper == "BOI" || upper.contains("BANK OF INDIA") -> "Bank of India"
+            upper == "CBI" || upper.contains("CENTRAL BANK") -> "Central Bank of India"
+            upper == "YES BANK" -> "Yes Bank"
+            upper == "FEDERAL" || upper.contains("FEDERAL BANK") -> "Federal Bank"
+            upper == "INDUSIND" -> "IndusInd Bank"
+            upper.isNotBlank() -> bankNameOrShort
+            else -> "Bank Account"
+        }
+    }
+
+    /**
      * Formats account number into "BankShortName •••• 1234"
      */
     fun formatAccountBadge(bankName: String, accountNumber: String?): String {

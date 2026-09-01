@@ -65,5 +65,10 @@ data class TransactionEntity(
      */
     val role:
         String =
-            TransactionRole.NORMAL.name
+            TransactionRole.NORMAL.name,
+
+    /**
+     * Name of the issuing bank.
+     */
+    val bankName: String? = null
 )

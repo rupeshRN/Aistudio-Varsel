@@ -139,7 +139,8 @@ val category =
                     description = description,
                     category = category.category,
                     dateTimestamp = date.time,
-                    referenceNumber = fields.reference
+                    referenceNumber = fields.reference,
+                    bankName = "Indian Bank"
                 )
             )
         }

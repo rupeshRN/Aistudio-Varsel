@@ -602,7 +602,9 @@ fun TransactionEntity.toDomain():
             ) {
 
                 TransactionRole.NORMAL
-            }
+            },
+
+        bankName = bankName
     )
 }
 
@@ -662,6 +664,9 @@ fun Transaction.toEntity():
             transferLinkId,
 
         role =
-            role.name
+            role.name,
+
+        bankName =
+            bankName
     )
 }

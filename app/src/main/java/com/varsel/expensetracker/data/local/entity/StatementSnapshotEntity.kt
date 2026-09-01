@@ -35,5 +35,10 @@ data class StatementSnapshotEntity(
      * Time when Varsel successfully processed
      * this statement.
      */
-    val importedAt: Long
+    val importedAt: Long,
+
+    /**
+     * Name of the bank associated with this statement (e.g. "Indian Bank").
+     */
+    val bankName: String? = null
 )

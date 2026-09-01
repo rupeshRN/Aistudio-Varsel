@@ -63,6 +63,19 @@ fun TransactionInfoSection(
                 thickness = 1.dp
             )
 
+            val bankNameDisplay = com.varsel.expensetracker.util.BankInfoHelper.resolveBankName(transaction)
+            val bankValue = if (!transaction.accountLast4.isNullOrBlank()) {
+                "$bankNameDisplay (•••• ${transaction.accountLast4})"
+            } else {
+                bankNameDisplay
+            }
+
+            InfoRow(
+                title = "Bank Name",
+                value = bankValue,
+                isEmphasized = true
+            )
+
             InfoRow(
                 title = "Date & Time",
                 value = formattedDate

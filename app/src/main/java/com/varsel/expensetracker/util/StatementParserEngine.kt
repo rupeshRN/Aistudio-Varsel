@@ -318,6 +318,10 @@ class StatementParserEngine @Inject constructor(
             else -> "Bank Statement"
         }
 
+        val taggedTransactions = transactions.map { tx ->
+            if (tx.bankName.isNullOrBlank()) tx.copy(bankName = bankName) else tx
+        }
+
         //--------------------------------------------------
         // Final result returned to ImportViewModel.
         //--------------------------------------------------
@@ -325,7 +329,7 @@ class StatementParserEngine @Inject constructor(
         return StatementImportResult(
             summary = resolvedSummary,
             reconciliation = reconciliation,
-            transactions = transactions,
+            transactions = taggedTransactions,
             bankName = bankName,
             accountId = accountIdentity?.accountId,
             accountLast4 = accountIdentity?.accountLast4

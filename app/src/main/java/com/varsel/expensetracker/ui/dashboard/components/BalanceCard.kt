@@ -192,8 +192,29 @@ fun BalanceCard(
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
+                        val sectionTitle = if (summary.accounts.size == 1) {
+                            val acc = summary.accounts.first()
+                            val bankShort = if (acc.bankShortName.isNotBlank() && acc.bankShortName != "Bank") {
+                                acc.bankShortName
+                            } else if (acc.bankName.isNotBlank() && acc.bankName != "Bank Account") {
+                                com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(acc.bankName)
+                            } else {
+                                "Bank"
+                            }
+                            if (bankShort != "Bank" && bankShort != "Bank Account") {
+                                if (bankShort.contains("Bank", ignoreCase = true) || bankShort.contains("Account", ignoreCase = true)) {
+                                    bankShort
+                                } else {
+                                    "$bankShort Account"
+                                }
+                            } else {
+                                "Bank Account"
+                            }
+                        } else {
+                            "Linked Accounts (${summary.accounts.size})"
+                        }
                         Text(
-                            text = if (summary.accounts.size == 1) "Bank Account" else "Linked Accounts (${summary.accounts.size})",
+                            text = sectionTitle,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -381,7 +402,13 @@ private fun BankAccountCard(
                 )
 
                 Column(modifier = Modifier.weight(1f)) {
-                    val displayName = if (account.bankShortName.isNotBlank()) account.bankShortName else account.bankName
+                    val displayName = if (account.bankShortName.isNotBlank() && account.bankShortName != "Bank") {
+                        account.bankShortName
+                    } else if (account.bankName.isNotBlank() && account.bankName != "Bank Account") {
+                        com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(account.bankName)
+                    } else {
+                        "Bank Account"
+                    }
                     Text(
                         text = displayName,
                         style = MaterialTheme.typography.labelLarge,
