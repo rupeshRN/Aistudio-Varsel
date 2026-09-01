@@ -488,13 +488,6 @@ class IciciBankParser @Inject constructor(
     }
 
     private fun parseDate(dateStr: String): Long? {
-        val clean = dateStr.trim()
-        for (format in supportedDateFormats) {
-            try {
-                val date = format.parse(clean)
-                if (date != null) return date.time
-            } catch (_: Exception) {}
-        }
-        return null
+        return DateParserUtils.parseDate(dateStr)
     }
 }
