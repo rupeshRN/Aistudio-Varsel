@@ -11,10 +11,19 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
+
+sealed class PdfExtractionResult {
+    data class Success(val text: String) : PdfExtractionResult()
+    object PasswordRequired : PdfExtractionResult()
+    object InvalidPassword : PdfExtractionResult()
+    data class Error(val message: String? = null) : PdfExtractionResult()
+}
 
 class PdfTextExtractor @Inject constructor() {
 
@@ -23,8 +32,9 @@ class PdfTextExtractor @Inject constructor() {
 
     suspend fun extractTextFromPdf(
         context: Context,
-        uri: Uri
-    ): String? {
+        uri: Uri,
+        password: String? = null
+    ): PdfExtractionResult {
 
         return withContext(Dispatchers.IO) {
 
@@ -38,25 +48,68 @@ class PdfTextExtractor @Inject constructor() {
 
                 context.contentResolver.openInputStream(uri)?.use { input ->
 
-                    PDDocument.load(input).use { document ->
+                    val document = try {
+                        if (!password.isNullOrEmpty()) {
+                            PDDocument.load(input, password)
+                        } else {
+                            PDDocument.load(input)
+                        }
+                    } catch (e: InvalidPasswordException) {
+                        return@withContext if (password.isNullOrEmpty()) {
+                            PdfExtractionResult.PasswordRequired
+                        } else {
+                            PdfExtractionResult.InvalidPassword
+                        }
+                    } catch (e: IOException) {
+                        val msg = e.message?.lowercase().orEmpty()
+                        if (msg.contains("password") || msg.contains("encrypted") || msg.contains("protection")) {
+                            return@withContext if (password.isNullOrEmpty()) {
+                                PdfExtractionResult.PasswordRequired
+                            } else {
+                                PdfExtractionResult.InvalidPassword
+                            }
+                        } else {
+                            throw e
+                        }
+                    } catch (e: Exception) {
+                        val msg = e.message?.lowercase().orEmpty()
+                        if (msg.contains("password") || msg.contains("encrypted") || msg.contains("protection")) {
+                            return@withContext if (password.isNullOrEmpty()) {
+                                PdfExtractionResult.PasswordRequired
+                            } else {
+                                PdfExtractionResult.InvalidPassword
+                            }
+                        } else {
+                            throw e
+                        }
+                    }
 
-                        val stripper = PDFTextStripper()
-
-                        stripper.sortByPosition = true
-
-                        val pdfText = stripper.getText(document)
-
-                        if (pdfText.isNotBlank()) {
-
-                            return@withContext pdfText.trim()
-
+                    document.use { doc ->
+                        if (doc.isEncrypted && password.isNullOrEmpty()) {
+                            return@withContext PdfExtractionResult.PasswordRequired
                         }
 
+                        val stripper = PDFTextStripper()
+                        stripper.sortByPosition = true
+
+                        val pdfText = stripper.getText(doc)
+
+                        if (pdfText.isNotBlank()) {
+                            return@withContext PdfExtractionResult.Success(pdfText.trim())
+                        }
                     }
 
                 }
 
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                val msg = e.message?.lowercase().orEmpty()
+                if (msg.contains("password") || msg.contains("encrypted") || msg.contains("protection")) {
+                    return@withContext if (password.isNullOrEmpty()) {
+                        PdfExtractionResult.PasswordRequired
+                    } else {
+                        PdfExtractionResult.InvalidPassword
+                    }
+                }
                 // Ignore and fall back to OCR
             }
 
@@ -71,7 +124,7 @@ class PdfTextExtractor @Inject constructor() {
 
                 fileDescriptor =
                     context.contentResolver.openFileDescriptor(uri, "r")
-                        ?: return@withContext null
+                        ?: return@withContext PdfExtractionResult.Error("Could not open file descriptor")
 
                 pdfRenderer = PdfRenderer(fileDescriptor)
 
@@ -116,11 +169,21 @@ class PdfTextExtractor @Inject constructor() {
 
                 val text = fullText.toString().trim()
 
-                if (text.isBlank()) null else text
+                if (text.isBlank()) {
+                    PdfExtractionResult.Error("Could not extract text from document")
+                } else {
+                    PdfExtractionResult.Success(text)
+                }
 
-            } catch (_: Exception) {
+            } catch (e: SecurityException) {
+                if (password.isNullOrEmpty()) {
+                    PdfExtractionResult.PasswordRequired
+                } else {
+                    PdfExtractionResult.InvalidPassword
+                }
+            } catch (e: Exception) {
 
-                null
+                PdfExtractionResult.Error(e.message ?: "Failed to process PDF file")
 
             } finally {
 
