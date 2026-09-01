@@ -89,7 +89,7 @@ fun TransactionDetailScreen(
     val scrollState = rememberScrollState()
 
     var showSaveConfirmDialog by remember { mutableStateOf(false) }
-    var rememberSmartRule by remember { mutableStateOf(true) }
+    var rememberSmartRule by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showAddCategoryDialog by remember { mutableStateOf(false) }
     var newCategoryName by remember { mutableStateOf("") }
