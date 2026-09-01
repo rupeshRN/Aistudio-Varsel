@@ -535,36 +535,72 @@ private fun calculateEffectiveExpense(
     }
 
     private fun detectBankName(transactions: List<Transaction>): String {
+        if (transactions.isEmpty()) return "Bank Account"
+
+        val bankScores = mutableMapOf<String, Int>()
+
         for (t in transactions) {
             val ref = t.referenceNumber.orEmpty().uppercase()
             val desc = t.description.uppercase()
             val fp = t.transactionFingerprint.orEmpty().uppercase()
 
-            when {
-                // ICICI Bank (IFSC ICIC, ICICI, ICIC0, etc.)
-                ref.contains("ICIC") || desc.contains("ICICI") || fp.contains("ICIC") -> return "ICICI Bank"
-                // Indian Bank (IFSC IDIB or Indian Bank text)
-                ref.contains("IDIB") || desc.contains("INDIAN BANK") || desc.contains("IND BL") || fp.contains("IDIB") -> return "Indian Bank"
-                ref.contains("SBIN") || desc.contains("STATE BANK OF INDIA") || desc.contains("SBI MAIN") -> return "SBI"
-                ref.contains("HDFC") || desc.contains("HDFC BANK") -> return "HDFC Bank"
-                ref.contains("UTIB") || desc.contains("AXIS BANK") -> return "Axis Bank"
-                ref.contains("KKBK") || desc.contains("KOTAK MAHINDRA") -> return "Kotak Bank"
-                ref.contains("CNRB") || desc.contains("CANARA BANK") -> return "Canara Bank"
-                ref.contains("BARB") || desc.contains("BANK OF BARODA") -> return "Bank of Baroda"
-                ref.contains("PUNB") || desc.contains("PUNJAB NATIONAL") -> return "PNB"
-                ref.contains("IDFB") || desc.contains("IDFC FIRST") -> return "IDFC FIRST"
-                ref.contains("FDRL") || desc.contains("FEDERAL BANK") -> return "Federal Bank"
-                ref.contains("INDB") || desc.contains("INDUSIND BANK") -> return "IndusInd Bank"
-                ref.contains("UBIN") || desc.contains("UNION BANK") -> return "Union Bank"
-                ref.contains("IOBA") || desc.contains("INDIAN OVERSEAS") -> return "Indian Overseas Bank"
-                ref.contains("CBIN") || desc.contains("CENTRAL BANK") -> return "Central Bank"
-                ref.contains("BKID") || desc.contains("BANK OF INDIA") -> return "Bank of India"
-                ref.contains("YESB") || desc.contains("YES BANK") -> return "Yes Bank"
-                ref.contains("RATN") || desc.contains("RBL BANK") -> return "RBL Bank"
-                ref.contains("SCBL") || desc.contains("STANDARD CHARTERED") -> return "Standard Chartered"
-                ref.contains("CITI") || desc.contains("CITIBANK") -> return "Citi Bank"
+            fun vote(name: String, weight: Int = 1) {
+                bankScores[name] = (bankScores[name] ?: 0) + weight
             }
+
+            // Indian Bank indicators
+            if (ref.contains("IDIB") || desc.contains("INDIAN BANK") || desc.contains("IND BL") || fp.contains("IDIB")) {
+                vote("Indian Bank", 3)
+            }
+            // ICICI Bank indicators
+            if (desc.contains("ICICI BANK") || desc.contains("ICICI.BANK") || desc.contains("ICICIBANK") || desc.contains("ICICI DIRECT") || ref.contains("ICIC0")) {
+                vote("ICICI Bank", 3)
+            } else if (desc.contains("ICICI") || ref.contains("ICIC") || fp.contains("ICIC")) {
+                vote("ICICI Bank", 1)
+            }
+            // SBI
+            if (ref.contains("SBIN") || desc.contains("STATE BANK OF INDIA") || desc.contains("SBI MAIN")) vote("SBI", 3)
+            // HDFC
+            if (ref.contains("HDFC") || desc.contains("HDFC BANK")) vote("HDFC Bank", 3)
+            // Axis
+            if (ref.contains("UTIB") || desc.contains("AXIS BANK")) vote("Axis Bank", 3)
+            // Kotak
+            if (ref.contains("KKBK") || desc.contains("KOTAK MAHINDRA")) vote("Kotak Bank", 3)
+            // Canara
+            if (ref.contains("CNRB") || desc.contains("CANARA BANK")) vote("Canara Bank", 3)
+            // Bank of Baroda
+            if (ref.contains("BARB") || desc.contains("BANK OF BARODA")) vote("Bank of Baroda", 3)
+            // PNB
+            if (ref.contains("PUNB") || desc.contains("PUNJAB NATIONAL")) vote("PNB", 3)
+            // IDFC
+            if (ref.contains("IDFB") || desc.contains("IDFC FIRST")) vote("IDFC FIRST", 3)
+            // Federal Bank
+            if (ref.contains("FDRL") || desc.contains("FEDERAL BANK")) vote("Federal Bank", 3)
+            // IndusInd
+            if (ref.contains("INDB") || desc.contains("INDUSIND BANK")) vote("IndusInd Bank", 3)
+            // Union Bank
+            if (ref.contains("UBIN") || desc.contains("UNION BANK")) vote("Union Bank", 3)
+            // IOB
+            if (ref.contains("IOBA") || desc.contains("INDIAN OVERSEAS")) vote("Indian Overseas Bank", 3)
+            // Central Bank
+            if (ref.contains("CBIN") || desc.contains("CENTRAL BANK")) vote("Central Bank", 3)
+            // Bank of India
+            if (ref.contains("BKID") || desc.contains("BANK OF INDIA")) vote("Bank of India", 3)
+            // Yes Bank
+            if (ref.contains("YESB") || desc.contains("YES BANK")) vote("Yes Bank", 3)
+            // RBL Bank
+            if (ref.contains("RATN") || desc.contains("RBL BANK")) vote("RBL Bank", 3)
+            // Standard Chartered
+            if (ref.contains("SCBL") || desc.contains("STANDARD CHARTERED")) vote("Standard Chartered", 3)
+            // Citi Bank
+            if (ref.contains("CITI") || desc.contains("CITIBANK")) vote("Citi Bank", 3)
         }
+
+        val topBank = bankScores.maxByOrNull { it.value }
+        if (topBank != null && topBank.value > 0) {
+            return topBank.key
+        }
+
         return "Bank Account"
     }
 

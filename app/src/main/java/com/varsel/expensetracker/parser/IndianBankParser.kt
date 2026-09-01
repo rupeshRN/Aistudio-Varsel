@@ -23,16 +23,26 @@ class IndianBankParser @Inject constructor(
 ) : StatementParser {
 
     override fun canParse(rawText: String): Boolean {
-        val text = rawText.uppercase()
-        if (text.contains("ICICI") || text.contains("ICIC0")) return false
+        val upper = rawText.uppercase()
 
-        return text.contains("INDIAN BANK") ||
-                text.contains("IDIB") ||
-                text.contains("IND BL") ||
-                text.contains("INDIANBANK") ||
-                text.contains("ACCOUNT ACTIVITY") ||
-                text.contains("ACCOUNT SUMMARY") ||
-                text.contains("ACCOUNT DETAILS")
+        val hasIndianBankBrand = upper.contains("INDIAN BANK") ||
+                upper.contains("IDIB") ||
+                upper.contains("IND BL") ||
+                upper.contains("INDIANBANK")
+
+        val hasIndianBankLayout = upper.contains("ACCOUNT ACTIVITY") ||
+                (upper.contains("ACCOUNT DETAILS") && upper.contains("ACCOUNT SUMMARY")) ||
+                (upper.contains("DATE TRANSACTION DETAILS") && upper.contains("DEBITS") && upper.contains("CREDITS"))
+
+        // Check if it's an ICICI statement with ICICI table headers
+        val hasIciciTable = upper.contains("TRANSACTION REMARKS") &&
+                (upper.contains("WITHDRAWAL AMOUNT") || upper.contains("DEPOSIT AMOUNT") || upper.contains("BALANCE (INR)"))
+
+        if (hasIciciTable && !hasIndianBankBrand) {
+            return false
+        }
+
+        return hasIndianBankBrand || hasIndianBankLayout
     }
 
     override fun parse(rawText: String): List<Transaction> {

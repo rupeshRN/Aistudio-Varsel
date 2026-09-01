@@ -95,10 +95,11 @@ class StatementSummaryExtractor @Inject constructor() {
             val amount =
                 moneyRegex
                     .find(line)
-                    ?.groupValues
-                    ?.get(1)
-                    ?.replace(",", "")
-                    ?.toDoubleOrNull()
+                    ?.let { match ->
+                        val intPart = match.groupValues[1].replace(",", "")
+                        val decPart = match.groupValues[2]
+                        "$intPart.$decPart".toDoubleOrNull()
+                    }
                     ?: continue
 
             val upper =

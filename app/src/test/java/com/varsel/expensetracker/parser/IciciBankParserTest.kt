@@ -91,5 +91,29 @@ class IciciBankParserTest {
         assertEquals("For Ticket", transactions[0].description)
         assertEquals("Groceries", transactions[1].description)
         assertEquals("Internet Bill", transactions[2].description)
+
+        val summary = iciciBankParser.extractSummary(multiPageStatement, transactions)
+        org.junit.Assert.assertNotNull(summary)
+        // Earliest row balance is 34521.01 (after 2000 expense -> opening was 36521.01)
+        assertEquals(36521.01, summary?.openingBalance ?: 0.0, 0.01)
+        // Latest row balance is 32022.01 (available ending balance)
+        assertEquals(32022.01, summary?.endingBalance ?: 0.0, 0.01)
+        assertEquals(4499.00, summary?.totalDebits ?: 0.0, 0.01)
+    }
+
+    @Test
+    fun `test Indian Bank statement with payee ICICI ref is not misidentified`() {
+        val indianBankText = """
+            INDIAN BANK
+            STATEMENT OF ACCOUNT
+            ACCOUNT ACTIVITY
+            DATE TRANSACTION DETAILS DEBITS CREDITS BALANCE
+            28 Jul 2026 UPI/123456789/transfer/user@icici - INR 500.00 INR 10000.00
+        """.trimIndent()
+
+        // ICICI Bank parser shouldn't claim Indian Bank statements
+        // Even if narration contains "@icici"
+        val isIcici = iciciBankParser.canParse(indianBankText)
+        org.junit.Assert.assertFalse(isIcici)
     }
 }

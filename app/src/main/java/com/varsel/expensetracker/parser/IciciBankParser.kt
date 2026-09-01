@@ -41,44 +41,91 @@ class IciciBankParser @Inject constructor(
     // Regex to match monetary amounts with 2 decimal places (ensuring not part of a date or version)
     private val amountRegex = Regex("""(?<![.\d])([0-9]{1,3}(?:,[0-9]{3})*|\d+)\.(\d{2})(?![.\d])""")
 
+    private var lastParsedRows: List<Pair<Transaction, Double?>> = emptyList()
+
     override fun canParse(rawText: String): Boolean {
-        val text = rawText.uppercase()
-        return text.contains("ICICI") ||
-               text.contains("ICIC0") ||
-               (text.contains("TRANSACTION REMARKS") && (
-                   text.contains("WITHDRAWAL AMOUNT") ||
-                   text.contains("DEPOSIT AMOUNT") ||
-                   text.contains("CHEQUE NUMBER") ||
-                   text.contains("BALANCE (INR)")
-               ))
+        val upper = rawText.uppercase()
+
+        val hasIciciBrand = upper.contains("ICICI BANK") ||
+                upper.contains("ICICI.BANK") ||
+                upper.contains("ICICIBANK") ||
+                upper.contains("WWW.ICICI.BANK.IN") ||
+                upper.contains("LEGENDS FOR TRANSACTIONS") ||
+                upper.contains("TEAM ICICI BANK")
+
+        val hasIciciTable = upper.contains("TRANSACTION REMARKS") &&
+                (upper.contains("WITHDRAWAL AMOUNT") || upper.contains("DEPOSIT AMOUNT") || upper.contains("CHEQUE NUMBER") || upper.contains("BALANCE (INR)"))
+
+        val hasIciciDates = Regex("""^\s*(?:\d{1,4}\s+)?\d{1,2}[./-]\d{1,2}[./-]\d{2,4}""", RegexOption.MULTILINE).containsMatchIn(rawText) &&
+                (upper.contains("SAVING") || upper.contains("CURRENT") || upper.contains("TRANSACTION REMARKS"))
+
+        return hasIciciBrand || hasIciciTable || hasIciciDates
     }
 
     override fun parse(rawText: String): List<Transaction> {
         val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }
-        if (lines.isEmpty()) return emptyList()
+        if (lines.isEmpty()) {
+            lastParsedRows = emptyList()
+            return emptyList()
+        }
 
         // 1. Filter out pre-table headers and page-break artifacts across all pages
         val cleanLines = extractTransactionTableLines(lines)
-        if (cleanLines.isEmpty()) return emptyList()
+        if (cleanLines.isEmpty()) {
+            lastParsedRows = emptyList()
+            return emptyList()
+        }
 
         // 2. Group lines into transaction blocks across all pages till end
         val blocks = groupIntoTransactionBlocks(cleanLines)
 
         // 3. Parse each block into a Transaction object
         val transactions = mutableListOf<Transaction>()
+        val parsedRows = mutableListOf<Pair<Transaction, Double?>>()
         var previousBalance: Double? = null
 
         for (block in blocks) {
             val parsedTx = parseTransactionBlock(block, previousBalance)
             if (parsedTx != null) {
                 transactions.add(parsedTx.transaction)
+                parsedRows.add(Pair(parsedTx.transaction, parsedTx.balance))
                 if (parsedTx.balance != null) {
                     previousBalance = parsedTx.balance
                 }
             }
         }
 
+        lastParsedRows = parsedRows
         return transactions
+    }
+
+    override fun extractSummary(rawText: String, transactions: List<Transaction>): StatementSummary? {
+        if (transactions.isEmpty()) return null
+
+        val rowsWithBalance = lastParsedRows.filter { it.second != null }
+        val latestRow = rowsWithBalance.maxByOrNull { it.first.dateTimestamp }
+        val earliestRow = rowsWithBalance.minByOrNull { it.first.dateTimestamp }
+
+        val endingBalance = latestRow?.second
+        val openingBalance = earliestRow?.let { (tx, balance) ->
+            if (balance != null) {
+                if (tx.type == TransactionType.INCOME) balance - tx.amount else balance + tx.amount
+            } else null
+        }
+
+        val totalCredits = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val totalDebits = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val startDate = transactions.minOfOrNull { it.dateTimestamp }
+        val endDate = transactions.maxOfOrNull { it.dateTimestamp }
+
+        return StatementSummary(
+            statementStartDate = startDate,
+            statementEndDate = endDate,
+            openingBalance = openingBalance,
+            totalCredits = totalCredits,
+            totalDebits = totalDebits,
+            endingBalance = endingBalance
+        )
     }
 
     private fun extractTransactionTableLines(lines: List<String>): List<String> {
