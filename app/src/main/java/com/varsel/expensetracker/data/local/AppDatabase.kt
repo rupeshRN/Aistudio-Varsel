@@ -497,7 +497,7 @@ val MIGRATION_8_9 =
                     name = "Rental & Property",
                     iconName = "ic_home",
                     colorHex = "#795548",
-                    keywords = "RENT,TENANT,LEASE",
+                    keywords = "RENT RECEIVED,TENANT PAYMENT,PROPERTY INCOME,RENTAL INCOME",
                     type = "INCOME"
                 ),
                 CategoryEntity(
@@ -516,6 +516,13 @@ val MIGRATION_8_9 =
                 ),
 
                 // Expense categories
+                CategoryEntity(
+                    name = "Housing & Rent",
+                    iconName = "ic_home",
+                    colorHex = "#795548",
+                    keywords = "RENT,HOUSE RENT,ROOM RENT,FLAT RENT,LEASE,MAINTENANCE,TENANCY,SOCIETY,SOCIETY MAINTENANCE",
+                    type = "EXPENSE"
+                ),
                 CategoryEntity(
                     name = "Dining & Food",
                     iconName = "ic_restaurant",

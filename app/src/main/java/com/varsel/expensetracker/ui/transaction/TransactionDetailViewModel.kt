@@ -621,10 +621,78 @@ class TransactionDetailViewModel @Inject constructor(
     }
 
     //--------------------------------------------------
+    // Smart Rule & Similar Transactions Management
+    //--------------------------------------------------
+
+    fun prepareSaveSmartRuleDialog() {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        loadSimilarTransactions(current.selectedPastTimeframe, current.customCutoffTimestamp)
+    }
+
+    fun setPastTimeframe(timeframe: PastTimeframe, customDate: Long? = null) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        _uiState.value = current.copy(
+            selectedPastTimeframe = timeframe,
+            customCutoffTimestamp = customDate ?: current.customCutoffTimestamp
+        )
+        loadSimilarTransactions(timeframe, customDate ?: current.customCutoffTimestamp)
+    }
+
+    fun setApplyToSimilar(enabled: Boolean) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        _uiState.value = current.copy(applyToSimilarTransactions = enabled)
+        if (enabled && current.similarTransactions.isEmpty()) {
+            loadSimilarTransactions(current.selectedPastTimeframe, current.customCutoffTimestamp)
+        }
+    }
+
+    fun setUpdateDescriptionForSimilar(enabled: Boolean) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        _uiState.value = current.copy(updateDescriptionForSimilar = enabled)
+    }
+
+    fun loadSimilarTransactions(timeframe: PastTimeframe, customDate: Long? = null) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+
+        val now = System.currentTimeMillis()
+        val sinceTimestamp = when (timeframe) {
+            PastTimeframe.ALL_TIME -> 0L
+            PastTimeframe.LAST_30_DAYS -> now - (30L * 24 * 60 * 60 * 1000L)
+            PastTimeframe.LAST_90_DAYS -> now - (90L * 24 * 60 * 60 * 1000L)
+            PastTimeframe.LAST_180_DAYS -> now - (180L * 24 * 60 * 60 * 1000L)
+            PastTimeframe.CUSTOM -> customDate ?: (now - 30L * 24 * 60 * 60 * 1000L)
+        }
+
+        viewModelScope.launch {
+            _uiState.value = current.copy(isLoadingSimilar = true)
+            val isIncome = current.transaction.type == TransactionType.INCOME
+            val patternToSearch = current.transaction.description
+            val matches = transactionRepository.findSimilarTransactions(
+                excludeId = current.transaction.id,
+                pattern = patternToSearch,
+                isIncome = isIncome,
+                sinceTimestamp = sinceTimestamp
+            )
+            val latest = _uiState.value as? TransactionDetailUiState.Loaded ?: return@launch
+            _uiState.value = latest.copy(
+                similarTransactions = matches,
+                similarTransactionsCount = matches.size,
+                selectedPastTimeframe = timeframe,
+                customCutoffTimestamp = if (timeframe == PastTimeframe.CUSTOM) (customDate ?: latest.customCutoffTimestamp) else latest.customCutoffTimestamp,
+                isLoadingSimilar = false
+            )
+        }
+    }
+
+    //--------------------------------------------------
     // Save transaction changes
     //--------------------------------------------------
 
-    fun saveChanges(createSmartRule: Boolean = true) {
+    fun saveChanges(
+        createSmartRule: Boolean = true,
+        applyToSimilar: Boolean = false,
+        updateDescriptionForSimilar: Boolean = true
+    ) {
         val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
         if (current.isSaving) return
 
@@ -649,6 +717,20 @@ class TransactionDetailViewModel @Inject constructor(
             }
 
             transactionRepository.updateTransaction(updatedTransaction)
+
+            if (applyToSimilar && current.similarTransactions.isNotEmpty()) {
+                val similarToUpdate = current.similarTransactions.map { sim ->
+                    sim.copy(
+                        category = current.selectedCategory,
+                        description = if (updateDescriptionForSimilar && current.editableDescription.isNotBlank()) {
+                            current.editableDescription
+                        } else {
+                            sim.description
+                        }
+                    )
+                }
+                transactionRepository.updateTransactions(similarToUpdate)
+            }
 
             _saveCompleted.value = true
             _uiState.value = current.copy(

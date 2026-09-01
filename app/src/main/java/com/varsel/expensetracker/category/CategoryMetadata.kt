@@ -26,6 +26,7 @@ data class CategoryUi(
 object CategoryMetadata {
 
     val expenseCategories = listOf(
+        CategoryUi(Category.HOUSING, CategoryIconCatalog.HOME),
         CategoryUi(Category.FOOD, CategoryIconCatalog.FOOD),
         CategoryUi(Category.GROCERIES, CategoryIconCatalog.GROCERIES),
         CategoryUi(Category.FUEL_AND_TRANSPORT, CategoryIconCatalog.TRAVEL),

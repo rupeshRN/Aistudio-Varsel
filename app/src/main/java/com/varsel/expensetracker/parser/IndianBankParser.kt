@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.parser
 
 import com.varsel.expensetracker.domain.model.Transaction
+import com.varsel.expensetracker.domain.model.TransactionType
 import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
@@ -123,8 +124,9 @@ class IndianBankParser @Inject constructor(
             descriptionCleaner.clean(rawDescription)
     )
 
+val isIncome = parsedAmount.type == TransactionType.INCOME || parsedAmount.type == TransactionType.CREDIT
 val category =
-    categoryRuleEngine.categorize(description)
+    categoryRuleEngine.categorize(description, isIncome)
 
             //--------------------------------------------------
             // Transaction

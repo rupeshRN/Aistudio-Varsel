@@ -7,6 +7,7 @@ object Category {
     const val TRANSFER = "Transfer"
 
     // Standard Expense Categories (Matches Category Management & Room Seed exactly)
+    const val HOUSING = "Housing & Rent"
     const val FOOD = "Dining & Food"
     const val FOOD_SHORT = "Food"
     const val GROCERIES = "Groceries"

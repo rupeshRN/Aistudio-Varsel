@@ -68,13 +68,9 @@ fun TransactionCard(
                     )
                 }
 
-                CategoryChip(
-                    category = transaction.category,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-
+                val accountDisplay = transaction.accountInfoText ?: transaction.category
                 Text(
-                    text = transaction.dateText,
+                    text = "$accountDisplay • ${transaction.dateText}",
                     modifier = Modifier.padding(top = 6.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

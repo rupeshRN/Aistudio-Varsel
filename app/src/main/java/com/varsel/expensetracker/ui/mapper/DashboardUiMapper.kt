@@ -433,12 +433,15 @@ private fun calculateEffectiveExpense(
                         ?.accountLast4
 
             val bankName = detectBankName(accountTransactions)
+            val bankShortName = com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(bankName)
 
             result.add(
                 AccountBalanceUiModel(
-
                     bankName =
                         bankName,
+
+                    bankShortName =
+                        bankShortName,
 
                     accountDisplayName =
                         accountLast4
@@ -477,12 +480,15 @@ private fun calculateEffectiveExpense(
                 }
 
             val legacyBankName = detectBankName(legacyTransactions)
+            val legacyShortName = if (legacyBankName != "Bank Account") com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(legacyBankName) else "Manual"
 
             result.add(
                 AccountBalanceUiModel(
-
                     bankName =
                         if (legacyBankName != "Bank Account") legacyBankName else "Other",
+
+                    bankShortName =
+                        legacyShortName,
 
                     accountDisplayName =
                         "Manual",

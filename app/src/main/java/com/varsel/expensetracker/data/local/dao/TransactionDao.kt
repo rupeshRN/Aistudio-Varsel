@@ -327,4 +327,31 @@ interface TransactionDao {
             Long
     ):
         List<TransactionEntity>
+
+    //--------------------------------------------------
+    // Bulk update transactions
+    //--------------------------------------------------
+
+    @Update
+    suspend fun updateTransactions(
+        transactions: List<TransactionEntity>
+    )
+
+    //--------------------------------------------------
+    // Similarity search query
+    //--------------------------------------------------
+
+    @Query(
+        """
+        SELECT *
+        FROM transactions
+        WHERE id != :excludeId
+        AND dateTimestamp >= :sinceTimestamp
+        ORDER BY dateTimestamp DESC
+        """
+    )
+    suspend fun getTransactionsSince(
+        excludeId: Long,
+        sinceTimestamp: Long
+    ): List<TransactionEntity>
 }

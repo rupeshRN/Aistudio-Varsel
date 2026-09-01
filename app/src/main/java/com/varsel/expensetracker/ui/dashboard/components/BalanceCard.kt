@@ -381,8 +381,9 @@ private fun BankAccountCard(
                 )
 
                 Column(modifier = Modifier.weight(1f)) {
+                    val displayName = if (account.bankShortName.isNotBlank()) account.bankShortName else account.bankName
                     Text(
-                        text = account.bankName,
+                        text = displayName,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,

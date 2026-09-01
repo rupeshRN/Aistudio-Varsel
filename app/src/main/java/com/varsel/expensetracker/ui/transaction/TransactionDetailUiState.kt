@@ -4,6 +4,14 @@ import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
 import com.varsel.expensetracker.domain.model.TransactionRole
 
+enum class PastTimeframe(val label: String) {
+    ALL_TIME("All Past Transactions"),
+    LAST_30_DAYS("Last 30 Days"),
+    LAST_90_DAYS("Last 3 Months"),
+    LAST_180_DAYS("Last 6 Months"),
+    CUSTOM("Custom Date")
+}
+
 data class TransactionEventAllocationUiModel(
     val allocationId: Long,
     val transactionLinkId: String,
@@ -148,7 +156,18 @@ sealed interface TransactionDetailUiState {
          * amounts do not match.
          */
         val transferErrorMessage:
-            String? = null
+            String? = null,
+
+        //--------------------------------------------------
+        // Smart Rule & Similar Past Transactions
+        //--------------------------------------------------
+        val similarTransactionsCount: Int = 0,
+        val similarTransactions: List<Transaction> = emptyList(),
+        val selectedPastTimeframe: PastTimeframe = PastTimeframe.ALL_TIME,
+        val customCutoffTimestamp: Long? = null,
+        val isLoadingSimilar: Boolean = false,
+        val applyToSimilarTransactions: Boolean = false,
+        val updateDescriptionForSimilar: Boolean = true
 
     ) : TransactionDetailUiState
 

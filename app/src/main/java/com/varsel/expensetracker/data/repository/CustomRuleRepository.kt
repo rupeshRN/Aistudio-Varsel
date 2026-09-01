@@ -35,7 +35,8 @@ class CustomRuleRepository @Inject constructor(
                     for (kw in keywordsList) {
                         val record = KnowledgeRecord(
                             displayDescription = "",
-                            categoryName = category.name
+                            categoryName = category.name,
+                            targetType = category.type
                         )
                         cache[kw] = record
                         val normalizedKw = descriptionNormalizer.normalize(kw)

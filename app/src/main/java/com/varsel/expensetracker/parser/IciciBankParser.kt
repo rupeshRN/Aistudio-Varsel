@@ -305,7 +305,8 @@ class IciciBankParser @Inject constructor(
         val remarksInfo = extractRemarksInfo(blockLines, dateMatch.value)
 
         // 3. Categorization
-        val categoryResult = categoryRuleEngine.categorize(remarksInfo.displayDescription)
+        val isIncome = (txType == TransactionType.INCOME || txType == TransactionType.CREDIT)
+        val categoryResult = categoryRuleEngine.categorize(remarksInfo.displayDescription, isIncome)
 
         // Override category for salary credits if remarks explicitly indicate Salary
         val finalCategory = if (txType == TransactionType.INCOME &&

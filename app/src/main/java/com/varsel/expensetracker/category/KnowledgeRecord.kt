@@ -44,6 +44,11 @@ data class KnowledgeRecord(
      * Example:
      * "Entertainment"
      */
-    val categoryName: String
+    val categoryName: String,
+
+    /**
+     * Target transaction type compatibility: "INCOME", "EXPENSE", or "BOTH".
+     */
+    val targetType: String = "BOTH"
 
 )
