@@ -29,13 +29,16 @@ class IciciBankParser @Inject constructor(
         SimpleDateFormat("dd.MM.yyyy", Locale.ENGLISH),
         SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH),
         SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH),
-        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH)
+        SimpleDateFormat("dd-MMM-yyyy", Locale.ENGLISH),
+        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
+        SimpleDateFormat("dd/MMM/yyyy", Locale.ENGLISH),
+        SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
     )
 
     // Regex for date at start of transaction line (with optional serial number)
     private val transactionDateRegex = Regex(
-        """^\s*(?:(\d{1,4})\s+)?(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})""",
-        RegexOption.MULTILINE
+        """^\s*(?:(\d{1,4})[.)]?\s+)?(\d{1,2}[./-](?:\d{1,2}|[A-Za-z]{3})[./-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+[A-Za-z]{3}\s+\d{4})""",
+        RegexOption.IGNORE_CASE
     )
 
     // Regex to match monetary amounts with 2 decimal places (ensuring not part of a date or version)
@@ -46,20 +49,27 @@ class IciciBankParser @Inject constructor(
     override fun canParse(rawText: String): Boolean {
         val upper = rawText.uppercase()
 
+        val isIndianBankStatement = upper.contains("INDIAN BANK") ||
+                (upper.contains("ACCOUNT ACTIVITY") && upper.contains("DATE TRANSACTION DETAILS")) ||
+                (upper.contains("IDIB") && upper.contains("DATE TRANSACTION DETAILS"))
+
+        if (isIndianBankStatement && !upper.contains("ICICI BANK") && !upper.contains("ICICIBANK")) {
+            return false
+        }
+
         val hasIciciBrand = upper.contains("ICICI BANK") ||
                 upper.contains("ICICI.BANK") ||
                 upper.contains("ICICIBANK") ||
+                upper.contains("TEAM ICICI BANK") ||
                 upper.contains("WWW.ICICI.BANK.IN") ||
-                upper.contains("LEGENDS FOR TRANSACTIONS") ||
-                upper.contains("TEAM ICICI BANK")
+                (Regex("""\bICICI\b""", RegexOption.IGNORE_CASE).containsMatchIn(rawText) && !upper.contains("@ICICI"))
 
-        val hasIciciTable = upper.contains("TRANSACTION REMARKS") &&
-                (upper.contains("WITHDRAWAL AMOUNT") || upper.contains("DEPOSIT AMOUNT") || upper.contains("CHEQUE NUMBER") || upper.contains("BALANCE (INR)"))
+        val hasIciciTable = upper.contains("TRANSACTION REMARKS") ||
+                (upper.contains("WITHDRAWAL") && upper.contains("DEPOSIT") && upper.contains("BALANCE"))
 
-        val hasIciciDates = Regex("""^\s*(?:\d{1,4}\s+)?\d{1,2}[./-]\d{1,2}[./-]\d{2,4}""", RegexOption.MULTILINE).containsMatchIn(rawText) &&
-                (upper.contains("SAVING") || upper.contains("CURRENT") || upper.contains("TRANSACTION REMARKS"))
+        val hasNumericDates = Regex("""\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b""").containsMatchIn(rawText)
 
-        return hasIciciBrand || hasIciciTable || hasIciciDates
+        return hasIciciBrand || (hasIciciTable && hasNumericDates) || (hasNumericDates && !upper.contains("INDIAN BANK"))
     }
 
     override fun parse(rawText: String): List<Transaction> {
@@ -141,61 +151,61 @@ class IciciBankParser @Inject constructor(
                     upper.contains("TRANSACTION DATE") ||
                     upper.contains("WITHDRAWAL AMOUNT") ||
                     upper.contains("DEPOSIT AMOUNT") ||
+                    upper.contains("CHEQUE NUMBER") ||
+                    upper.contains("PARTICULARS") ||
+                    upper.contains("NARRATION") ||
                     transactionDateRegex.containsMatchIn(line)
                 ) {
                     tableStarted = true
-                    // If this header line already contains a transaction row, include it
-                    if (transactionDateRegex.containsMatchIn(line) && !upper.contains("TRANSACTION DATE")) {
+                    // If this line contains a transaction row, include it
+                    if (transactionDateRegex.containsMatchIn(line) && !isTableHeader(upper)) {
                         tableLines.add(line)
                     }
                 }
                 continue
             }
 
-            // Detect genuine final statement footer markers
-            if (isStatementFooter(upper)) {
-                // Do not break early on multi-page intermediate footers unless it's the final closing notice
-                if (upper.contains("LEGENDS FOR TRANSACTIONS") ||
-                    upper.contains("SINCERELY, TEAM ICICI BANK") ||
-                    upper.contains("THIS IS A SYSTEM GENERATED STATEMENT")
-                ) {
-                    // Reached the document end
-                    break
-                }
-                continue
-            }
-
-            // Skip repeated page header lines in multi-page statements
-            if (upper.contains("TRANSACTION REMARKS") ||
-                upper.contains("WITHDRAWAL AMOUNT") ||
-                upper.contains("DEPOSIT AMOUNT") ||
-                upper.contains("STATEMENT OF TRANSACTIONS") ||
-                upper.contains("STATEMENT OF TRANSACTIONS IN SAVING") ||
-                upper.contains("STATEMENT OF TRANSACTIONS IN CURRENT") ||
-                upper.contains("YOUR BASE BRANCH") ||
-                upper.contains("ICICI BANK LIMITED") ||
-                upper.contains("S NO.") ||
-                upper.contains("CHEQUE NUMBER") ||
-                upper.matches(Regex("""PAGE\s+\d+\s+OF\s+\d+""")) ||
-                upper.matches(Regex("""\d+\s+OF\s+\d+"""))
-            ) {
+            // Skip repeated page header lines and disclaimer noise in multi-page statements
+            if (isTableHeader(upper) || isStatementNoise(upper)) {
                 continue
             }
 
             tableLines.add(line)
         }
 
+        // If tableStarted never triggered but document has date lines
+        if (tableLines.isEmpty()) {
+            return lines.filter { line ->
+                val upper = line.uppercase()
+                !isTableHeader(upper) && !isStatementNoise(upper)
+            }
+        }
+
         return tableLines
     }
 
-    private fun isStatementFooter(upperLine: String): Boolean {
-        return upperLine.contains("SINCERELY, TEAM ICICI BANK") ||
-                upperLine.contains("TEAM ICICI BANK") ||
-                upperLine.contains("LEGENDS FOR TRANSACTIONS") ||
-                upperLine.contains("THIS IS A SYSTEM GENERATED STATEMENT") ||
-                upperLine.contains("NEVER SHARE YOUR OTP") ||
-                upperLine.contains("WWW.ICICI.BANK.IN") ||
-                upperLine.contains("DIAL YOUR BANK")
+    private fun isTableHeader(upper: String): Boolean {
+        return (upper.contains("TRANSACTION REMARKS") && upper.contains("AMOUNT")) ||
+                (upper.contains("WITHDRAWAL AMOUNT") && upper.contains("DEPOSIT AMOUNT")) ||
+                upper.contains("STATEMENT OF TRANSACTIONS IN") ||
+                upper.contains("STATEMENT OF TRANSACTIONS") ||
+                (upper.contains("S NO.") && upper.contains("DATE")) ||
+                (upper.contains("VALUE DATE") && upper.contains("TRANSACTION DATE"))
+    }
+
+    private fun isStatementNoise(upper: String): Boolean {
+        return upper.contains("YOUR BASE BRANCH") ||
+                upper.contains("ICICI BANK LIMITED") ||
+                upper.contains("SINCERELY, TEAM ICICI BANK") ||
+                upper.contains("TEAM ICICI BANK") ||
+                upper.contains("LEGENDS FOR TRANSACTIONS") ||
+                upper.contains("THIS IS A SYSTEM GENERATED STATEMENT") ||
+                upper.contains("NEVER SHARE YOUR OTP") ||
+                upper.contains("WWW.ICICI.BANK.IN") ||
+                upper.contains("WWW.ICICIBANK.COM") ||
+                upper.contains("DIAL YOUR BANK") ||
+                upper.matches(Regex("""PAGE\s+\d+\s+OF\s+\d+""")) ||
+                upper.matches(Regex("""\d+\s+OF\s+\d+"""))
     }
 
     private fun groupIntoTransactionBlocks(lines: List<String>): List<List<String>> {
@@ -204,7 +214,7 @@ class IciciBankParser @Inject constructor(
 
         for (line in lines) {
             val match = transactionDateRegex.find(line)
-            if (match != null && match.range.first <= 5) {
+            if (match != null) {
                 // New transaction starts here
                 currentBlock = mutableListOf(line)
                 blocks.add(currentBlock)
@@ -236,7 +246,8 @@ class IciciBankParser @Inject constructor(
         val dateTimestamp = parseDate(rawDateStr) ?: return null
 
         val fullBlockText = blockLines.joinToString("\n")
-        val textWithoutDates = fullBlockText.replace(Regex("""\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b"""), " ")
+        val textWithoutDates = fullBlockText.replace(Regex("""\b\d{1,2}[./-](?:\d{1,2}|[A-Za-z]{3})[./-]\d{2,4}\b"""), " ")
+            .replace(Regex("""\b\d{4}-\d{2}-\d{2}\b"""), " ")
 
         // 1. Extract Amounts and Running Balance
         val amountsFound = amountRegex.findAll(textWithoutDates).mapNotNull { match ->
@@ -250,7 +261,26 @@ class IciciBankParser @Inject constructor(
         var runningBalance: Double? = null
         var txType: TransactionType = TransactionType.EXPENSE
 
-        if (amountsFound.size >= 2) {
+        if (amountsFound.size >= 3) {
+            val withdrawal = amountsFound[0]
+            val deposit = amountsFound[1]
+            val balance = amountsFound[2]
+            runningBalance = balance
+
+            if (deposit > 0.0 && withdrawal == 0.0) {
+                txAmount = deposit
+                txType = TransactionType.INCOME
+            } else if (withdrawal > 0.0 && deposit == 0.0) {
+                txAmount = withdrawal
+                txType = TransactionType.EXPENSE
+            } else if (deposit > 0.0) {
+                txAmount = deposit
+                txType = TransactionType.INCOME
+            } else {
+                txAmount = withdrawal
+                txType = TransactionType.EXPENSE
+            }
+        } else if (amountsFound.size == 2) {
             txAmount = amountsFound[0]
             runningBalance = amountsFound[1]
 

@@ -208,7 +208,9 @@ class StatementParserEngine @Inject constructor(
             bankDetector.detect(rawText)
 
         val parsedTransactions =
-            parser.parse(normalizedText)
+            parser.parse(normalizedText).ifEmpty {
+                parser.parse(rawText)
+            }
 
         val accountNumber =
             accountDetailsExtractor.extractAccountNumber(

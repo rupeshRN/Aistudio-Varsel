@@ -24,25 +24,20 @@ class IndianBankParser @Inject constructor(
 
     override fun canParse(rawText: String): Boolean {
         val upper = rawText.uppercase()
+        val header = rawText.lines().take(30).joinToString("\n").uppercase()
 
-        val hasIndianBankBrand = upper.contains("INDIAN BANK") ||
-                upper.contains("IDIB") ||
-                upper.contains("IND BL") ||
-                upper.contains("INDIANBANK")
+        val hasIndianBankBrand = header.contains("INDIAN BANK") ||
+                header.contains("INDIANBANK") ||
+                header.contains("IND BL") ||
+                header.contains("IDIB") ||
+                upper.contains("INDIAN BANK")
 
         val hasIndianBankLayout = upper.contains("ACCOUNT ACTIVITY") ||
-                (upper.contains("ACCOUNT DETAILS") && upper.contains("ACCOUNT SUMMARY")) ||
                 (upper.contains("DATE TRANSACTION DETAILS") && upper.contains("DEBITS") && upper.contains("CREDITS"))
 
-        // Check if it's an ICICI statement with ICICI table headers
-        val hasIciciTable = upper.contains("TRANSACTION REMARKS") &&
-                (upper.contains("WITHDRAWAL AMOUNT") || upper.contains("DEPOSIT AMOUNT") || upper.contains("BALANCE (INR)"))
+        val hasIndianBankDates = Regex("""\b\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+\d{4}\b""", RegexOption.IGNORE_CASE).containsMatchIn(rawText)
 
-        if (hasIciciTable && !hasIndianBankBrand) {
-            return false
-        }
-
-        return hasIndianBankBrand || hasIndianBankLayout
+        return (hasIndianBankBrand || hasIndianBankLayout) && (hasIndianBankDates || upper.contains("INDIAN BANK"))
     }
 
     override fun parse(rawText: String): List<Transaction> {
