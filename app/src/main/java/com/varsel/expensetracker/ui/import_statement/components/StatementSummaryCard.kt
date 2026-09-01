@@ -307,13 +307,7 @@ Row(
 
                     Text(
 
-                        if (summary.reconciliationPassed)
-
-                            "Opening + Credits − Debits = Closing"
-
-                        else
-
-                            "Statement totals do not reconcile.",
+                        summary.reconciliationStatusText,
 
                         style = MaterialTheme.typography.bodyMedium,
 

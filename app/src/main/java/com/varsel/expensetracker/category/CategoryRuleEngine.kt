@@ -122,7 +122,7 @@ class CategoryRuleEngine @Inject constructor(
         KeywordRule("bescom", Category.UTILITIES, 95),
         KeywordRule("power", Category.UTILITIES, 95),
 
-        // Healthcare
+        // Healthcare & Fitness
         KeywordRule("medical", Category.HEALTHCARE, 95),
         KeywordRule("hospital", Category.HEALTHCARE, 100),
         KeywordRule("pharmacy", Category.HEALTHCARE, 100),
@@ -131,7 +131,27 @@ class CategoryRuleEngine @Inject constructor(
         KeywordRule("clinic", Category.HEALTHCARE, 100),
         KeywordRule("doctor", Category.HEALTHCARE, 100),
         KeywordRule("tablet", Category.HEALTHCARE, 95),
-        KeywordRule("tablets", Category.HEALTHCARE, 95)
+        KeywordRule("tablets", Category.HEALTHCARE, 95),
+        KeywordRule("gym", Category.PERSONAL_CARE, 95),
+        KeywordRule("fitness", Category.PERSONAL_CARE, 95),
+        KeywordRule("workout", Category.PERSONAL_CARE, 95),
+
+        // Income & Salary
+        KeywordRule("salary", Category.SALARY, 100),
+        KeywordRule("payroll", Category.SALARY, 100),
+        KeywordRule("stipend", Category.SALARY, 95),
+        KeywordRule("interest", Category.INVESTMENTS, 90),
+        KeywordRule("dividend", Category.INVESTMENTS, 95),
+        KeywordRule("cashback", Category.REFUNDS, 95),
+        KeywordRule("refund", Category.REFUNDS, 95),
+
+        // Shopping
+        KeywordRule("amazon", Category.SHOPPING, 95),
+        KeywordRule("flipkart", Category.SHOPPING, 95),
+        KeywordRule("myntra", Category.SHOPPING, 95),
+        KeywordRule("ajio", Category.SHOPPING, 95),
+        KeywordRule("zudio", Category.SHOPPING, 95),
+        KeywordRule("decathlon", Category.SHOPPING, 95)
     )
 
     /**

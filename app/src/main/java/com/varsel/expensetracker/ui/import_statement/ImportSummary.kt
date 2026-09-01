@@ -12,7 +12,7 @@ data class ImportSummary(
      * Bank detected by the parser.
      *
      * Example:
-     * Indian Bank
+     * Indian Bank, ICICI Bank
      */
     val bankName: String,
 
@@ -63,6 +63,11 @@ data class ImportSummary(
     /**
      * Whether reconciliation succeeded.
      */
-    val reconciliationPassed: Boolean
+    val reconciliationPassed: Boolean,
+
+    /**
+     * Detailed status label for reconciliation.
+     */
+    val reconciliationStatusText: String = "Opening + Credits − Debits = Closing"
 
 )

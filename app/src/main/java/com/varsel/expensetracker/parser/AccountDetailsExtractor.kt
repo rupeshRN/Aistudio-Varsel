@@ -6,7 +6,7 @@ class AccountDetailsExtractor @Inject constructor() {
 
     private val accountNumberRegex =
         Regex(
-            """Account\s+Number\s*[:\-]?\s*([A-Za-z0-9]+)""",
+            """(?:Saving\s+|Current\s+)?Account\s+(?:Number|no\.?)\s*[:\-]?\s*([A-Za-z0-9Xx]+)""",
             RegexOption.IGNORE_CASE
         )
 

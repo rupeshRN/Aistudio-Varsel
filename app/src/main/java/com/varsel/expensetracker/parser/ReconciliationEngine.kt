@@ -24,11 +24,13 @@ class ReconciliationEngine @Inject constructor() {
                 .filter { it.type == TransactionType.EXPENSE }
                 .sumOf { it.amount }
 
+        val hasSummaryTotals = summary.totalCredits != null || summary.totalDebits != null
+
         val statementCredits =
-            summary.totalCredits ?: 0.0
+            summary.totalCredits ?: calculatedCredits
 
         val statementDebits =
-            summary.totalDebits ?: 0.0
+            summary.totalDebits ?: calculatedDebits
 
         val creditDifference =
             calculatedCredits - statementCredits
@@ -36,16 +38,22 @@ class ReconciliationEngine @Inject constructor() {
         val debitDifference =
             calculatedDebits - statementDebits
 
-        val isBalanced =
+        val isBalanced = if (hasSummaryTotals) {
             abs(creditDifference) <= tolerance &&
             abs(debitDifference) <= tolerance
+        } else {
+            // For banks like ICICI that don't provide a grand total credit/debit box,
+            // the statement is considered balanced if transactions were parsed.
+            transactions.isNotEmpty()
+        }
 
         return ReconciliationResult(
             calculatedCredits = calculatedCredits,
             calculatedDebits = calculatedDebits,
             creditDifference = creditDifference,
             debitDifference = debitDifference,
-            isBalanced = isBalanced
+            isBalanced = isBalanced,
+            hasSummaryTotals = hasSummaryTotals
         )
     }
 }

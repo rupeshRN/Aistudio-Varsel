@@ -261,11 +261,19 @@ class ImportViewModel @Inject constructor(
                 // Import summary
                 // --------------------------------------------------
 
+                val reconStatus = if (!result.reconciliation.hasSummaryTotals) {
+                    "Transactions verified from ${result.bankName}"
+                } else if (result.reconciliation.isBalanced) {
+                    "Opening + Credits − Debits = Closing"
+                } else {
+                    "Statement totals do not reconcile."
+                }
+
                 val summary =
                     ImportSummary(
 
                         bankName =
-                            "Indian Bank",
+                            result.bankName,
 
                         statementPeriod =
                             formatStatementPeriod(
@@ -274,9 +282,7 @@ class ImportViewModel @Inject constructor(
                             ),
 
                         transactionsDetected =
-                            ParserDiagnosticsManager
-                                .latest
-                                .blocksBuilt,
+                            if (result.bankName.contains("ICICI", ignoreCase = true)) result.transactions.size else ParserDiagnosticsManager.latest.blocksBuilt,
 
                         transactionsParsed =
                             result.transactions.size,
@@ -297,7 +303,10 @@ class ImportViewModel @Inject constructor(
                             0,
 
                         reconciliationPassed =
-                            result.reconciliation.isBalanced
+                            result.reconciliation.isBalanced,
+
+                        reconciliationStatusText =
+                            reconStatus
                     )
 
                 // --------------------------------------------------

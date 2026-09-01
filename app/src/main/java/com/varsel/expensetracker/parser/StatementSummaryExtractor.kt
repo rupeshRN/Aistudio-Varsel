@@ -27,20 +27,30 @@ class StatementSummaryExtractor @Inject constructor() {
             RegexOption.IGNORE_CASE
         )
 
-    private val periodRegex =
-        Regex(
-            "For\\s+period\\s*:\\s*" +
-                    "(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4})" +
-                    "\\s*-\\s*" +
-                    "(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4})",
-            RegexOption.IGNORE_CASE
-        )
+    private val periodRegexes = listOf(
+        Regex("""For\s+period\s*:\s*(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})\s*-\s*(\d{1,2}\s+[A-Za-z]{3}\s+\d{4})""", RegexOption.IGNORE_CASE),
+        Regex("""for\s+the\s+period\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})\s*-\s*([A-Za-z]+\s+\d{1,2},\s+\d{4})""", RegexOption.IGNORE_CASE),
+        Regex("""(?:period|from)\s*[:\-]?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})\s*(?:to|-)\s*(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})""", RegexOption.IGNORE_CASE)
+    )
 
-    private val dateFormatter =
-        SimpleDateFormat(
-            "dd MMM yyyy",
-            Locale.ENGLISH
-        )
+    private val dateParsers = listOf(
+        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH),
+        SimpleDateFormat("MMMM dd, yyyy", Locale.ENGLISH),
+        SimpleDateFormat("dd.MM.yyyy", Locale.ENGLISH),
+        SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH),
+        SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH)
+    )
+
+    private fun tryParseDate(str: String): Long? {
+        val clean = str.trim()
+        for (parser in dateParsers) {
+            try {
+                val d = parser.parse(clean)
+                if (d != null) return d.time
+            } catch (_: Exception) {}
+        }
+        return null
+    }
 
     fun extract(
         rawText: String
@@ -62,24 +72,15 @@ class StatementSummaryExtractor @Inject constructor() {
         // Statement period
         //--------------------------------------------------
 
-        val periodMatch =
-            periodRegex.find(rawText)
-
-        if (periodMatch != null) {
-
-            statementStartDate =
-                dateFormatter
-                    .parse(
-                        periodMatch.groupValues[1]
-                    )
-                    ?.time
-
-            statementEndDate =
-                dateFormatter
-                    .parse(
-                        periodMatch.groupValues[2]
-                    )
-                    ?.time
+        for (regex in periodRegexes) {
+            val periodMatch = regex.find(rawText)
+            if (periodMatch != null) {
+                statementStartDate = tryParseDate(periodMatch.groupValues[1])
+                statementEndDate = tryParseDate(periodMatch.groupValues[2])
+                if (statementStartDate != null && statementEndDate != null) {
+                    break
+                }
+            }
         }
 
         //--------------------------------------------------

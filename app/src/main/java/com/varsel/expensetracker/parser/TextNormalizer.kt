@@ -44,6 +44,11 @@ class TextNormalizer @Inject constructor() {
             "$1\n$2"
         )
 
+        text = text.replace(
+            Regex("(\\d+\\.\\d{2})\\s+(\\d{1,4}\\s+)?(\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4})"),
+            "$1\n$2$3"
+        )
+
         // ------------------------------------------------------------
         // Split merged balances
         //

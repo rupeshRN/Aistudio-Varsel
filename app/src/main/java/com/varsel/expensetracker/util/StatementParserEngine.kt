@@ -5,6 +5,8 @@ import com.varsel.expensetracker.data.repository.CustomRuleRepository
 import com.varsel.expensetracker.developer.ParserDiagnosticsCollector
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.parser.BankDetector
+import com.varsel.expensetracker.parser.IciciBankParser
+import com.varsel.expensetracker.parser.IndianBankParser
 import com.varsel.expensetracker.parser.ReconciliationEngine
 import com.varsel.expensetracker.parser.StatementImportResult
 import com.varsel.expensetracker.parser.StatementSummaryExtractor
@@ -295,6 +297,12 @@ diagnosticsCollector.recordReconciliation(
 
 )
 
+        val bankName = when (parser) {
+            is IciciBankParser -> "ICICI Bank"
+            is IndianBankParser -> "Indian Bank"
+            else -> "Bank Statement"
+        }
+
         //--------------------------------------------------
         // Final result returned to ImportViewModel.
         //--------------------------------------------------
@@ -303,6 +311,7 @@ return StatementImportResult(
     summary = summary,
     reconciliation = reconciliation,
     transactions = transactions,
+    bankName = bankName,
     accountId = accountIdentity?.accountId,
     accountLast4 = accountIdentity?.accountLast4
 )

@@ -10,5 +10,7 @@ data class ReconciliationResult(
 
     val debitDifference: Double,
 
-    val isBalanced: Boolean
+    val isBalanced: Boolean,
+
+    val hasSummaryTotals: Boolean = true
 )
