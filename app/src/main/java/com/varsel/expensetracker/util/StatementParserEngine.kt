@@ -165,27 +165,20 @@ class StatementParserEngine @Inject constructor(
         // Normalize statement text before parsing.
         //--------------------------------------------------
 
-        val normalizedText =
-
-            textNormalizer.normalize(rawText)
+        val normalizedText = textNormalizer.normalize(rawText)
 
         //--------------------------------------------------
         // Diagnostics
         //--------------------------------------------------
 
-            diagnosticsCollector.recordNormalization(
-                
-                    rawText,
-                
-                    normalizedText
-                
-                )
+        diagnosticsCollector.recordNormalization(
+            rawText,
+            normalizedText
+        )
 
-            diagnosticsCollector.recordDetectedDates(
-            
-                normalizedText
-            
-            )
+        diagnosticsCollector.recordDetectedDates(
+            normalizedText
+        )
 
         //--------------------------------------------------
         // Stage 3
