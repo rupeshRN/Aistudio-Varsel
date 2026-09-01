@@ -43,17 +43,14 @@ class IciciBankParser @Inject constructor(
 
     override fun canParse(rawText: String): Boolean {
         val text = rawText.uppercase()
-        return (text.contains("ICICI") && (
-            text.contains("STATEMENT") ||
-            text.contains("SAVING ACCOUNT") ||
-            text.contains("CURRENT ACCOUNT") ||
-            text.contains("TRANSACTION REMARKS") ||
-            text.contains("LEGENDS FOR TRANSACTIONS") ||
-            text.contains("ICICI.BANK.IN")
-        )) || (
-            text.contains("TRANSACTION REMARKS") &&
-            (text.contains("WITHDRAWAL AMOUNT") || text.contains("DEPOSIT AMOUNT"))
-        )
+        return text.contains("ICICI") ||
+               text.contains("ICIC0") ||
+               (text.contains("TRANSACTION REMARKS") && (
+                   text.contains("WITHDRAWAL AMOUNT") ||
+                   text.contains("DEPOSIT AMOUNT") ||
+                   text.contains("CHEQUE NUMBER") ||
+                   text.contains("BALANCE (INR)")
+               ))
     }
 
     override fun parse(rawText: String): List<Transaction> {

@@ -23,10 +23,14 @@ class IndianBankParser @Inject constructor(
 ) : StatementParser {
 
     override fun canParse(rawText: String): Boolean {
-
         val text = rawText.uppercase()
+        if (text.contains("ICICI") || text.contains("ICIC0")) return false
 
-        return text.contains("ACCOUNT ACTIVITY") ||
+        return text.contains("INDIAN BANK") ||
+                text.contains("IDIB") ||
+                text.contains("IND BL") ||
+                text.contains("INDIANBANK") ||
+                text.contains("ACCOUNT ACTIVITY") ||
                 text.contains("ACCOUNT SUMMARY") ||
                 text.contains("ACCOUNT DETAILS")
     }

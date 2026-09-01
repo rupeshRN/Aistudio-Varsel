@@ -42,45 +42,48 @@ class DashboardUiMapper @Inject constructor(
                 currentMonth
             )
 
-        val previousMonthStart =
-            calendarAtStartOfMonth(
-                if (currentMonth == Calendar.JANUARY) {
-                    currentYear - 1
-                } else {
-                    currentYear
-                },
-                if (currentMonth == Calendar.JANUARY) {
-                    Calendar.DECEMBER
-                } else {
-                    currentMonth - 1
-                }
-            )
+        val hasCurrentMonthData = transactions.any { it.dateTimestamp >= currentMonthStart }
+        val anchorYear: Int
+        val anchorMonth: Int
+
+        if (hasCurrentMonthData || transactions.isEmpty()) {
+            anchorYear = currentYear
+            anchorMonth = currentMonth
+        } else {
+            val latestTime = transactions.maxOf { it.dateTimestamp }
+            val cal = Calendar.getInstance().apply { timeInMillis = latestTime }
+            anchorYear = cal.get(Calendar.YEAR)
+            anchorMonth = cal.get(Calendar.MONTH)
+        }
+
+        val activeMonthStart = calendarAtStartOfMonth(anchorYear, anchorMonth)
+        val nextMonthStart = calendarAtStartOfMonth(
+            if (anchorMonth == Calendar.DECEMBER) anchorYear + 1 else anchorYear,
+            if (anchorMonth == Calendar.DECEMBER) Calendar.JANUARY else anchorMonth + 1
+        )
+
+        val prevYear = if (anchorMonth == Calendar.JANUARY) anchorYear - 1 else anchorYear
+        val prevMonth = if (anchorMonth == Calendar.JANUARY) Calendar.DECEMBER else anchorMonth - 1
+        val prevMonthStart = calendarAtStartOfMonth(prevYear, prevMonth)
 
         //--------------------------------------------------
-        // Current month
+        // Current / Active month transactions
         //--------------------------------------------------
 
         val currentMonthTransactions =
             transactions.filter {
-
-                it.dateTimestamp >=
-                    currentMonthStart
-
+                it.dateTimestamp >= activeMonthStart &&
+                    (if (anchorYear == currentYear && anchorMonth == currentMonth) true else it.dateTimestamp < nextMonthStart)
             }
 
         //--------------------------------------------------
-        // Previous month
+        // Previous month transactions
         //--------------------------------------------------
 
         val previousMonthTransactions =
             transactions.filter {
-
-                it.dateTimestamp >=
-                    previousMonthStart &&
-
-                it.dateTimestamp <
-                    currentMonthStart
-
+                it.dateTimestamp >= prevMonthStart &&
+                    it.dateTimestamp < activeMonthStart
             }
 
         //--------------------------------------------------
@@ -502,14 +505,9 @@ private fun calculateEffectiveExpense(
         snapshot: StatementSnapshotEntity?
     ): Double {
 
-        if (snapshot == null) {
-
+        if (snapshot == null || snapshot.endingBalance == null) {
             return transactions.sumOf {
-
-                if (
-                    it.type ==
-                    TransactionType.INCOME
-                ) {
+                if (it.type == TransactionType.INCOME) {
                     it.amount
                 } else {
                     -it.amount
@@ -517,29 +515,20 @@ private fun calculateEffectiveExpense(
             }
         }
 
-        var balance =
-            snapshot.endingBalance ?: 0.0
+        var balance: Double = snapshot.endingBalance ?: 0.0
 
-        val statementEnd =
-            snapshot.statementEndDate
-                ?: Long.MIN_VALUE
+        val statementEnd = snapshot.statementEndDate ?: Long.MIN_VALUE
 
         transactions
             .filter {
-                it.dateTimestamp >
-                    statementEnd
+                it.dateTimestamp > statementEnd
             }
             .forEach { transaction ->
-
-                balance +=
-                    if (
-                        transaction.type ==
-                        TransactionType.INCOME
-                    ) {
-                        transaction.amount
-                    } else {
-                        -transaction.amount
-                    }
+                balance += if (transaction.type == TransactionType.INCOME) {
+                    transaction.amount
+                } else {
+                    -transaction.amount
+                }
             }
 
         return balance
@@ -552,11 +541,12 @@ private fun calculateEffectiveExpense(
             val fp = t.transactionFingerprint.orEmpty().uppercase()
 
             when {
+                // ICICI Bank (IFSC ICIC, ICICI, ICIC0, etc.)
+                ref.contains("ICIC") || desc.contains("ICICI") || fp.contains("ICIC") -> return "ICICI Bank"
                 // Indian Bank (IFSC IDIB or Indian Bank text)
                 ref.contains("IDIB") || desc.contains("INDIAN BANK") || desc.contains("IND BL") || fp.contains("IDIB") -> return "Indian Bank"
                 ref.contains("SBIN") || desc.contains("STATE BANK OF INDIA") || desc.contains("SBI MAIN") -> return "SBI"
                 ref.contains("HDFC") || desc.contains("HDFC BANK") -> return "HDFC Bank"
-                ref.contains("ICIC") || desc.contains("ICICI BANK") -> return "ICICI Bank"
                 ref.contains("UTIB") || desc.contains("AXIS BANK") -> return "Axis Bank"
                 ref.contains("KKBK") || desc.contains("KOTAK MAHINDRA") -> return "Kotak Bank"
                 ref.contains("CNRB") || desc.contains("CANARA BANK") -> return "Canara Bank"
@@ -575,7 +565,7 @@ private fun calculateEffectiveExpense(
                 ref.contains("CITI") || desc.contains("CITIBANK") -> return "Citi Bank"
             }
         }
-        return "Indian Bank"
+        return "Bank Account"
     }
 
     private fun generateInsights(

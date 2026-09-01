@@ -4,6 +4,7 @@ import com.varsel.expensetracker.category.CustomRuleEngine
 import com.varsel.expensetracker.data.repository.CustomRuleRepository
 import com.varsel.expensetracker.developer.ParserDiagnosticsCollector
 import com.varsel.expensetracker.domain.model.Transaction
+import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.parser.BankDetector
 import com.varsel.expensetracker.parser.IciciBankParser
 import com.varsel.expensetracker.parser.IndianBankParser
@@ -277,25 +278,36 @@ diagnosticsCollector.recordTransactions(
         // Verify parsed data against statement totals.
         //--------------------------------------------------
 
-val reconciliation =
-    reconciliationEngine.reconcile(
-        summary,
-        fingerprintedTransactions
-    )
+        val computedCredits = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val computedDebits = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val computedStart = transactions.minOfOrNull { it.dateTimestamp }
+        val computedEnd = transactions.maxOfOrNull { it.dateTimestamp }
+
+        val resolvedSummary = summary.copy(
+            statementStartDate = summary.statementStartDate ?: computedStart,
+            statementEndDate = summary.statementEndDate ?: computedEnd,
+            totalCredits = summary.totalCredits ?: if (computedCredits > 0.0) computedCredits else null,
+            totalDebits = summary.totalDebits ?: if (computedDebits > 0.0) computedDebits else null,
+            endingBalance = summary.endingBalance ?: if (summary.openingBalance != null) {
+                summary.openingBalance + (summary.totalCredits ?: computedCredits) - (summary.totalDebits ?: computedDebits)
+            } else null
+        )
+
+        val reconciliation =
+            reconciliationEngine.reconcile(
+                resolvedSummary,
+                fingerprintedTransactions
+            )
 
         //--------------------------------------------------
-// Reconciliation diagnostics
-//--------------------------------------------------
+        // Reconciliation diagnostics
+        //--------------------------------------------------
 
-diagnosticsCollector.recordReconciliation(
-
-    reconciliation = reconciliation,
-
-    statementCredits = summary.totalCredits,
-
-    statementDebits = summary.totalDebits
-
-)
+        diagnosticsCollector.recordReconciliation(
+            reconciliation = reconciliation,
+            statementCredits = resolvedSummary.totalCredits,
+            statementDebits = resolvedSummary.totalDebits
+        )
 
         val bankName = when (parser) {
             is IciciBankParser -> "ICICI Bank"
@@ -307,14 +319,14 @@ diagnosticsCollector.recordReconciliation(
         // Final result returned to ImportViewModel.
         //--------------------------------------------------
 
-return StatementImportResult(
-    summary = summary,
-    reconciliation = reconciliation,
-    transactions = transactions,
-    bankName = bankName,
-    accountId = accountIdentity?.accountId,
-    accountLast4 = accountIdentity?.accountLast4
-)
+        return StatementImportResult(
+            summary = resolvedSummary,
+            reconciliation = reconciliation,
+            transactions = transactions,
+            bankName = bankName,
+            accountId = accountIdentity?.accountId,
+            accountLast4 = accountIdentity?.accountLast4
+        )
 
     }
 
