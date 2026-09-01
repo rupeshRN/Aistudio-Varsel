@@ -522,18 +522,13 @@ class HdfcBankParser @Inject constructor(
             name = formatTitleCase(textParts.first())
             reason = formatTitleCase(textParts.last())
         } else if (textParts.size == 1) {
-            val singleText = textParts.first()
-            if (isKnownReason(singleText)) {
-                reason = formatTitleCase(singleText)
-            } else {
-                name = formatTitleCase(singleText)
-            }
+            // Unconditionally use the text part as the reason/purpose without keyword restriction
+            reason = formatTitleCase(textParts.first())
         }
 
         val displayDesc = when {
-            reason != null && name != null -> "$reason ($name)"
-            reason != null -> if (mode != null && mode != "FT") "$mode: $reason" else reason
-            name != null -> if (mode != null) "$mode: $name" else name
+            reason != null -> reason
+            name != null -> if (mode != null && mode != "FT") "$mode: $name" else name
             mode != null -> "$mode Transfer"
             else -> formatTitleCase(cleanText)
         }
@@ -553,24 +548,6 @@ class HdfcBankParser @Inject constructor(
         val refMatch = Regex("""(?:NEFT|RTGS)[/-]?([A-Z0-9]{10,22})""", RegexOption.IGNORE_CASE).find(text)
         if (refMatch != null) return refMatch.groupValues[1]
         return null
-    }
-
-    private fun isKnownReason(text: String): Boolean {
-        val upper = text.uppercase()
-        return upper.contains("MIN BAL") ||
-                upper.contains("MINIMUM BAL") ||
-                upper.contains("RENT") ||
-                upper.contains("SALARY") ||
-                upper.contains("INTEREST") ||
-                upper.contains("BILL") ||
-                upper.contains("FEE") ||
-                upper.contains("CHARGE") ||
-                upper.contains("TAX") ||
-                upper.contains("DIVIDEND") ||
-                upper.contains("REPAYMENT") ||
-                upper.contains("INSURANCE") ||
-                upper.contains("POLICY") ||
-                upper.contains("EMI")
     }
 
     private fun formatTitleCase(str: String): String {
