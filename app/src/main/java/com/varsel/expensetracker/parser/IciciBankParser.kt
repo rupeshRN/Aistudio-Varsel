@@ -113,8 +113,8 @@ class IciciBankParser @Inject constructor(
         if (transactions.isEmpty()) return null
 
         val rowsWithBalance = lastParsedRows.filter { it.second != null }
-        val latestRow = rowsWithBalance.maxByOrNull { it.first.dateTimestamp }
-        val earliestRow = rowsWithBalance.minByOrNull { it.first.dateTimestamp }
+        val latestRow = rowsWithBalance.lastOrNull()
+        val earliestRow = rowsWithBalance.firstOrNull()
 
         val endingBalance = latestRow?.second
         val openingBalance = earliestRow?.let { (tx, balance) ->

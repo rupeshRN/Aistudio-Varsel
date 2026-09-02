@@ -85,14 +85,29 @@ class PdfTextExtractor @Inject constructor() {
                     }
 
                     document.use { doc ->
-                        if (doc.isEncrypted && password.isNullOrEmpty()) {
-                            return@withContext PdfExtractionResult.PasswordRequired
-                        }
-
                         val stripper = PDFTextStripper()
                         stripper.sortByPosition = true
 
-                        val pdfText = stripper.getText(doc)
+                        val pdfText = try {
+                            stripper.getText(doc)
+                        } catch (e: InvalidPasswordException) {
+                            return@withContext if (password.isNullOrEmpty()) {
+                                PdfExtractionResult.PasswordRequired
+                            } else {
+                                PdfExtractionResult.InvalidPassword
+                            }
+                        } catch (e: Exception) {
+                            val msg = e.message?.lowercase().orEmpty()
+                            if (msg.contains("password") || msg.contains("encrypted") || msg.contains("protection")) {
+                                return@withContext if (password.isNullOrEmpty()) {
+                                    PdfExtractionResult.PasswordRequired
+                                } else {
+                                    PdfExtractionResult.InvalidPassword
+                                }
+                            } else {
+                                throw e
+                            }
+                        }
 
                         if (pdfText.isNotBlank()) {
                             return@withContext PdfExtractionResult.Success(pdfText.trim())

@@ -94,8 +94,8 @@ class HdfcBankParser @Inject constructor(
         val parsedRows = mutableListOf<Pair<Transaction, Double?>>()
         var previousBalance: Double? = null
 
-        for (block in blocks) {
-            val parsedTx = parseTransactionBlock(block, previousBalance)
+        for ((index, block) in blocks.withIndex()) {
+            val parsedTx = parseTransactionBlock(block, previousBalance, index)
             if (parsedTx != null) {
                 transactions.add(parsedTx.transaction)
                 parsedRows.add(Pair(parsedTx.transaction, parsedTx.balance))
@@ -113,18 +113,45 @@ class HdfcBankParser @Inject constructor(
         if (transactions.isEmpty()) return null
 
         val rowsWithBalance = lastParsedRows.filter { it.second != null }
-        val latestRow = rowsWithBalance.maxByOrNull { it.first.dateTimestamp }
-        val earliestRow = rowsWithBalance.minByOrNull { it.first.dateTimestamp }
+        val latestRow = rowsWithBalance.lastOrNull()
+        val earliestRow = rowsWithBalance.firstOrNull()
 
-        val endingBalance = latestRow?.second
-        val openingBalance = earliestRow?.let { (tx, balance) ->
+        // Parse explicit STATEMENT SUMMARY section if present
+        var explicitOpeningBalance: Double? = null
+        var explicitClosingBalance: Double? = null
+        var explicitCredits: Double? = null
+        var explicitDebits: Double? = null
+
+        val summarySectionMatch = Regex("""STATEMENT\s+SUMMARY\s*:?[\s\S]*""", RegexOption.IGNORE_CASE).find(rawText)
+        if (summarySectionMatch != null) {
+            val section = summarySectionMatch.value
+            val openingMatch = Regex("""Opening\s*Balance[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
+            if (openingMatch != null) {
+                explicitOpeningBalance = openingMatch.groupValues[1].replace(",", "").toDoubleOrNull()
+            }
+            val closingMatch = Regex("""Closing\s*Bal(?:ance)?[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
+            if (closingMatch != null) {
+                explicitClosingBalance = closingMatch.groupValues[1].replace(",", "").toDoubleOrNull()
+            }
+            val debitsMatch = Regex("""Debits[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
+            if (debitsMatch != null) {
+                explicitDebits = debitsMatch.groupValues[1].replace(",", "").toDoubleOrNull()
+            }
+            val creditsMatch = Regex("""Credits[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
+            if (creditsMatch != null) {
+                explicitCredits = creditsMatch.groupValues[1].replace(",", "").toDoubleOrNull()
+            }
+        }
+
+        val endingBalance = explicitClosingBalance ?: latestRow?.second
+        val openingBalance = explicitOpeningBalance ?: earliestRow?.let { (tx, balance) ->
             if (balance != null) {
                 if (tx.type == TransactionType.INCOME) balance - tx.amount else balance + tx.amount
             } else null
         }
 
-        val totalCredits = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
-        val totalDebits = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val totalCredits = explicitCredits ?: transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val totalDebits = explicitDebits ?: transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
         val startDate = transactions.minOfOrNull { it.dateTimestamp }
         val endDate = transactions.maxOfOrNull { it.dateTimestamp }
 
@@ -316,14 +343,16 @@ class HdfcBankParser @Inject constructor(
 
     private fun parseTransactionBlock(
         blockLines: List<String>,
-        previousBalance: Double?
+        previousBalance: Double?,
+        blockIndex: Int = 0
     ): ParsedBlockResult? {
         if (blockLines.isEmpty()) return null
 
         val firstLine = blockLines.first()
         val dateMatch = transactionDateRegex.find(firstLine) ?: return null
         val rawDateStr = dateMatch.groupValues[2]
-        val dateTimestamp = DateParserUtils.parseDate(rawDateStr) ?: return null
+        val rawTimestamp = DateParserUtils.parseDate(rawDateStr) ?: return null
+        val dateTimestamp = rawTimestamp + (blockIndex * 1000L)
 
         val fullBlockText = blockLines.joinToString("\n")
         val textWithoutDates = fullBlockText.replace(Regex("""\b\d{1,2}[./-](?:\d{1,2}|[A-Za-z]{3})[./-]\d{2,4}\b"""), " ")
