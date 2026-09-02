@@ -168,7 +168,7 @@ class HdfcBankParser @Inject constructor(
                 break
             }
 
-            if (isTableHeader(upper) || isStatementNoise(upper)) {
+            if (isStatementHeaderOrFooter(upper)) {
                 continue
             }
 
@@ -178,7 +178,7 @@ class HdfcBankParser @Inject constructor(
         if (tableLines.isEmpty()) {
             return lines.filter { line ->
                 val upper = line.uppercase()
-                !isTableHeader(upper) && !isStatementNoise(upper) && !isFinalStatementSummary(upper)
+                !isStatementHeaderOrFooter(upper)
             }
         }
 
@@ -214,8 +214,47 @@ class HdfcBankParser @Inject constructor(
                 upper.contains("HDFC BANK GSTIN") ||
                 upper.contains("TOTAL DEBITS") ||
                 upper.contains("TOTAL CREDITS") ||
-                upper.matches(Regex(""".*PAGE\s+\d+\s+OF\s+\d+.*""")) ||
+                upper.matches(Regex(""".*PAGE\s+\d+.*""")) ||
                 upper.matches(Regex(""".*\d+\s+OF\s+\d+.*"""))
+    }
+
+    private fun isStatementHeaderOrFooter(upper: String): Boolean {
+        if (isTableHeader(upper) || isStatementNoise(upper) || isFinalStatementSummary(upper)) {
+            return true
+        }
+        return upper.contains("STATEMENT OF ACCOUNT") ||
+                upper.contains("ACCOUNT STATEMENT") ||
+                upper.contains("ACCOUNT NUMBER") ||
+                upper.contains("ACCOUNT NO") ||
+                upper.contains("A/C NO") ||
+                upper.contains("A/C NUMBER") ||
+                upper.contains("ACC NO") ||
+                upper.contains("ACCOUNT HOLDER") ||
+                upper.contains("CUSTOMER ID") ||
+                upper.contains("CUST ID") ||
+                upper.contains("JOINT HOLDER") ||
+                upper.contains("NOMINEE") ||
+                upper.contains("IFSC") ||
+                upper.contains("MICR") ||
+                upper.contains("BRANCH CODE") ||
+                upper.contains("BRANCH :") ||
+                upper.contains("BRANCH:") ||
+                upper.contains("STATEMENT PERIOD") ||
+                upper.contains("STATEMENT FROM") ||
+                upper.contains("FROM DATE") ||
+                upper.contains("TO DATE") ||
+                upper.contains("ACCOUNT TYPE") ||
+                upper.contains("SAVINGS") ||
+                upper.contains("CURRENT") ||
+                upper.contains("CURRENCY :") ||
+                upper.contains("CURRENCY:") ||
+                upper.contains("STATUS :") ||
+                upper.contains("ADDRESS :") ||
+                upper.contains("CITY :") ||
+                upper.contains("STATE :") ||
+                upper.contains("PHONE NO") ||
+                upper.contains("EMAIL ID") ||
+                upper.contains("EMAIL :")
     }
 
     private fun groupIntoTransactionBlocks(lines: List<String>): List<List<String>> {
@@ -223,6 +262,11 @@ class HdfcBankParser @Inject constructor(
         var currentBlock: MutableList<String>? = null
 
         for (line in lines) {
+            val upper = line.uppercase()
+            if (isStatementHeaderOrFooter(upper)) {
+                continue
+            }
+
             val match = transactionDateRegex.find(line)
             if (match != null) {
                 currentBlock = mutableListOf(line)
@@ -520,10 +564,22 @@ class HdfcBankParser @Inject constructor(
         if (textParts.size >= 2) {
             // HDFC layout: Payment mode - Ref - Receiver/Sender Name - Bank - Acc - Reason
             name = formatTitleCase(textParts.first())
-            reason = formatTitleCase(textParts.last())
+            val rawReasonCandidate = textParts.last()
+            reason = cleanReasonString(rawReasonCandidate, refNumber)
+
+            if (reason == null && textParts.size > 2) {
+                val middleCandidate = textParts[textParts.size - 2]
+                val cleanedMiddle = cleanReasonString(middleCandidate, refNumber)
+                if (cleanedMiddle != null && cleanedMiddle != name) {
+                    reason = cleanedMiddle
+                }
+            }
         } else if (textParts.size == 1) {
-            // Unconditionally use the text part as the reason/purpose without keyword restriction
-            reason = formatTitleCase(textParts.first())
+            val singleText = textParts.first()
+            val cleanedSingle = cleanReasonString(singleText, refNumber)
+            if (cleanedSingle != null) {
+                reason = cleanedSingle
+            }
         }
 
         val displayDesc = when {
@@ -538,6 +594,40 @@ class HdfcBankParser @Inject constructor(
             merchant = name,
             referenceNumber = refNumber
         )
+    }
+
+    private fun cleanReasonString(rawReason: String, refNumber: String?): String? {
+        var text = rawReason.trim()
+        if (text.isBlank()) return null
+
+        // Remove refNumber if present in text
+        if (!refNumber.isNullOrBlank()) {
+            text = text.replace(refNumber, " ", ignoreCase = true)
+            val refClean = refNumber.replace(Regex("""^0+"""), "")
+            if (refClean.length >= 6) {
+                text = text.replace(refClean, " ", ignoreCase = true)
+            }
+        }
+
+        // Remove common reference/cheque patterns
+        text = text.replace(Regex("""(?:CHQ|REF|CHQ\./REF\.NO|CHQ/REF|UTRN|IMPS|TIMPS|NEFT|RTGS)[\s./:-]*[A-Z0-9]{6,22}""", RegexOption.IGNORE_CASE), " ")
+
+        // Remove standalone 8+ digit numbers or zero-padded sequences
+        text = text.replace(Regex("""\b\d{8,22}\b"""), " ")
+        text = text.replace(Regex("""\b0{4,}\d*\b"""), " ")
+
+        // Remove standalone reference noise tokens
+        text = text.replace(Regex("""\b(?:CHQ|REF|CHQ\./REF\.NO|NO|UTRN|TIMPS|IMPS)\b""", RegexOption.IGNORE_CASE), " ")
+
+        // Clean up slashes, hyphens, colons, dots at edges
+        text = text.replace(Regex("""^[/\-:\s.,]+|[/\-:\s.,]+$"""), " ")
+        text = text.replace(Regex("""\s+"""), " ").trim()
+
+        if (text.isBlank() || text.matches(Regex("""^[\d\W]+$"""))) {
+            return null
+        }
+
+        return formatTitleCase(text)
     }
 
     private fun extractRefNumber(text: String): String? {

@@ -166,7 +166,7 @@ class IciciBankParser @Inject constructor(
             }
 
             // Skip repeated page header lines and disclaimer noise in multi-page statements
-            if (isTableHeader(upper) || isStatementNoise(upper)) {
+            if (isStatementHeaderOrFooter(upper)) {
                 continue
             }
 
@@ -177,7 +177,7 @@ class IciciBankParser @Inject constructor(
         if (tableLines.isEmpty()) {
             return lines.filter { line ->
                 val upper = line.uppercase()
-                !isTableHeader(upper) && !isStatementNoise(upper)
+                !isStatementHeaderOrFooter(upper)
             }
         }
 
@@ -204,8 +204,41 @@ class IciciBankParser @Inject constructor(
                 upper.contains("WWW.ICICI.BANK.IN") ||
                 upper.contains("WWW.ICICIBANK.COM") ||
                 upper.contains("DIAL YOUR BANK") ||
-                upper.matches(Regex("""PAGE\s+\d+\s+OF\s+\d+""")) ||
-                upper.matches(Regex("""\d+\s+OF\s+\d+"""))
+                upper.matches(Regex(""".*PAGE\s+\d+.*""")) ||
+                upper.matches(Regex(""".*\d+\s+OF\s+\d+.*"""))
+    }
+
+    private fun isStatementHeaderOrFooter(upper: String): Boolean {
+        if (isTableHeader(upper) || isStatementNoise(upper)) {
+            return true
+        }
+        return upper.contains("STATEMENT OF TRANSACTIONS") ||
+                upper.contains("ACCOUNT NUMBER") ||
+                upper.contains("ACCOUNT NO") ||
+                upper.contains("A/C NO") ||
+                upper.contains("A/C NUMBER") ||
+                upper.contains("ACC NO") ||
+                upper.contains("ACCOUNT HOLDER") ||
+                upper.contains("CUSTOMER ID") ||
+                upper.contains("CUST ID") ||
+                upper.contains("JOINT HOLDER") ||
+                upper.contains("NOMINEE") ||
+                upper.contains("IFSC") ||
+                upper.contains("MICR") ||
+                upper.contains("BRANCH CODE") ||
+                upper.contains("BRANCH :") ||
+                upper.contains("BRANCH:") ||
+                upper.contains("STATEMENT PERIOD") ||
+                upper.contains("STATEMENT FROM") ||
+                upper.contains("FROM DATE") ||
+                upper.contains("TO DATE") ||
+                upper.contains("ACCOUNT TYPE") ||
+                upper.contains("CURRENCY :") ||
+                upper.contains("CURRENCY:") ||
+                upper.contains("STATUS :") ||
+                upper.contains("ADDRESS :") ||
+                upper.contains("PHONE NO") ||
+                upper.contains("EMAIL ID")
     }
 
     private fun groupIntoTransactionBlocks(lines: List<String>): List<List<String>> {
@@ -213,6 +246,11 @@ class IciciBankParser @Inject constructor(
         var currentBlock: MutableList<String>? = null
 
         for (line in lines) {
+            val upper = line.uppercase()
+            if (isStatementHeaderOrFooter(upper)) {
+                continue
+            }
+
             val match = transactionDateRegex.find(line)
             if (match != null) {
                 // New transaction starts here
