@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -144,6 +145,8 @@ fun TransactionDetailScreen(
                         }
                     },
                     onSaveClick = {
+                        rememberSmartRule = false
+                        viewModel.setApplyToSimilar(false)
                         viewModel.prepareSaveSmartRuleDialog()
                         showSaveConfirmDialog = true
                     },
@@ -423,13 +426,15 @@ fun TransactionDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
+                                .clickable { rememberSmartRule = !rememberSmartRule }
+                                .padding(vertical = 4.dp, horizontal = 2.dp)
                         ) {
                             Checkbox(
                                 checked = rememberSmartRule,
                                 onCheckedChange = { rememberSmartRule = it }
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Learn for future imports",
                                     style = MaterialTheme.typography.bodyMedium,
@@ -451,13 +456,15 @@ fun TransactionDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
+                                .clickable { viewModel.setApplyToSimilar(!state.applyToSimilarTransactions) }
+                                .padding(vertical = 4.dp, horizontal = 2.dp)
                         ) {
                             Checkbox(
                                 checked = state.applyToSimilarTransactions,
                                 onCheckedChange = { viewModel.setApplyToSimilar(it) }
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = "Apply to similar past transactions",
                                     style = MaterialTheme.typography.bodyMedium,
@@ -586,7 +593,11 @@ fun TransactionDetailScreen(
                                         if (state.editableDescription != state.transaction.description && state.editableDescription.isNotBlank()) {
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
-                                                modifier = Modifier.padding(top = 2.dp)
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .clickable { viewModel.setUpdateDescriptionForSimilar(!state.updateDescriptionForSimilar) }
+                                                    .padding(vertical = 2.dp)
                                             ) {
                                                 Checkbox(
                                                     checked = state.updateDescriptionForSimilar,

@@ -74,5 +74,11 @@ data class Transaction(
 ) {
     val isImported: Boolean
         get() = !transactionFingerprint.isNullOrBlank() || !referenceNumber.isNullOrBlank() || !bankName.isNullOrBlank()
+
+    val isTransfer: Boolean
+        get() = role == TransactionRole.TRANSFER_IN ||
+                role == TransactionRole.TRANSFER_OUT ||
+                transferLinkId != null ||
+                category.equals("Transfer", ignoreCase = true)
 }
 

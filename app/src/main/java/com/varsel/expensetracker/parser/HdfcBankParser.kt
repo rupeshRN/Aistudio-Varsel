@@ -264,6 +264,7 @@ class HdfcBankParser @Inject constructor(
         return (upper.contains("NARRATION") && upper.contains("DATE")) ||
                 (upper.contains("WITHDRAWAL") && upper.contains("DEPOSIT")) ||
                 (upper.contains("PARTICULARS") && upper.contains("CHQ")) ||
+                (upper.contains("DATE") && upper.contains("CHQ./REF.NO.")) ||
                 upper.contains("STATEMENT OF ACCOUNT") ||
                 upper.contains("ACCOUNT STATEMENT")
     }
@@ -474,8 +475,17 @@ class HdfcBankParser @Inject constructor(
             }
         }
 
+        // Check for 6-digit cheque number in the block (distinct from 10+ zeroes)
+        val chequeMatch = Regex("""\b(?:CHQ[\s.:]*)?([0-9]{6})\b""").findAll(fullBlockText)
+            .firstOrNull { m ->
+                val v = m.groupValues[1]
+                v != "000000" && !v.startsWith("00000")
+            }?.groupValues?.get(1)
+
         val rawDescription = extractNarration(fullBlockText, dateMatch.value, amountMatches.map { it.first })
         val remarksInfo = parseRemarks(rawDescription, transactionType == TransactionType.INCOME)
+
+        val resolvedRefNumber = remarksInfo.referenceNumber ?: chequeMatch?.let { "CHQ $it" }
 
         val isIncome = (transactionType == TransactionType.INCOME || transactionType == TransactionType.CREDIT)
         val categoryResult = categoryRuleEngine.categorize(remarksInfo.displayDescription, isIncome)
@@ -495,7 +505,7 @@ class HdfcBankParser @Inject constructor(
             description = remarksInfo.displayDescription,
             category = finalCategory,
             dateTimestamp = dateTimestamp,
-            referenceNumber = remarksInfo.referenceNumber,
+            referenceNumber = resolvedRefNumber,
             bankName = "HDFC Bank"
         )
 
@@ -586,12 +596,22 @@ class HdfcBankParser @Inject constructor(
                 !pUpper.startsWith("POS") &&
                         !pUpper.matches(Regex("""\d+""")) &&
                         !pUpper.contains("XXXX") &&
+                        pUpper != "IN" &&
+                        pUpper != "IND" &&
                         pUpper.length > 1
             }
             if (merchantParts.isNotEmpty()) {
-                merchantName = merchantParts.joinToString(" ") { word ->
-                    word.lowercase().replaceFirstChar { it.uppercase() }
+                val cleanedMerchantParts = mutableListOf<String>()
+                val stateCodes = setOf("KA", "MH", "TN", "DL", "TS", "AP", "WB", "GJ", "UP", "HR", "KL", "MP")
+                for (p in merchantParts) {
+                    if (stateCodes.contains(p.uppercase()) && p == merchantParts.last()) continue
+                    cleanedMerchantParts.add(p)
                 }
+
+                merchantName = (if (cleanedMerchantParts.isNotEmpty()) cleanedMerchantParts else merchantParts)
+                    .joinToString(" ") { word ->
+                        word.lowercase().replaceFirstChar { it.uppercase() }
+                    }
                 return RemarksInfo("POS: $merchantName", merchantName, extractRefNumber(cleanText))
             }
         }
@@ -633,6 +653,12 @@ class HdfcBankParser @Inject constructor(
             // Check if first part is Payment Mode
             if (index == 0 && knownModes.contains(upperPart)) {
                 mode = upperPart
+                continue
+            }
+
+            // In HDFC UPI narrations (UPI-RRN-PAYEE-BANK-ACC-REASON), segment 1 is strictly the 12-digit RRN
+            if (mode == "UPI" && index == 1 && part.matches(Regex("""\d{10,14}"""))) {
+                refNumber = part
                 continue
             }
 
@@ -688,6 +714,11 @@ class HdfcBankParser @Inject constructor(
             }
         }
 
+        // If the extracted reason is identical to the payee name, clear it to avoid repetition
+        if (reason != null && name != null && reason.equals(name, ignoreCase = true)) {
+            reason = null
+        }
+
         val displayDesc = when {
             reason != null -> reason
             name != null -> if (mode != null && mode != "FT") "$mode: $name" else name
@@ -724,6 +755,15 @@ class HdfcBankParser @Inject constructor(
             return null
         }
 
+        // Filter out non-informative generic reason tokens so we fall back to the actual Payee/Merchant name
+        val genericNoiseTokens = setOf(
+            "NA", "NIL", "NONE", "PAYMENT", "TRANSFER", "IMPS", "UPI", "NEFT", "RTGS",
+            "SENT USING UPI", "PAID VIA UPI", "PAY", "BILLPAY", "BILL"
+        )
+        if (genericNoiseTokens.contains(upper)) {
+            return null
+        }
+
         // Remove refNumber if present in text
         if (!refNumber.isNullOrBlank()) {
             text = text.replace(refNumber, " ", ignoreCase = true)
@@ -748,6 +788,10 @@ class HdfcBankParser @Inject constructor(
         text = text.replace(Regex("""\s+"""), " ").trim()
 
         if (text.isBlank() || text.matches(Regex("""^[\d\W]+$"""))) {
+            return null
+        }
+
+        if (genericNoiseTokens.contains(text.uppercase())) {
             return null
         }
 

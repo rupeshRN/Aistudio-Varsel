@@ -29,10 +29,7 @@ class TransactionUiMapper @Inject constructor() {
             else -> "Manual"
         }
 
-        val isTransfer = transaction.role == TransactionRole.TRANSFER_IN ||
-            transaction.role == TransactionRole.TRANSFER_OUT ||
-            transaction.transferLinkId != null ||
-            transaction.category.equals("Transfer", ignoreCase = true)
+        val isTransfer = transaction.isTransfer
 
         val isEventLinked = transaction.transactionLinkId != null
 

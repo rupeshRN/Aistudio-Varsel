@@ -127,6 +127,9 @@ class FinancialEventViewModel @Inject constructor(
         val availableReimbursements = mutableListOf<AvailableTransactionUiModel>()
 
         for (tx in transactions) {
+            // Transfers (TRANSFER_IN, TRANSFER_OUT, transferLinkId, or Transfer category) are not eligible for Financial Events
+            if (tx.isTransfer) continue
+
             // If already allocated to THIS event, skip from available list (they can edit amount directly)
             val alreadyInThisEvent = eventAllocations.any { it.transactionId == tx.id } || tx.transactionLinkId == transactionLinkId
             if (alreadyInThisEvent) continue
