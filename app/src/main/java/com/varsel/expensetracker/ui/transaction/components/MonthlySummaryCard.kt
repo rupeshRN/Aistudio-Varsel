@@ -40,8 +40,8 @@ fun MonthlySummaryCard(
     val isDark = isSystemInDarkTheme()
     val netSavings = income - expense
 
-    val incomeColor = if (isDark) Color(0xFF81C784) else Color(0xFF1B5E20)
-    val expenseColor = if (isDark) Color(0xFFFF8A80) else Color(0xFFB71C1C)
+    val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
+    val expenseColor = if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
 
     Card(
         modifier = modifier.fillMaxWidth(),

@@ -22,6 +22,13 @@ import com.varsel.expensetracker.category.CategoryIconCatalog
 import com.varsel.expensetracker.ui.design.CategoryPalette
 import com.varsel.expensetracker.ui.model.TransactionUiModel
 
+private data class TransactionIconStyle(
+    val icon: ImageVector,
+    val tint: Color,
+    val bg: Color,
+    val description: String
+)
+
 @Composable
 fun RecentTransactionCard(
     transaction: TransactionUiModel,
@@ -29,23 +36,27 @@ fun RecentTransactionCard(
     onClick: (() -> Unit)? = null
 ) {
     val isDark = isSystemInDarkTheme()
-    val incomeColor = if (isDark) Color(0xFF81C784) else Color(0xFF1B5E20)
-    val expenseColor = if (isDark) Color(0xFFFF8A80) else Color(0xFFB71C1C)
-    val transferColor = if (isDark) Color(0xFFB39DDB) else Color(0xFF5E35B1)
+    val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
+    val expenseColor = if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
+    val transferColor = if (isDark) Color(0xFFD1C4E9) else Color(0xFF5E35B1)
     val eventColor = if (isDark) Color(0xFF80DEEA) else Color(0xFF00838F)
 
-    // Dynamic icon & tint based on Transfer, Event Linked, or Category
-    val (icon: ImageVector, iconColor: Color, iconDescription: String) = when {
+    // Dynamic icon, tint & background based on Transfer, Event Linked, or Category
+    val iconStyle = when {
         transaction.isTransfer -> {
-            Triple(Icons.Outlined.SwapHoriz, transferColor, "Transfer")
+            val tint = if (isDark) Color(0xFFEDE7F6) else Color(0xFF5E35B1)
+            val bg = if (isDark) Color(0xFF7E57C2).copy(alpha = 0.35f) else Color(0xFF5E35B1).copy(alpha = 0.16f)
+            TransactionIconStyle(Icons.Outlined.SwapHoriz, tint, bg, "Transfer")
         }
         transaction.isEventLinked -> {
-            Triple(Icons.Outlined.Event, eventColor, "Linked to Event")
+            TransactionIconStyle(Icons.Outlined.Event, eventColor, eventColor.copy(alpha = 0.14f), "Linked to Event")
         }
         else -> {
-            Triple(
+            val catColor = CategoryPalette.colorFor(transaction.category)
+            TransactionIconStyle(
                 CategoryIconCatalog.iconFor(transaction.category),
-                CategoryPalette.colorFor(transaction.category),
+                catColor,
+                catColor.copy(alpha = 0.14f),
                 transaction.category
             )
         }
@@ -65,14 +76,14 @@ fun RecentTransactionCard(
         // Icon Avatar (Differentiated for Transfer, Event-Linked, or Category)
         Surface(
             shape = CircleShape,
-            color = iconColor.copy(alpha = 0.14f),
+            color = iconStyle.bg,
             modifier = Modifier.size(40.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
-                    imageVector = icon,
-                    contentDescription = iconDescription,
-                    tint = iconColor,
+                    imageVector = iconStyle.icon,
+                    contentDescription = iconStyle.description,
+                    tint = iconStyle.tint,
                     modifier = Modifier.size(20.dp)
                 )
             }

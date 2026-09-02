@@ -302,11 +302,11 @@ private fun IncomeExpensePill(
 ) {
     val isDark = isSystemInDarkTheme()
 
-    // High Contrast Semantic Green & Red Palettes
+    // High Contrast Semantic Green & Red Palettes matching Transaction Detail
     val primaryColor = if (isIncome) {
-        if (isDark) Color(0xFF81C784) else Color(0xFF1B5E20)
+        if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
     } else {
-        if (isDark) Color(0xFFFF8A80) else Color(0xFFB71C1C)
+        if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
     }
 
     val pillBackground = if (isDark) {

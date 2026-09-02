@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.ui.components.AppIconLoadingView
 import com.varsel.expensetracker.ui.dashboard.components.BalanceCard
 import com.varsel.expensetracker.ui.dashboard.components.DashboardLoanWidget
 import com.varsel.expensetracker.ui.dashboard.components.DashboardRecentSection
@@ -49,12 +50,10 @@ fun DashboardScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         if (uiState.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
+            AppIconLoadingView(
+                title = "Varsel",
+                subtitle = "Securing your offline ledger..."
+            )
         } else {
             LazyColumn(
                 modifier = Modifier

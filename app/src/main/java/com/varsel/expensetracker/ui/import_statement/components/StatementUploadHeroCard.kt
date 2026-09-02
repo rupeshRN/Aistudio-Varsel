@@ -123,12 +123,12 @@ fun StatementUploadHeroCard(
                 )
                 FormatBadge(
                     icon = Icons.Default.ReceiptLong,
-                    label = "Indian Bank • ICICI",
+                    label = "Indian Bank • ICICI • HDFC",
                     enabled = true
                 )
                 FormatBadge(
-                    icon = Icons.Default.Image,
-                    label = "HDFC (Coming Next)",
+                    icon = Icons.Default.ReceiptLong,
+                    label = "Other banks soon",
                     enabled = false
                 )
             }
