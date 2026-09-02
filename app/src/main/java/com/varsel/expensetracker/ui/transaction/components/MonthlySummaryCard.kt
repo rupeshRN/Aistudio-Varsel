@@ -137,7 +137,7 @@ fun MonthlySummaryCard(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "Total Income",
+                                text = "Total Credit",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = incomeColor
@@ -173,7 +173,7 @@ fun MonthlySummaryCard(
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
-                                text = "Total Expense",
+                                text = "Total Debits",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = expenseColor

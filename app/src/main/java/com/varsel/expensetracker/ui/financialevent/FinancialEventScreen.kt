@@ -854,7 +854,7 @@ private fun FinancialEventAllocatedRow(
                             color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
                         ) {
                             Text(
-                                text = "${item.percent}% of ₹%,.0f".format(item.totalTransactionAmount),
+                                text = "${item.percent}% of ₹" + "%,.0f".format(item.totalTransactionAmount),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
