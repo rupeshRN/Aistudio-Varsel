@@ -92,7 +92,9 @@ class HdfcBankParser @Inject constructor(
 
         val transactions = mutableListOf<Transaction>()
         val parsedRows = mutableListOf<Pair<Transaction, Double?>>()
-        var previousBalance: Double? = null
+        
+        val explicitSummary = parseHdfcStatementSummary(rawText)
+        var previousBalance: Double? = explicitSummary?.openingBalance
 
         for ((index, block) in blocks.withIndex()) {
             val parsedTx = parseTransactionBlock(block, previousBalance, index)
@@ -117,41 +119,17 @@ class HdfcBankParser @Inject constructor(
         val earliestRow = rowsWithBalance.firstOrNull()
 
         // Parse explicit STATEMENT SUMMARY section if present
-        var explicitOpeningBalance: Double? = null
-        var explicitClosingBalance: Double? = null
-        var explicitCredits: Double? = null
-        var explicitDebits: Double? = null
+        val explicitSummary = parseHdfcStatementSummary(rawText)
 
-        val summarySectionMatch = Regex("""STATEMENT\s+SUMMARY\s*:?[\s\S]*""", RegexOption.IGNORE_CASE).find(rawText)
-        if (summarySectionMatch != null) {
-            val section = summarySectionMatch.value
-            val openingMatch = Regex("""Opening\s*Balance[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
-            if (openingMatch != null) {
-                explicitOpeningBalance = openingMatch.groupValues[1].replace(",", "").toDoubleOrNull()
-            }
-            val closingMatch = Regex("""Closing\s*Bal(?:ance)?[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
-            if (closingMatch != null) {
-                explicitClosingBalance = closingMatch.groupValues[1].replace(",", "").toDoubleOrNull()
-            }
-            val debitsMatch = Regex("""Debits[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
-            if (debitsMatch != null) {
-                explicitDebits = debitsMatch.groupValues[1].replace(",", "").toDoubleOrNull()
-            }
-            val creditsMatch = Regex("""Credits[\s\S]*?([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(section)
-            if (creditsMatch != null) {
-                explicitCredits = creditsMatch.groupValues[1].replace(",", "").toDoubleOrNull()
-            }
-        }
-
-        val endingBalance = explicitClosingBalance ?: latestRow?.second
-        val openingBalance = explicitOpeningBalance ?: earliestRow?.let { (tx, balance) ->
+        val endingBalance = explicitSummary?.closingBalance ?: latestRow?.second
+        val openingBalance = explicitSummary?.openingBalance ?: earliestRow?.let { (tx, balance) ->
             if (balance != null) {
                 if (tx.type == TransactionType.INCOME) balance - tx.amount else balance + tx.amount
             } else null
         }
 
-        val totalCredits = explicitCredits ?: transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
-        val totalDebits = explicitDebits ?: transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val totalCredits = explicitSummary?.totalCredits ?: transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val totalDebits = explicitSummary?.totalDebits ?: transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
         val startDate = transactions.minOfOrNull { it.dateTimestamp }
         val endDate = transactions.maxOfOrNull { it.dateTimestamp }
 
@@ -163,6 +141,67 @@ class HdfcBankParser @Inject constructor(
             totalDebits = totalDebits,
             endingBalance = endingBalance
         )
+    }
+
+    private data class ExplicitSummary(
+        val openingBalance: Double?,
+        val closingBalance: Double?,
+        val totalCredits: Double?,
+        val totalDebits: Double?
+    )
+
+    private fun parseHdfcStatementSummary(rawText: String): ExplicitSummary? {
+        val summaryMatch = Regex("""STATEMENT\s+SUMMARY\s*:?[\s\S]*""", RegexOption.IGNORE_CASE).find(rawText)
+            ?: return null
+        val text = summaryMatch.value
+
+        // Extract decimal amounts from the summary section
+        val amountMatches = Regex("""\b\d{1,3}(?:,\d{3})*\.\d{2}\b""").findAll(text)
+            .mapNotNull { it.value.replace(",", "").toDoubleOrNull() }
+            .toList()
+
+        if (amountMatches.size >= 4) {
+            val n1 = amountMatches[0]
+            val n2 = amountMatches[1]
+            val n3 = amountMatches[2]
+            val n4 = amountMatches[3]
+
+            // Case A: [Opening, Debits, Credits, Closing] -> Opening + Credits - Debits == Closing
+            if (kotlin.math.abs((n1 + n3 - n2) - n4) < 0.05) {
+                return ExplicitSummary(
+                    openingBalance = n1,
+                    totalDebits = n2,
+                    totalCredits = n3,
+                    closingBalance = n4
+                )
+            }
+
+            // Case B: [Opening, Credits, Debits, Closing] -> Opening + Credits - Debits == Closing
+            if (kotlin.math.abs((n1 + n2 - n3) - n4) < 0.05) {
+                return ExplicitSummary(
+                    openingBalance = n1,
+                    totalCredits = n2,
+                    totalDebits = n3,
+                    closingBalance = n4
+                )
+            }
+        }
+
+        val opening = Regex("""Opening\s*Bal(?:ance)?\s*[:=-]?\s*([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+        val closing = Regex("""Closing\s*Bal(?:ance)?\s*[:=-]?\s*([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+        val debits = Regex("""Debits\s*[:=-]?\s*([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+        val credits = Regex("""Credits\s*[:=-]?\s*([0-9,]+\.\d{2})""", RegexOption.IGNORE_CASE).find(text)?.groupValues?.get(1)?.replace(",", "")?.toDoubleOrNull()
+
+        if (opening != null || closing != null || debits != null || credits != null) {
+            return ExplicitSummary(
+                openingBalance = opening,
+                closingBalance = closing,
+                totalCredits = credits,
+                totalDebits = debits
+            )
+        }
+
+        return null
     }
 
     private fun extractTransactionTableLines(lines: List<String>): List<String> {
@@ -399,21 +438,28 @@ class HdfcBankParser @Inject constructor(
 
             closingBalance = secondAmt
 
-            if (upperFull.contains(" CR") || upperFull.contains("(CR)") || upperFull.contains("CREDIT") || upperFull.contains("INTEREST PAID")) {
-                parsedAmount = firstAmt
-                transactionType = TransactionType.INCOME
-            } else if (upperFull.contains(" DR") || upperFull.contains("(DR)") || upperFull.contains("DEBIT")) {
-                parsedAmount = firstAmt
-                transactionType = TransactionType.EXPENSE
-            } else if (previousBalance != null) {
+            if (previousBalance != null) {
                 val diff = secondAmt - previousBalance
                 if (diff > 0.01) {
                     parsedAmount = firstAmt
                     transactionType = TransactionType.INCOME
-                } else {
+                } else if (diff < -0.01) {
                     parsedAmount = firstAmt
                     transactionType = TransactionType.EXPENSE
+                } else {
+                    parsedAmount = firstAmt
+                    transactionType = if (upperFull.contains(" CR") || upperFull.contains("(CR)") || upperFull.contains("CREDIT") || upperFull.contains("BY TRANSFER") || upperFull.contains("BY ")) {
+                        TransactionType.INCOME
+                    } else {
+                        TransactionType.EXPENSE
+                    }
                 }
+            } else if (upperFull.contains(" CR") || upperFull.contains("(CR)") || upperFull.contains("CREDIT") || upperFull.contains("BY TRANSFER") || upperFull.contains("BY ") || upperFull.contains("INTEREST PAID")) {
+                parsedAmount = firstAmt
+                transactionType = TransactionType.INCOME
+            } else if (upperFull.contains(" DR") || upperFull.contains("(DR)") || upperFull.contains("DEBIT") || upperFull.contains("TO TRANSFER") || upperFull.contains("TO ")) {
+                parsedAmount = firstAmt
+                transactionType = TransactionType.EXPENSE
             } else {
                 parsedAmount = firstAmt
                 transactionType = TransactionType.EXPENSE
