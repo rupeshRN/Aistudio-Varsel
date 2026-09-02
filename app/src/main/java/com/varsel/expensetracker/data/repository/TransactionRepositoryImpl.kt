@@ -604,7 +604,8 @@ fun TransactionEntity.toDomain():
                 TransactionRole.NORMAL
             },
 
-        bankName = bankName
+        bankName = bankName,
+        rawDescription = rawDescription
     )
 }
 
@@ -667,6 +668,9 @@ fun Transaction.toEntity():
             role.name,
 
         bankName =
-            bankName
+            bankName,
+
+        rawDescription =
+            rawDescription
     )
 }

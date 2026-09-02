@@ -6,6 +6,7 @@ import com.varsel.expensetracker.developer.ParserDiagnosticsCollector
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.parser.BankDetector
+import com.varsel.expensetracker.parser.HdfcBankParser
 import com.varsel.expensetracker.parser.IciciBankParser
 import com.varsel.expensetracker.parser.IndianBankParser
 import com.varsel.expensetracker.parser.ReconciliationEngine
@@ -308,8 +309,11 @@ class StatementParserEngine @Inject constructor(
         val bankName = when (parser) {
             is IciciBankParser -> "ICICI Bank"
             is IndianBankParser -> "Indian Bank"
+            is HdfcBankParser -> "HDFC Bank"
             else -> "Bank Statement"
         }
+
+        val ifscCode = accountDetailsExtractor.extractIfscCode(rawText)
 
         val taggedTransactions = transactions.map { tx ->
             if (tx.bankName.isNullOrBlank()) tx.copy(bankName = bankName) else tx
@@ -325,7 +329,8 @@ class StatementParserEngine @Inject constructor(
             transactions = taggedTransactions,
             bankName = bankName,
             accountId = accountIdentity?.accountId,
-            accountLast4 = accountIdentity?.accountLast4
+            accountLast4 = accountIdentity?.accountLast4,
+            ifscCode = ifscCode
         )
 
     }

@@ -36,7 +36,7 @@ import javax.inject.Provider
         LoanAccountEntity::class,
         LoanPaymentEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -452,6 +452,21 @@ val MIGRATION_8_9 =
                 ) {
                     database.execSQL("ALTER TABLE transactions ADD COLUMN bankName TEXT")
                     database.execSQL("ALTER TABLE statement_snapshots ADD COLUMN bankName TEXT")
+                }
+            }
+
+        val MIGRATION_13_14 =
+            object : Migration(13, 14) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE transactions ADD COLUMN rawDescription TEXT")
+                    database.execSQL("ALTER TABLE statement_snapshots ADD COLUMN ifscCode TEXT")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_amount ON transactions(amount)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_transferLinkId ON transactions(transferLinkId)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_dateTimestamp ON transactions(dateTimestamp)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_referenceNumber ON transactions(referenceNumber)")
                 }
             }
     }

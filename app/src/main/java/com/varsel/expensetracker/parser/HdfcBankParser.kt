@@ -506,7 +506,8 @@ class HdfcBankParser @Inject constructor(
             category = finalCategory,
             dateTimestamp = dateTimestamp,
             referenceNumber = resolvedRefNumber,
-            bankName = "HDFC Bank"
+            bankName = "HDFC Bank",
+            rawDescription = rawDescription
         )
 
         return ParsedBlockResult(transaction, closingBalance)

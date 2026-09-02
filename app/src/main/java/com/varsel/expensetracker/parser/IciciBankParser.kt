@@ -362,7 +362,8 @@ class IciciBankParser @Inject constructor(
             category = finalCategory,
             dateTimestamp = dateTimestamp,
             referenceNumber = remarksInfo.referenceNumber,
-            bankName = "ICICI Bank"
+            bankName = "ICICI Bank",
+            rawDescription = remarksInfo.rawRemarks
         )
 
         return ParsedBlockResult(transaction, runningBalance)
@@ -370,7 +371,8 @@ class IciciBankParser @Inject constructor(
 
     private data class RemarksInfo(
         val displayDescription: String,
-        val referenceNumber: String?
+        val referenceNumber: String?,
+        val rawRemarks: String
     )
 
     private fun extractRemarksInfo(blockLines: List<String>, datePrefix: String): RemarksInfo {
@@ -492,7 +494,8 @@ class IciciBankParser @Inject constructor(
 
         return RemarksInfo(
             displayDescription = finalDescription,
-            referenceNumber = reference
+            referenceNumber = reference,
+            rawRemarks = cleanedRemarks
         )
     }
 

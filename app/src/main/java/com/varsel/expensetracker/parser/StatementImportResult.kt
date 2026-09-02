@@ -14,5 +14,7 @@ data class StatementImportResult(
 
     val accountId: String? = null,
 
-    val accountLast4: String? = null
+    val accountLast4: String? = null,
+
+    val ifscCode: String? = null
 )

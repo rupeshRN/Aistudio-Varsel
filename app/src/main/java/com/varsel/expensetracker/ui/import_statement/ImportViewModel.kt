@@ -8,6 +8,7 @@ import com.varsel.expensetracker.data.local.entity.StatementSnapshotEntity
 import com.varsel.expensetracker.developer.DeveloperRepository
 import com.varsel.expensetracker.developer.ParserDiagnostics
 import com.varsel.expensetracker.developer.ParserDiagnosticsManager
+import com.varsel.expensetracker.domain.engine.AutoTransferReconciliationEngine
 import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
@@ -69,6 +70,8 @@ class ImportViewModel @Inject constructor(
     private val ocrManager: OcrManager,
 
     private val developerRepository: DeveloperRepository,
+
+    private val autoTransferReconciliationEngine: AutoTransferReconciliationEngine,
 
     @ApplicationContext private val context: Context
 
@@ -390,6 +393,7 @@ class ImportViewModel @Inject constructor(
                 accountId = result.accountId,
                 accountLast4 = result.accountLast4,
                 bankName = result.bankName,
+                ifscCode = result.ifscCode,
 
                 statementStartDate =
                     summary.statementStartDate,
@@ -450,6 +454,9 @@ class ImportViewModel @Inject constructor(
                             it.transaction
                         )
                 }
+
+                // Automatically reconcile and link transfers across accounts
+                autoTransferReconciliationEngine.reconcileTransfers()
 
                 _uiState.value =
                     ImportUiState.Saved(

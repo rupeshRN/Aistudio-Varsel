@@ -70,7 +70,12 @@ data class Transaction(
     /**
      * Name of the issuing bank (e.g. "Indian Bank", "ICICI Bank").
      */
-    val bankName: String? = null
+    val bankName: String? = null,
+
+    /**
+     * Original uncleaned transaction narration from statement or OCR.
+     */
+    val rawDescription: String? = null
 ) {
     val isImported: Boolean
         get() = !transactionFingerprint.isNullOrBlank() || !referenceNumber.isNullOrBlank() || !bankName.isNullOrBlank()
