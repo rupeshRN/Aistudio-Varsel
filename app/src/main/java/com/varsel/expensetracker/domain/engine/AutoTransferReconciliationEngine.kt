@@ -17,6 +17,7 @@ class AutoTransferReconciliationEngine @Inject constructor(
 ) {
 
     companion object {
+<<<<<<< HEAD
         private const val STANDARD_WINDOW_MS = 5 * 24 * 60 * 60 * 1000L // 5 days for clearing and weekend lag
         private const val REF_MATCH_WINDOW_MS = 10 * 24 * 60 * 60 * 1000L // 10 days for matching UTR/RRN
         private const val STARTUP_LOOKBACK_MS = 60L * 24 * 60 * 60 * 1000L // 60 days sliding window for background/startup scans
@@ -28,6 +29,11 @@ class AutoTransferReconciliationEngine @Inject constructor(
             RegexOption.IGNORE_CASE
         )
 
+=======
+        private const val TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000L
+        private const val MIN_CONFIDENCE_THRESHOLD = 75
+
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
         // Regex to capture standard 11-character Indian Financial System Code (IFSC)
         private val IFSC_REGEX = Regex("""\b([A-Z]{4}0[A-Z0-9]{6})\b""", RegexOption.IGNORE_CASE)
 
@@ -37,8 +43,13 @@ class AutoTransferReconciliationEngine @Inject constructor(
         // Regex to capture explicit account indications like "A/c 9012", "to A/c ...9012"
         private val EXPLICIT_ACCOUNT_REGEX = Regex("""(?:A/c|Acc|Account|to)\s*[:#\-]?\s*X*([0-9]{4})\b""", RegexOption.IGNORE_CASE)
 
+<<<<<<< HEAD
         // Regex to capture 10 to 22-character reference numbers (numeric UTR, RRN, or alphanumeric NEFT/RTGS/IMPS)
         private val REF_NUM_REGEX = Regex("""\b([0-9]{10,18}|(?:[A-Z]{2,6}[0-9]{6,16})|(?:N[0-9]{11,16}))\b""", RegexOption.IGNORE_CASE)
+=======
+        // Regex to capture 10 to 18-digit reference numbers (UTR, RRN, IMPS/UPI ref)
+        private val REF_NUM_REGEX = Regex("""\b([0-9]{10,18})\b""")
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 
         // Known IFSC bank code prefixes mapped to common bank names
         private val IFSC_PREFIX_MAP = mapOf(
@@ -64,6 +75,7 @@ class AutoTransferReconciliationEngine @Inject constructor(
     /**
      * Reconciles unmatched debits and credits across user accounts.
      *
+<<<<<<< HEAD
      * @param targetTransactionIds Optional list of newly added or specific transaction IDs to check (e.g. from import).
      *                             When specified, only reconciles against these target transactions.
      *                             When null or empty, reconciles unlinked transactions within a sliding lookback window
@@ -75,20 +87,36 @@ class AutoTransferReconciliationEngine @Inject constructor(
         targetTransactionIds: List<Long>? = null,
         fullHistoricalScan: Boolean = true
     ): Int {
+=======
+     * @param targetTransactionIds Optional list of newly added or specific transaction IDs to check.
+     *                             If null or empty, checks recent unlinked transactions.
+     * @return Number of transfer pairs automatically linked.
+     */
+    suspend fun reconcileTransfers(targetTransactionIds: List<Long>? = null): Int {
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
         val snapshots = statementSnapshotDao.getAllSnapshots()
 
         val candidates: List<TransactionEntity> = if (!targetTransactionIds.isNullOrEmpty()) {
             transactionDao.getTransactionsByIds(targetTransactionIds)
                 .filter { it.transferLinkId == null }
         } else {
+<<<<<<< HEAD
             transactionDao.getAllUnlinkedTransactions()
+=======
+            transactionDao.getRecentUnlinkedTransactions(200)
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
         }
 
         if (candidates.isEmpty()) return 0
 
+<<<<<<< HEAD
         // Only evaluate candidates that possess transfer indicators (reference, UTR, transfer keyword, account info)
         val debits = candidates.filter { it.type == "EXPENSE" && it.transferLinkId == null && hasTransferIndicators(it) }
         val credits = candidates.filter { it.type == "INCOME" && it.transferLinkId == null && hasTransferIndicators(it) }
+=======
+        val debits = candidates.filter { it.type == "EXPENSE" && it.transferLinkId == null }
+        val credits = candidates.filter { it.type == "INCOME" && it.transferLinkId == null }
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 
         val alreadyLinkedIds = mutableSetOf<Long>()
         var linkedCount = 0
@@ -152,8 +180,13 @@ class AutoTransferReconciliationEngine @Inject constructor(
      * Efficiently fetches candidate credits from the database for a given debit.
      */
     private suspend fun fetchCandidateCredits(debit: TransactionEntity): List<TransactionEntity> {
+<<<<<<< HEAD
         val minDate = debit.dateTimestamp - REF_MATCH_WINDOW_MS
         val maxDate = debit.dateTimestamp + REF_MATCH_WINDOW_MS
+=======
+        val minDate = debit.dateTimestamp - TWO_DAYS_MS
+        val maxDate = debit.dateTimestamp + TWO_DAYS_MS
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 
         val listByAmount = transactionDao.findUnlinkedTransferCandidates(
             type = "INCOME",
@@ -162,6 +195,7 @@ class AutoTransferReconciliationEngine @Inject constructor(
             maxDate = maxDate
         )
 
+<<<<<<< HEAD
         val refNumbers = (listOfNotNull(debit.referenceNumber) + extractAllReferenceNumbers(debit)).distinct()
         val listByRef = refNumbers.flatMap { ref ->
             if (ref.isNotBlank()) {
@@ -173,6 +207,14 @@ class AutoTransferReconciliationEngine @Inject constructor(
                 emptyList()
             }
         }
+=======
+        val listByRef = debit.referenceNumber?.takeIf { it.isNotBlank() }?.let { ref ->
+            transactionDao.findUnlinkedTransferCandidatesByReference(
+                type = "INCOME",
+                referenceNumber = ref.trim()
+            )
+        }.orEmpty()
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 
         return (listByAmount + listByRef).distinctBy { it.id }
     }
@@ -181,8 +223,13 @@ class AutoTransferReconciliationEngine @Inject constructor(
      * Efficiently fetches candidate debits from the database for a given credit.
      */
     private suspend fun fetchCandidateDebits(credit: TransactionEntity): List<TransactionEntity> {
+<<<<<<< HEAD
         val minDate = credit.dateTimestamp - REF_MATCH_WINDOW_MS
         val maxDate = credit.dateTimestamp + REF_MATCH_WINDOW_MS
+=======
+        val minDate = credit.dateTimestamp - TWO_DAYS_MS
+        val maxDate = credit.dateTimestamp + TWO_DAYS_MS
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 
         val listByAmount = transactionDao.findUnlinkedTransferCandidates(
             type = "EXPENSE",
@@ -191,6 +238,7 @@ class AutoTransferReconciliationEngine @Inject constructor(
             maxDate = maxDate
         )
 
+<<<<<<< HEAD
         val refNumbers = (listOfNotNull(credit.referenceNumber) + extractAllReferenceNumbers(credit)).distinct()
         val listByRef = refNumbers.flatMap { ref ->
             if (ref.isNotBlank()) {
@@ -202,6 +250,14 @@ class AutoTransferReconciliationEngine @Inject constructor(
                 emptyList()
             }
         }
+=======
+        val listByRef = credit.referenceNumber?.takeIf { it.isNotBlank() }?.let { ref ->
+            transactionDao.findUnlinkedTransferCandidatesByReference(
+                type = "EXPENSE",
+                referenceNumber = ref.trim()
+            )
+        }.orEmpty()
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 
         return (listByAmount + listByRef).distinctBy { it.id }
     }
@@ -274,7 +330,13 @@ class AutoTransferReconciliationEngine @Inject constructor(
         // Amount must match
         if (abs(debit.amount - credit.amount) >= 0.01) return 0
 
+<<<<<<< HEAD
         val dateDiff = abs(debit.dateTimestamp - credit.dateTimestamp)
+=======
+        // Date must be within reasonable window (±2 days)
+        val dateDiff = abs(debit.dateTimestamp - credit.dateTimestamp)
+        if (dateDiff > TWO_DAYS_MS) return 0
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 
         // Cannot be internal to the exact same account
         if (!debit.accountId.isNullOrBlank() && debit.accountId == credit.accountId) {
@@ -294,6 +356,7 @@ class AutoTransferReconciliationEngine @Inject constructor(
         val debitRef = debit.referenceNumber?.trim().orEmpty()
         val creditRef = credit.referenceNumber?.trim().orEmpty()
 
+<<<<<<< HEAD
         var hasRefMatch = false
         if (debitRef.isNotBlank() && creditRef.isNotBlank()) {
             if (debitRef.equals(creditRef, ignoreCase = true)) {
@@ -301,11 +364,21 @@ class AutoTransferReconciliationEngine @Inject constructor(
             } else if (debitRef.length >= 8 && creditRef.length >= 8) {
                 if (debitRef.contains(creditRef, ignoreCase = true) || creditRef.contains(debitRef, ignoreCase = true)) {
                     hasRefMatch = true
+=======
+        if (debitRef.isNotBlank() && creditRef.isNotBlank()) {
+            if (debitRef.equals(creditRef, ignoreCase = true)) {
+                return 100
+            }
+            if (debitRef.length >= 8 && creditRef.length >= 8) {
+                if (debitRef.contains(creditRef) || creditRef.contains(debitRef)) {
+                    return 100
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
                 }
             }
         }
 
         // Also check if extracted reference/UTR appears in both narrations
+<<<<<<< HEAD
         if (!hasRefMatch) {
             val debitRefs = extractAllReferenceNumbers(debit)
             val creditRefs = extractAllReferenceNumbers(credit)
@@ -325,6 +398,15 @@ class AutoTransferReconciliationEngine @Inject constructor(
         // For non-reference rules (Target Account, IFSC), require date within STANDARD_WINDOW_MS (5 days)
         if (dateDiff > STANDARD_WINDOW_MS) return 0
 
+=======
+        val debitRefs = extractAllReferenceNumbers(debit)
+        val creditRefs = extractAllReferenceNumbers(credit)
+        val commonRefs = debitRefs.intersect(creditRefs).filter { it.length >= 10 }
+        if (commonRefs.isNotEmpty()) {
+            return 100
+        }
+
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
         //-------------------------------------------------------------
         // Rule 2: Target Account Number Match (Confidence: 90)
         // E.g. Indian Bank narration contains receiver masked account "XXXXXXXX9012"
@@ -402,6 +484,7 @@ class AutoTransferReconciliationEngine @Inject constructor(
             }
         }
 
+<<<<<<< HEAD
         //-------------------------------------------------------------
         // Rule 4: Bank Name Mention in Narration (Confidence: 85)
         // E.g. Debit in ICICI has description/rawDescription mentioning "Indian Bank", "IDIB",
@@ -437,6 +520,8 @@ class AutoTransferReconciliationEngine @Inject constructor(
             return 85
         }
 
+=======
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
         return 0
     }
 
@@ -476,7 +561,11 @@ class AutoTransferReconciliationEngine @Inject constructor(
     }
 
     /**
+<<<<<<< HEAD
      * Extracts all reference numbers (numeric and alphanumeric) from referenceNumber and narration.
+=======
+     * Extracts all reference numbers (10 to 18 digits) from referenceNumber and narration.
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
      */
     private fun extractAllReferenceNumbers(tx: TransactionEntity): Set<String> {
         val results = mutableSetOf<String>()
@@ -487,6 +576,7 @@ class AutoTransferReconciliationEngine @Inject constructor(
             REF_NUM_REGEX.findAll(text).forEach { match ->
                 match.groupValues.getOrNull(1)?.let { results.add(it) }
             }
+<<<<<<< HEAD
             val neftPattern = Regex("""(?:NEFT[-/])([A-Za-z0-9]{8,22})""", RegexOption.IGNORE_CASE)
             neftPattern.findAll(text).forEach { match ->
                 match.groupValues.getOrNull(1)?.let { results.add(it) }
@@ -499,10 +589,13 @@ class AutoTransferReconciliationEngine @Inject constructor(
             impsPattern.findAll(text).forEach { match ->
                 match.groupValues.getOrNull(1)?.let { results.add(it) }
             }
+=======
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
         }
 
         return results
     }
+<<<<<<< HEAD
 
     /**
      * Quickly determines whether a transaction has potential transfer indicators
@@ -519,4 +612,6 @@ class AutoTransferReconciliationEngine @Inject constructor(
                 IFSC_REGEX.containsMatchIn(text) ||
                 REF_NUM_REGEX.containsMatchIn(text)
     }
+=======
+>>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 }
