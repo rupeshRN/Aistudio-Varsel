@@ -1,5 +1,6 @@
 package com.varsel.expensetracker.ui.components
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.design.AppDimensions
@@ -23,6 +25,16 @@ fun TransactionCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
+    val isDark = isSystemInDarkTheme()
+    val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
+    val expenseColor = if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
+    val transferColor = if (isDark) Color(0xFFD1C4E9) else Color(0xFF5E35B1)
+
+    val amountColor = when {
+        transaction.isTransfer -> transferColor
+        transaction.isIncome -> incomeColor
+        else -> expenseColor
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -68,13 +80,9 @@ fun TransactionCard(
                     )
                 }
 
-                CategoryChip(
-                    category = transaction.category,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
-
+                val accountDisplay = transaction.accountInfoText ?: transaction.category
                 Text(
-                    text = transaction.dateText,
+                    text = "$accountDisplay • ${transaction.dateText}",
                     modifier = Modifier.padding(top = 6.dp),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -89,11 +97,7 @@ fun TransactionCard(
                 text = transaction.amountText,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color =
-                if (transaction.isIncome)
-                    MaterialTheme.colorScheme.primary
-                else
-                    MaterialTheme.colorScheme.error
+                color = amountColor
             )
         }
     }

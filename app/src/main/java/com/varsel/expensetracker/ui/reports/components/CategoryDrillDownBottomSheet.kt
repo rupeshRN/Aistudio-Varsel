@@ -24,8 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.CalendarToday
@@ -112,6 +112,15 @@ fun CategoryDrillDownBottomSheet(
                 .fillMaxHeight(0.85f)
                 .padding(horizontal = 16.dp)
         ) {
+            val filteredItems = state.filteredItems
+            val isSearching = state.isSearching
+            val displayedAmount = state.displayAmount
+            val countText = if (isSearching) {
+                "${filteredItems.size} of ${state.items.size}"
+            } else {
+                "${state.items.size}"
+            }
+
             // Category Header Card
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -177,7 +186,7 @@ fun CategoryDrillDownBottomSheet(
                             )
 
                             Text(
-                                text = "${state.periodLabel.ifBlank { state.month.format(monthFormatter) }} (${state.items.size})",
+                                text = "${state.periodLabel.ifBlank { state.month.format(monthFormatter) }} ($countText)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -190,13 +199,25 @@ fun CategoryDrillDownBottomSheet(
 
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = currencyFormatter.format(state.totalCategoryAmount),
+                            text = currencyFormatter.format(displayedAmount),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = if (state.flow == ReportsFlow.EXPENSES) AppColors.Expense else AppColors.Income
                         )
                         Text(
-                            text = "${state.percentOfTotal.toInt()}% of total",
+                            text = if (isSearching) {
+                                val pct = state.searchPercentOfCategory
+                                val pctString = when {
+                                    pct <= 0.0 -> "0%"
+                                    pct >= 99.95 -> "100%"
+                                    pct < 1.0 -> String.format(Locale.getDefault(), "%.1f%%", pct)
+                                    pct % 1.0 == 0.0 -> "${pct.toInt()}%"
+                                    else -> "${Math.round(pct)}%"
+                                }
+                                "$pctString of category"
+                            } else {
+                                "${state.percentOfTotal.toInt()}% of total"
+                            },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -249,8 +270,6 @@ fun CategoryDrillDownBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Transactions Breakdown List
-            val filteredItems = state.filteredItems
-
             if (filteredItems.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -350,7 +369,7 @@ private fun DrillDownTransactionRow(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.EventNote,
+                                    imageVector = Icons.AutoMirrored.Filled.EventNote,
                                     contentDescription = null,
                                     tint = categoryColor,
                                     modifier = Modifier.size(12.dp)

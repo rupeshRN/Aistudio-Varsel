@@ -10,18 +10,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.DateRangePickerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
@@ -80,6 +85,10 @@ fun ReportFilterSheet(
     }
 
     val zoneId = ZoneId.systemDefault()
+
+    var showCustomDateRangeDialog by remember {
+        mutableStateOf(false)
+    }
 
     /*
      * Keep the date picker state at the ReportFilterSheet level.
@@ -217,74 +226,117 @@ fun ReportFilterSheet(
                         onPeriodSelected(
                             PeriodFilter.CUSTOM
                         )
+                        showCustomDateRangeDialog = true
                     }
                 )
             }
 
             /*
              * ---------------------------------------------------------
-             * CUSTOM DATE RANGE
+             * CUSTOM DATE RANGE (POPUP STYLE)
              * ---------------------------------------------------------
              *
-             * The calendar is shown ONLY when Custom Range is selected.
-             *
-             * Selecting dates does NOT immediately update the report.
-             * The selected dates are held by customPickerState until
-             * the user presses Apply.
+             * The custom date range is displayed as a clean clickable card
+             * matching the loan start date picker style. Clicking it opens
+             * a DatePickerDialog with the DateRangePicker.
              */
 
             if (
                 selectedPeriod ==
                     PeriodFilter.CUSTOM
             ) {
-
-                Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
-                )
-
-                DateRangePicker(
-                    state =
-                        customPickerState,
-
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
-                    title = {
-                        Text(
-                            text =
-                                "Select date range",
-
-                            modifier =
-                                Modifier.padding(
-                                    horizontal = 24.dp
-                                )
-                        )
-                    },
-
-                    headline = {
-                        Text(
-                            text =
-                                formatSelectedDateRange(
-                                    state =
-                                        customPickerState,
-
-                                    zoneId =
-                                        zoneId
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showCustomDateRangeDialog = true }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(
+                                horizontal = 16.dp,
+                                vertical = 12.dp
+                            ),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = "Custom Date Range",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = formatSelectedDateRange(
+                                    state = customPickerState,
+                                    zoneId = zoneId
                                 ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
 
-                            modifier =
-                                Modifier.padding(
-                                    horizontal = 24.dp
-                                ),
-
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .titleMedium
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarMonth,
+                            contentDescription = "Select Custom Date Range",
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
-                )
+                }
+            }
+
+            if (showCustomDateRangeDialog) {
+                DatePickerDialog(
+                    onDismissRequest = { showCustomDateRangeDialog = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { showCustomDateRangeDialog = false },
+                            enabled = customPickerState.selectedEndDateMillis != null
+                        ) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showCustomDateRangeDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                ) {
+                    DateRangePicker(
+                        state = customPickerState,
+                        title = {
+                            Text(
+                                text = "Select date range",
+                                modifier = Modifier.padding(
+                                    start = 24.dp,
+                                    top = 16.dp,
+                                    end = 24.dp
+                                ),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        },
+                        headline = {
+                            Text(
+                                text = formatSelectedDateRange(
+                                    state = customPickerState,
+                                    zoneId = zoneId
+                                ),
+                                modifier = Modifier.padding(
+                                    start = 24.dp,
+                                    end = 24.dp,
+                                    bottom = 12.dp
+                                ),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                        },
+                        showModeToggle = false
+                    )
+                }
             }
 
             /*
@@ -298,12 +350,8 @@ fun ReportFilterSheet(
                 style =
                     MaterialTheme
                         .typography
-                        .titleMedium
-            )
-
-            Spacer(
-                modifier =
-                    Modifier.height(4.dp)
+                        .titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
 
             /*
@@ -324,7 +372,9 @@ fun ReportFilterSheet(
                 }
             )
 
-            HorizontalDivider()
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
 
             if (accounts.isEmpty()) {
 
@@ -344,7 +394,7 @@ fun ReportFilterSheet(
 
                     modifier =
                         Modifier.padding(
-                            vertical = 8.dp
+                            vertical = 4.dp
                         )
                 )
 
@@ -360,7 +410,7 @@ fun ReportFilterSheet(
                             ),
 
                     verticalArrangement =
-                        Arrangement.spacedBy(4.dp)
+                        Arrangement.spacedBy(0.dp)
                 ) {
 
                     items(
@@ -529,12 +579,9 @@ private fun FilterAccountRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
                 .clickable(
                     onClick = onClick
-                )
-                .padding(
-                    horizontal = 4.dp,
-                    vertical = 8.dp
                 ),
 
         verticalAlignment =
@@ -546,12 +593,10 @@ private fun FilterAccountRow(
 
             onCheckedChange = {
                 onClick()
-            }
-        )
+            },
 
-        Spacer(
             modifier =
-                Modifier.size(8.dp)
+                Modifier.offset(x = (-8).dp)
         )
 
         Text(
@@ -560,7 +605,18 @@ private fun FilterAccountRow(
             style =
                 MaterialTheme
                     .typography
-                    .bodyLarge
+                    .bodyLarge,
+
+            fontWeight =
+                if (selected) FontWeight.Medium else FontWeight.Normal,
+
+            color =
+                MaterialTheme
+                    .colorScheme
+                    .onSurface,
+
+            modifier =
+                Modifier.offset(x = (-4).dp)
         )
     }
 }

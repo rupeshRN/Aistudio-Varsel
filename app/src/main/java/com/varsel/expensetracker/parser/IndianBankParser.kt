@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.parser
 
 import com.varsel.expensetracker.domain.model.Transaction
+import com.varsel.expensetracker.domain.model.TransactionType
 import java.text.SimpleDateFormat
 import java.util.Locale
 import javax.inject.Inject
@@ -23,12 +24,21 @@ class IndianBankParser @Inject constructor(
 ) : StatementParser {
 
     override fun canParse(rawText: String): Boolean {
+        val upper = rawText.uppercase()
+        val header = rawText.lines().take(30).joinToString("\n").uppercase()
 
-        val text = rawText.uppercase()
+        val hasIndianBankBrand = header.contains("INDIAN BANK") ||
+                header.contains("INDIANBANK") ||
+                header.contains("IND BL") ||
+                header.contains("IDIB") ||
+                upper.contains("INDIAN BANK")
 
-        return text.contains("ACCOUNT ACTIVITY") ||
-                text.contains("ACCOUNT SUMMARY") ||
-                text.contains("ACCOUNT DETAILS")
+        val hasIndianBankLayout = upper.contains("ACCOUNT ACTIVITY") ||
+                (upper.contains("DATE TRANSACTION DETAILS") && upper.contains("DEBITS") && upper.contains("CREDITS"))
+
+        val hasIndianBankDates = Regex("""\b\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+\d{4}\b""", RegexOption.IGNORE_CASE).containsMatchIn(rawText)
+
+        return (hasIndianBankBrand || hasIndianBankLayout) && (hasIndianBankDates || upper.contains("INDIAN BANK"))
     }
 
     override fun parse(rawText: String): List<Transaction> {
@@ -114,8 +124,9 @@ class IndianBankParser @Inject constructor(
             descriptionCleaner.clean(rawDescription)
     )
 
+val isIncome = parsedAmount.type == TransactionType.INCOME || parsedAmount.type == TransactionType.CREDIT
 val category =
-    categoryRuleEngine.categorize(description)
+    categoryRuleEngine.categorize(description, isIncome)
 
             //--------------------------------------------------
             // Transaction
@@ -128,7 +139,9 @@ val category =
                     description = description,
                     category = category.category,
                     dateTimestamp = date.time,
-                    referenceNumber = fields.reference
+                    referenceNumber = fields.reference,
+                    bankName = "Indian Bank",
+                    rawDescription = rawDescription
                 )
             )
         }

@@ -13,4 +13,9 @@ interface StatementParser {
      * Converts the statement into transactions.
      */
     fun parse(rawText: String): List<Transaction>
+
+    /**
+     * Optional hook for parsers that compute opening/ending balances directly from row ledgers (e.g. ICICI Bank).
+     */
+    fun extractSummary(rawText: String, transactions: List<Transaction>): StatementSummary? = null
 }

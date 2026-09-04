@@ -42,45 +42,48 @@ class DashboardUiMapper @Inject constructor(
                 currentMonth
             )
 
-        val previousMonthStart =
-            calendarAtStartOfMonth(
-                if (currentMonth == Calendar.JANUARY) {
-                    currentYear - 1
-                } else {
-                    currentYear
-                },
-                if (currentMonth == Calendar.JANUARY) {
-                    Calendar.DECEMBER
-                } else {
-                    currentMonth - 1
-                }
-            )
+        val hasCurrentMonthData = transactions.any { it.dateTimestamp >= currentMonthStart }
+        val anchorYear: Int
+        val anchorMonth: Int
+
+        if (hasCurrentMonthData || transactions.isEmpty()) {
+            anchorYear = currentYear
+            anchorMonth = currentMonth
+        } else {
+            val latestTime = transactions.maxOf { it.dateTimestamp }
+            val cal = Calendar.getInstance().apply { timeInMillis = latestTime }
+            anchorYear = cal.get(Calendar.YEAR)
+            anchorMonth = cal.get(Calendar.MONTH)
+        }
+
+        val activeMonthStart = calendarAtStartOfMonth(anchorYear, anchorMonth)
+        val nextMonthStart = calendarAtStartOfMonth(
+            if (anchorMonth == Calendar.DECEMBER) anchorYear + 1 else anchorYear,
+            if (anchorMonth == Calendar.DECEMBER) Calendar.JANUARY else anchorMonth + 1
+        )
+
+        val prevYear = if (anchorMonth == Calendar.JANUARY) anchorYear - 1 else anchorYear
+        val prevMonth = if (anchorMonth == Calendar.JANUARY) Calendar.DECEMBER else anchorMonth - 1
+        val prevMonthStart = calendarAtStartOfMonth(prevYear, prevMonth)
 
         //--------------------------------------------------
-        // Current month
+        // Current / Active month transactions
         //--------------------------------------------------
 
         val currentMonthTransactions =
             transactions.filter {
-
-                it.dateTimestamp >=
-                    currentMonthStart
-
+                it.dateTimestamp >= activeMonthStart &&
+                    (if (anchorYear == currentYear && anchorMonth == currentMonth) true else it.dateTimestamp < nextMonthStart)
             }
 
         //--------------------------------------------------
-        // Previous month
+        // Previous month transactions
         //--------------------------------------------------
 
         val previousMonthTransactions =
             transactions.filter {
-
-                it.dateTimestamp >=
-                    previousMonthStart &&
-
-                it.dateTimestamp <
-                    currentMonthStart
-
+                it.dateTimestamp >= prevMonthStart &&
+                    it.dateTimestamp < activeMonthStart
             }
 
         //--------------------------------------------------
@@ -429,13 +432,17 @@ private fun calculateEffectiveExpense(
                         .firstOrNull()
                         ?.accountLast4
 
-            val bankName = detectBankName(accountTransactions)
+            val bankName = latestSnapshot?.bankName?.takeIf { it.isNotBlank() && it != "Bank Statement" }
+                ?: detectBankName(accountTransactions)
+            val bankShortName = com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(bankName)
 
             result.add(
                 AccountBalanceUiModel(
-
                     bankName =
                         bankName,
+
+                    bankShortName =
+                        bankShortName,
 
                     accountDisplayName =
                         accountLast4
@@ -474,12 +481,15 @@ private fun calculateEffectiveExpense(
                 }
 
             val legacyBankName = detectBankName(legacyTransactions)
+            val legacyShortName = if (legacyBankName != "Bank Account") com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(legacyBankName) else "Manual"
 
             result.add(
                 AccountBalanceUiModel(
-
                     bankName =
                         if (legacyBankName != "Bank Account") legacyBankName else "Other",
+
+                    bankShortName =
+                        legacyShortName,
 
                     accountDisplayName =
                         "Manual",
@@ -502,14 +512,9 @@ private fun calculateEffectiveExpense(
         snapshot: StatementSnapshotEntity?
     ): Double {
 
-        if (snapshot == null) {
-
+        if (snapshot == null || snapshot.endingBalance == null) {
             return transactions.sumOf {
-
-                if (
-                    it.type ==
-                    TransactionType.INCOME
-                ) {
+                if (it.type == TransactionType.INCOME) {
                     it.amount
                 } else {
                     -it.amount
@@ -517,65 +522,96 @@ private fun calculateEffectiveExpense(
             }
         }
 
-        var balance =
-            snapshot.endingBalance ?: 0.0
+        var balance: Double = snapshot.endingBalance ?: 0.0
 
-        val statementEnd =
-            snapshot.statementEndDate
-                ?: Long.MIN_VALUE
+        val statementEnd = snapshot.statementEndDate ?: Long.MIN_VALUE
 
         transactions
             .filter {
-                it.dateTimestamp >
-                    statementEnd
+                it.dateTimestamp > statementEnd
             }
             .forEach { transaction ->
-
-                balance +=
-                    if (
-                        transaction.type ==
-                        TransactionType.INCOME
-                    ) {
-                        transaction.amount
-                    } else {
-                        -transaction.amount
-                    }
+                balance += if (transaction.type == TransactionType.INCOME) {
+                    transaction.amount
+                } else {
+                    -transaction.amount
+                }
             }
 
         return balance
     }
 
     private fun detectBankName(transactions: List<Transaction>): String {
+        if (transactions.isEmpty()) return "Bank Account"
+
+        val explicitBank = transactions.mapNotNull { it.bankName }.firstOrNull { it.isNotBlank() && it != "Bank Account" && it != "Bank Statement" }
+        if (explicitBank != null) return explicitBank
+
+        val bankScores = mutableMapOf<String, Int>()
+
         for (t in transactions) {
             val ref = t.referenceNumber.orEmpty().uppercase()
             val desc = t.description.uppercase()
             val fp = t.transactionFingerprint.orEmpty().uppercase()
 
-            when {
-                // Indian Bank (IFSC IDIB or Indian Bank text)
-                ref.contains("IDIB") || desc.contains("INDIAN BANK") || desc.contains("IND BL") || fp.contains("IDIB") -> return "Indian Bank"
-                ref.contains("SBIN") || desc.contains("STATE BANK OF INDIA") || desc.contains("SBI MAIN") -> return "SBI"
-                ref.contains("HDFC") || desc.contains("HDFC BANK") -> return "HDFC Bank"
-                ref.contains("ICIC") || desc.contains("ICICI BANK") -> return "ICICI Bank"
-                ref.contains("UTIB") || desc.contains("AXIS BANK") -> return "Axis Bank"
-                ref.contains("KKBK") || desc.contains("KOTAK MAHINDRA") -> return "Kotak Bank"
-                ref.contains("CNRB") || desc.contains("CANARA BANK") -> return "Canara Bank"
-                ref.contains("BARB") || desc.contains("BANK OF BARODA") -> return "Bank of Baroda"
-                ref.contains("PUNB") || desc.contains("PUNJAB NATIONAL") -> return "PNB"
-                ref.contains("IDFB") || desc.contains("IDFC FIRST") -> return "IDFC FIRST"
-                ref.contains("FDRL") || desc.contains("FEDERAL BANK") -> return "Federal Bank"
-                ref.contains("INDB") || desc.contains("INDUSIND BANK") -> return "IndusInd Bank"
-                ref.contains("UBIN") || desc.contains("UNION BANK") -> return "Union Bank"
-                ref.contains("IOBA") || desc.contains("INDIAN OVERSEAS") -> return "Indian Overseas Bank"
-                ref.contains("CBIN") || desc.contains("CENTRAL BANK") -> return "Central Bank"
-                ref.contains("BKID") || desc.contains("BANK OF INDIA") -> return "Bank of India"
-                ref.contains("YESB") || desc.contains("YES BANK") -> return "Yes Bank"
-                ref.contains("RATN") || desc.contains("RBL BANK") -> return "RBL Bank"
-                ref.contains("SCBL") || desc.contains("STANDARD CHARTERED") -> return "Standard Chartered"
-                ref.contains("CITI") || desc.contains("CITIBANK") -> return "Citi Bank"
+            fun vote(name: String, weight: Int = 1) {
+                bankScores[name] = (bankScores[name] ?: 0) + weight
             }
+
+            // Indian Bank indicators
+            if (ref.contains("IDIB") || desc.contains("INDIAN BANK") || desc.contains("IND BL") || fp.contains("IDIB") || fp.contains("INDIAN_BANK") || fp.contains("INDIANBANK") || fp.contains("IB_")) {
+                vote("Indian Bank", 3)
+            }
+            // ICICI Bank indicators
+            if (desc.contains("ICICI BANK") || desc.contains("ICICI.BANK") || desc.contains("ICICIBANK") || desc.contains("ICICI DIRECT") || ref.contains("ICIC0") || fp.contains("ICICI") || fp.contains("ICIC")) {
+                vote("ICICI Bank", 3)
+            } else if (desc.contains("ICICI") || ref.contains("ICIC")) {
+                vote("ICICI Bank", 1)
+            }
+            // SBI
+            if (ref.contains("SBIN") || desc.contains("STATE BANK OF INDIA") || desc.contains("SBI MAIN") || fp.contains("SBI")) vote("SBI", 3)
+            // HDFC
+            if (ref.contains("HDFC") || desc.contains("HDFC BANK") || fp.contains("HDFC")) vote("HDFC Bank", 3)
+            // Axis
+            if (ref.contains("UTIB") || desc.contains("AXIS BANK") || fp.contains("AXIS")) vote("Axis Bank", 3)
+            // Kotak
+            if (ref.contains("KKBK") || desc.contains("KOTAK MAHINDRA") || fp.contains("KOTAK")) vote("Kotak Bank", 3)
+            // Canara
+            if (ref.contains("CNRB") || desc.contains("CANARA BANK") || fp.contains("CANARA")) vote("Canara Bank", 3)
+            // Bank of Baroda
+            if (ref.contains("BARB") || desc.contains("BANK OF BARODA") || fp.contains("BARODA")) vote("Bank of Baroda", 3)
+            // PNB
+            if (ref.contains("PUNB") || desc.contains("PUNJAB NATIONAL") || fp.contains("PNB")) vote("PNB", 3)
+            // IDFC
+            if (ref.contains("IDFB") || desc.contains("IDFC FIRST") || fp.contains("IDFC")) vote("IDFC FIRST", 3)
+            // Federal Bank
+            if (ref.contains("FDRL") || desc.contains("FEDERAL BANK") || fp.contains("FEDERAL")) vote("Federal Bank", 3)
+            // IndusInd
+            if (ref.contains("INDB") || desc.contains("INDUSIND BANK") || fp.contains("INDUSIND")) vote("IndusInd Bank", 3)
+            // Union Bank
+            if (ref.contains("UBIN") || desc.contains("UNION BANK") || fp.contains("UNION")) vote("Union Bank", 3)
+            // IOB
+            if (ref.contains("IOBA") || desc.contains("INDIAN OVERSEAS") || fp.contains("IOB")) vote("Indian Overseas Bank", 3)
+            // Central Bank
+            if (ref.contains("CBIN") || desc.contains("CENTRAL BANK") || fp.contains("CBI")) vote("Central Bank", 3)
+            // Bank of India
+            if (ref.contains("BKID") || desc.contains("BANK OF INDIA") || fp.contains("BOI")) vote("Bank of India", 3)
+            // Yes Bank
+            if (ref.contains("YESB") || desc.contains("YES BANK") || fp.contains("YES")) vote("Yes Bank", 3)
+            // RBL Bank
+            if (ref.contains("RATN") || desc.contains("RBL BANK") || fp.contains("RBL")) vote("RBL Bank", 3)
+            // Standard Chartered
+            if (ref.contains("SCBL") || desc.contains("STANDARD CHARTERED") || fp.contains("SCBL") || fp.contains("SC_")) vote("Standard Chartered", 3)
+            // Citi Bank
+            if (ref.contains("CITI") || desc.contains("CITIBANK") || fp.contains("CITI")) vote("Citi Bank", 3)
         }
-        return "Indian Bank"
+
+        val topBank = bankScores.maxByOrNull { it.value }
+        if (topBank != null && topBank.value > 0) {
+            return topBank.key
+        }
+
+        return "Bank Account"
     }
 
     private fun generateInsights(

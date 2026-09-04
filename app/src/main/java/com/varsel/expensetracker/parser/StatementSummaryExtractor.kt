@@ -23,7 +23,7 @@ class StatementSummaryExtractor @Inject constructor() {
 
     private val moneyRegex =
         Regex(
-            "INR\\s*([\\d,]+\\.\\d{2})",
+            """(?:INR|Rs\.?|₹)?\s*([0-9]{1,3}(?:,[0-9]{3})*|\d+)\.(\d{2})""",
             RegexOption.IGNORE_CASE
         )
 
@@ -95,42 +95,31 @@ class StatementSummaryExtractor @Inject constructor() {
             val amount =
                 moneyRegex
                     .find(line)
-                    ?.groupValues
-                    ?.get(1)
-                    ?.replace(",", "")
-                    ?.toDoubleOrNull()
+                    ?.let { match ->
+                        val intPart = match.groupValues[1].replace(",", "")
+                        val decPart = match.groupValues[2]
+                        "$intPart.$decPart".toDoubleOrNull()
+                    }
                     ?: continue
 
             val upper =
                 line.uppercase()
 
             when {
-
-                upper.contains(
-                    "OPENING BALANCE"
-                ) -> {
-                    opening = amount
+                upper.contains("OPENING BALANCE") || upper.contains("OPENING BAL") || upper.contains("BROUGHT FORWARD") || upper.contains("B/F") -> {
+                    if (opening == null) opening = amount
                 }
 
-                upper.contains(
-                    "TOTAL CREDIT"
-                ) -> {
-                    credits = amount
+                upper.contains("TOTAL CREDIT") || upper.contains("TOTAL DEPOSIT") || upper.contains("TOTAL DEPOSITS") || upper.contains("DEPOSIT AMOUNT") -> {
+                    if (credits == null) credits = amount
                 }
 
-                upper.contains(
-                    "TOTAL DEBIT"
-                ) -> {
-                    debits = amount
+                upper.contains("TOTAL DEBIT") || upper.contains("TOTAL WITHDRAWAL") || upper.contains("TOTAL WITHDRAWALS") || upper.contains("WITHDRAWAL AMOUNT") -> {
+                    if (debits == null) debits = amount
                 }
 
-                upper.contains(
-                    "ENDING BALANCE"
-                ) ||
-                upper.contains(
-                    "CLOSING BALANCE"
-                ) -> {
-                    ending = amount
+                upper.contains("ENDING BALANCE") || upper.contains("CLOSING BALANCE") || upper.contains("CLOSING BAL") || upper.contains("CARRIED FORWARD") || upper.contains("C/F") -> {
+                    if (ending == null) ending = amount
                 }
             }
         }

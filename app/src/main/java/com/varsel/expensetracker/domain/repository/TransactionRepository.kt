@@ -96,6 +96,17 @@ interface TransactionRepository {
     suspend fun getLinkedTransferTransactions(
         transferLinkId: String
     ): List<Transaction>
+
+    suspend fun updateTransactions(
+        transactions: List<Transaction>
+    )
+
+    suspend fun findSimilarTransactions(
+        excludeId: Long,
+        pattern: String,
+        isIncome: Boolean,
+        sinceTimestamp: Long
+    ): List<Transaction>
 }
 
 /**

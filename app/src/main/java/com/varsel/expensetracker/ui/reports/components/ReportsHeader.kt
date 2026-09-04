@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -220,7 +220,7 @@ fun ReportsHeader(
 
                         Icon(
                             imageVector =
-                                Icons.Default.FilterList,
+                                Icons.Default.FilterAlt,
                             contentDescription =
                                 "Report filters",
                             tint =

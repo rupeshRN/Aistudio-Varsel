@@ -1,71 +1,8 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="128dp"
-    android:height="128dp"
-    android:viewportWidth="512"
-    android:viewportHeight="512">
-
-    <!-- BLUE PIE SLICE -->
-    <path
-        android:fillColor="#4D77C9"
-        android:pathData="M246,65 C146,65 65,146 65,246 C65,346 146,427 246,427 C282,427 315,417 344,398 L246,246 Z" />
-
-    <!-- RED PIE SLICE -->
-    <path
-        android:fillColor="#DF433B"
-        android:pathData="M278,35 L278,214 L457,214 C457,115 377,35 278,35 Z" />
-
-    <!-- GREEN PIE SLICE -->
-    <path
-        android:fillColor="#42B467"
-        android:pathData="M278,246 L414,382 C441,354 457,316 457,274 L278,274 Z" />
-
-    <!-- BLACK OUTLINES FOR PIE CHART -->
-    <path
-        android:strokeColor="#000000"
-        android:strokeWidth="16"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M246,65 C146,65 65,146 65,246 C65,346 146,427 246,427 C282,427 315,417 344,398 L246,246 Z M278,35 L278,214 L457,214 C457,115 377,35 278,35 Z M278,246 L414,382 C441,354 457,316 457,274 L278,274 Z" />
-
-    <!-- COIN STACK (Base Shadows & Gold Color) -->
-    <!-- Bottom Coin -->
-    <path
-        android:fillColor="#E3A824"
-        android:pathData="M27,411 C27,388 64,370 110,370 C156,370 193,388 193,411 L193,443 C193,466 156,484 110,484 C64,484 27,466 27,443 Z" />
-    <path
-        android:fillColor="#F4C430"
-        android:pathData="M110,370 C156,370 193,388 193,411 L110,411 Z" />
-    
-    <!-- Middle Coin -->
-    <path
-        android:fillColor="#E3A824"
-        android:pathData="M27,321 C27,298 64,280 110,280 C156,280 193,298 193,321 L193,353 C193,376 156,394 110,394 C64,394 27,376 27,353 Z" />
-    <path
-        android:fillColor="#F4C430"
-        android:pathData="M110,280 C156,280 193,298 193,321 L110,321 Z" />
-
-    <!-- Top Main Coin Face -->
-    <path
-        android:fillColor="#E3A824"
-        android:pathData="M110,180 C53,180 7,226 7,283 C7,340 53,386 110,386 C167,386 213,340 213,283 C213,226 167,180 110,180 Z" />
-    <path
-        android:fillColor="#F4C430"
-        android:pathData="M110,180 C167,180 213,226 213,283 C213,340 167,386 110,386 Z" />
-
-    <!-- DOLLAR SIGN ($) -->
-    <path
-        android:strokeColor="#000000"
-        android:strokeWidth="12"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M110,210 L110,356 M135,240 C135,240 90,220 90,255 C90,290 130,290 130,320 C130,350 85,335 85,335" />
-
-    <!-- BLACK OUTLINES FOR COINS -->
-    <path
-        android:strokeColor="#000000"
-        android:strokeWidth="16"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:pathData="M27,411 L27,443 C27,466 64,484 110,484 C156,484 193,466 193,443 L193,411 M27,321 L27,353 C27,376 64,394 110,394 C156,394 193,376 193,353 L193,321 M110,180 C53,180 7,226 7,283 C7,340 53,386 110,386 C167,386 213,340 213,283 C213,226 167,180 110,180 Z" />
-
-</vector>
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="66dp"
+        android:height="66dp"
+        android:drawable="@drawable/img_app_icon"
+        android:gravity="center" />
+</layer-list>

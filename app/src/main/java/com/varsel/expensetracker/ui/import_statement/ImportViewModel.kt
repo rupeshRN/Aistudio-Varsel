@@ -8,11 +8,13 @@ import com.varsel.expensetracker.data.local.entity.StatementSnapshotEntity
 import com.varsel.expensetracker.developer.DeveloperRepository
 import com.varsel.expensetracker.developer.ParserDiagnostics
 import com.varsel.expensetracker.developer.ParserDiagnosticsManager
+import com.varsel.expensetracker.domain.engine.AutoTransferReconciliationEngine
 import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.parser.StatementImportResult
 import com.varsel.expensetracker.util.OcrManager
+import com.varsel.expensetracker.util.PdfExtractionResult
 import com.varsel.expensetracker.util.PdfTextExtractor
 import com.varsel.expensetracker.util.StatementParserEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -68,6 +70,8 @@ class ImportViewModel @Inject constructor(
     private val ocrManager: OcrManager,
 
     private val developerRepository: DeveloperRepository,
+
+    private val autoTransferReconciliationEngine: AutoTransferReconciliationEngine,
 
     @ApplicationContext private val context: Context
 
@@ -133,7 +137,8 @@ class ImportViewModel @Inject constructor(
 
     fun processSelectedFile(
         uri: Uri,
-        mimeType: String? = null
+        mimeType: String? = null,
+        password: String? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
 
@@ -146,28 +151,48 @@ class ImportViewModel @Inject constructor(
                     mimeType
                         ?: context.contentResolver.getType(uri)
 
-                val rawText =
-                    if (
-                        resolvedMimeType == "application/pdf" ||
-                        uri.toString().endsWith(
-                            ".pdf",
-                            true
-                        )
-                    ) {
-                        pdfTextExtractor
-                            .extractTextFromPdf(
-                                context,
-                                uri
+                val rawText: String = if (
+                    resolvedMimeType == "application/pdf" ||
+                    uri.toString().endsWith(
+                        ".pdf",
+                        true
+                    )
+                ) {
+                    when (val pdfResult = pdfTextExtractor.extractTextFromPdf(context, uri, password)) {
+                        is PdfExtractionResult.Success -> pdfResult.text
+                        is PdfExtractionResult.PasswordRequired -> {
+                            _uiState.value = ImportUiState.PasswordRequired(
+                                isInvalidPasswordError = false,
+                                pendingUri = uri,
+                                pendingMimeType = mimeType
                             )
-                    } else {
-                        ocrManager
-                            .extractTextFromImage(
-                                context,
-                                uri
+                            return@launch
+                        }
+                        is PdfExtractionResult.InvalidPassword -> {
+                            _uiState.value = ImportUiState.PasswordRequired(
+                                isInvalidPasswordError = true,
+                                pendingUri = uri,
+                                pendingMimeType = mimeType
                             )
+                            return@launch
+                        }
+                        is PdfExtractionResult.Error -> {
+                            _uiState.value = ImportUiState.Error(
+                                pdfResult.message ?: "Could not extract text from document."
+                            )
+                            return@launch
+                        }
                     }
+                } else {
+                    val textFromImage = ocrManager.extractTextFromImage(context, uri)
+                    if (textFromImage.isNullOrBlank()) {
+                        _uiState.value = ImportUiState.Error("Could not extract any text from the selected document.")
+                        return@launch
+                    }
+                    textFromImage
+                }
 
-                if (rawText.isNullOrBlank()) {
+                if (rawText.isBlank()) {
 
                     _uiState.value =
                         ImportUiState.Error(
@@ -366,7 +391,9 @@ class ImportViewModel @Inject constructor(
         val snapshot =
             StatementSnapshotEntity(
                 accountId = result.accountId,
-        accountLast4 = result.accountLast4,
+                accountLast4 = result.accountLast4,
+                bankName = result.bankName,
+                ifscCode = result.ifscCode,
 
                 statementStartDate =
                     summary.statementStartDate,
@@ -428,6 +455,9 @@ class ImportViewModel @Inject constructor(
                         )
                 }
 
+                // Automatically reconcile and link transfers across accounts
+                autoTransferReconciliationEngine.reconcileTransfers()
+
                 _uiState.value =
                     ImportUiState.Saved(
                         selectedTransactions.size
@@ -469,6 +499,20 @@ class ImportViewModel @Inject constructor(
         return "${formatter.format(startDate)} – ${
             formatter.format(endDate)
         }"
+    }
+
+    // --------------------------------------------------
+    // Submit PDF Password
+    // --------------------------------------------------
+
+    fun submitPassword(password: String) {
+        val currentState = _uiState.value as? ImportUiState.PasswordRequired ?: return
+        val uri = currentState.pendingUri ?: return
+        processSelectedFile(
+            uri = uri,
+            mimeType = currentState.pendingMimeType,
+            password = password
+        )
     }
 
     // --------------------------------------------------

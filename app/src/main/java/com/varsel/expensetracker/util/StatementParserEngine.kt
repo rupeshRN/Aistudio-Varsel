@@ -4,11 +4,14 @@ import com.varsel.expensetracker.category.CustomRuleEngine
 import com.varsel.expensetracker.data.repository.CustomRuleRepository
 import com.varsel.expensetracker.developer.ParserDiagnosticsCollector
 import com.varsel.expensetracker.domain.model.Transaction
+import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.parser.BankDetector
+import com.varsel.expensetracker.parser.HdfcBankParser
 import com.varsel.expensetracker.parser.IciciBankParser
 import com.varsel.expensetracker.parser.IndianBankParser
 import com.varsel.expensetracker.parser.ReconciliationEngine
 import com.varsel.expensetracker.parser.StatementImportResult
+import com.varsel.expensetracker.parser.StatementSummary
 import com.varsel.expensetracker.parser.StatementSummaryExtractor
 import com.varsel.expensetracker.parser.TextNormalizer
 import javax.inject.Inject
@@ -163,27 +166,20 @@ class StatementParserEngine @Inject constructor(
         // Normalize statement text before parsing.
         //--------------------------------------------------
 
-        val normalizedText =
-
-            textNormalizer.normalize(rawText)
+        val normalizedText = textNormalizer.normalize(rawText)
 
         //--------------------------------------------------
         // Diagnostics
         //--------------------------------------------------
 
-            diagnosticsCollector.recordNormalization(
-                
-                    rawText,
-                
-                    normalizedText
-                
-                )
+        diagnosticsCollector.recordNormalization(
+            rawText,
+            normalizedText
+        )
 
-            diagnosticsCollector.recordDetectedDates(
-            
-                normalizedText
-            
-            )
+        diagnosticsCollector.recordDetectedDates(
+            normalizedText
+        )
 
         //--------------------------------------------------
         // Stage 3
@@ -191,10 +187,10 @@ class StatementParserEngine @Inject constructor(
         // Extract statement-level metadata.
         //--------------------------------------------------
 
-            val summary =
-                statementSummaryExtractor.extract(
-                    rawText
-                )
+        val defaultSummary =
+            statementSummaryExtractor.extract(
+                rawText
+            )
 
         //--------------------------------------------------
         // Stage 4
@@ -203,12 +199,12 @@ class StatementParserEngine @Inject constructor(
         //--------------------------------------------------
 
         val parser =
-
-            bankDetector.detect(normalizedText)
+            bankDetector.detect(rawText)
 
         val parsedTransactions =
-
-            parser.parse(normalizedText)
+            parser.parse(normalizedText).ifEmpty {
+                parser.parse(rawText)
+            }
 
         val accountNumber =
             accountDetailsExtractor.extractAccountNumber(
@@ -221,31 +217,31 @@ class StatementParserEngine @Inject constructor(
             }
 
         //--------------------------------------------------
-// Establish transaction identity BEFORE applying
-// learned descriptions/categories.
-//
-// IMPORTANT:
-// The fingerprint represents the original statement
-// transaction and must not change when the user or
-// learning engine changes the description/category.
-//--------------------------------------------------
+        // Establish transaction identity BEFORE applying
+        // learned descriptions/categories.
+        //
+        // IMPORTANT:
+        // The fingerprint represents the original statement
+        // transaction and must not change when the user or
+        // learning engine changes the description/category.
+        //--------------------------------------------------
 
-val fingerprintedTransactions =
-    parsedTransactions.map { transaction ->
+        val fingerprintedTransactions =
+            parsedTransactions.map { transaction ->
 
-        transaction.copy(
-            transactionFingerprint =
-                transactionFingerprintGenerator.generate(
-                    transaction
-                ),
+                transaction.copy(
+                    transactionFingerprint =
+                        transactionFingerprintGenerator.generate(
+                            transaction
+                        ),
 
-            accountId =
-                accountIdentity?.accountId,
+                    accountId =
+                        accountIdentity?.accountId,
 
-            accountLast4 =
-                accountIdentity?.accountLast4
-        )
-    }
+                    accountLast4 =
+                        accountIdentity?.accountLast4
+                )
+            }
 
         //--------------------------------------------------
         // Stage 5
@@ -254,22 +250,21 @@ val fingerprintedTransactions =
         //--------------------------------------------------
 
         val transactions =
-
             applyLearning(fingerprintedTransactions)
 
         //--------------------------------------------------
         // Diagnostics
         //--------------------------------------------------
 
-diagnosticsCollector.recordTransactions(
-    transactionCount = fingerprintedTransactions.size,
-    lastTimestamp =
-        fingerprintedTransactions
-            .maxByOrNull {
-                it.dateTimestamp
-            }
-            ?.dateTimestamp
-)
+        diagnosticsCollector.recordTransactions(
+            transactionCount = fingerprintedTransactions.size,
+            lastTimestamp =
+                fingerprintedTransactions
+                    .maxByOrNull {
+                        it.dateTimestamp
+                    }
+                    ?.dateTimestamp
+        )
 
         //--------------------------------------------------
         // Stage 6
@@ -277,44 +272,66 @@ diagnosticsCollector.recordTransactions(
         // Verify parsed data against statement totals.
         //--------------------------------------------------
 
-val reconciliation =
-    reconciliationEngine.reconcile(
-        summary,
-        fingerprintedTransactions
-    )
+        val parserSummary = parser.extractSummary(rawText, fingerprintedTransactions)
+
+        val computedCredits = transactions.filter { it.type == TransactionType.INCOME }.sumOf { it.amount }
+        val computedDebits = transactions.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount }
+        val computedStart = transactions.minOfOrNull { it.dateTimestamp }
+        val computedEnd = transactions.maxOfOrNull { it.dateTimestamp }
+
+        val resolvedSummary = StatementSummary(
+            statementStartDate = parserSummary?.statementStartDate ?: defaultSummary.statementStartDate ?: computedStart,
+            statementEndDate = parserSummary?.statementEndDate ?: defaultSummary.statementEndDate ?: computedEnd,
+            totalCredits = parserSummary?.totalCredits ?: defaultSummary.totalCredits ?: if (computedCredits > 0.0) computedCredits else null,
+            totalDebits = parserSummary?.totalDebits ?: defaultSummary.totalDebits ?: if (computedDebits > 0.0) computedDebits else null,
+            openingBalance = parserSummary?.openingBalance ?: defaultSummary.openingBalance,
+            endingBalance = parserSummary?.endingBalance ?: defaultSummary.endingBalance ?: if (defaultSummary.openingBalance != null) {
+                defaultSummary.openingBalance + (defaultSummary.totalCredits ?: computedCredits) - (defaultSummary.totalDebits ?: computedDebits)
+            } else null
+        )
+
+        val reconciliation =
+            reconciliationEngine.reconcile(
+                resolvedSummary,
+                fingerprintedTransactions
+            )
 
         //--------------------------------------------------
-// Reconciliation diagnostics
-//--------------------------------------------------
+        // Reconciliation diagnostics
+        //--------------------------------------------------
 
-diagnosticsCollector.recordReconciliation(
-
-    reconciliation = reconciliation,
-
-    statementCredits = summary.totalCredits,
-
-    statementDebits = summary.totalDebits
-
-)
+        diagnosticsCollector.recordReconciliation(
+            reconciliation = reconciliation,
+            statementCredits = resolvedSummary.totalCredits,
+            statementDebits = resolvedSummary.totalDebits
+        )
 
         val bankName = when (parser) {
             is IciciBankParser -> "ICICI Bank"
             is IndianBankParser -> "Indian Bank"
+            is HdfcBankParser -> "HDFC Bank"
             else -> "Bank Statement"
+        }
+
+        val ifscCode = accountDetailsExtractor.extractIfscCode(rawText)
+
+        val taggedTransactions = transactions.map { tx ->
+            if (tx.bankName.isNullOrBlank()) tx.copy(bankName = bankName) else tx
         }
 
         //--------------------------------------------------
         // Final result returned to ImportViewModel.
         //--------------------------------------------------
 
-return StatementImportResult(
-    summary = summary,
-    reconciliation = reconciliation,
-    transactions = transactions,
-    bankName = bankName,
-    accountId = accountIdentity?.accountId,
-    accountLast4 = accountIdentity?.accountLast4
-)
+        return StatementImportResult(
+            summary = resolvedSummary,
+            reconciliation = reconciliation,
+            transactions = taggedTransactions,
+            bankName = bankName,
+            accountId = accountIdentity?.accountId,
+            accountLast4 = accountIdentity?.accountLast4,
+            ifscCode = ifscCode
+        )
 
     }
 

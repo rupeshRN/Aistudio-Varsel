@@ -9,25 +9,17 @@ class TextNormalizer @Inject constructor() {
         var text = rawText
 
         // ------------------------------------------------------------
-        // Remove everything before ACCOUNT ACTIVITY
+        // Remove everything before ACCOUNT ACTIVITY for Indian Bank statements
         // ------------------------------------------------------------
 
         val activityIndex = text.indexOf("ACCOUNT ACTIVITY", ignoreCase = true)
 
-        if (activityIndex >= 0) {
+        if (activityIndex >= 0 && (text.contains("INDIAN BANK", ignoreCase = true) || text.contains("IDIB", ignoreCase = true))) {
             text = text.substring(activityIndex)
         }
 
         // ------------------------------------------------------------
-        // Put first transaction onto a new line
-        //
-        // Example:
-        // Date Transaction Details Debits Credits Balance 28 Jul 2026
-        //
-        // becomes
-        //
-        // Date Transaction Details Debits Credits Balance
-        // 28 Jul 2026
+        // Put first transaction onto a new line (Indian Bank & ICICI)
         // ------------------------------------------------------------
 
         text = text.replace(
@@ -35,18 +27,19 @@ class TextNormalizer @Inject constructor() {
             "$1\n$2"
         )
 
-        // ------------------------------------------------------------
-        // Every date starts a new transaction
-        // ------------------------------------------------------------
-
         text = text.replace(
             Regex("(\\S)\\s+(\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4})"),
             "$1\n$2"
         )
 
         text = text.replace(
-            Regex("(\\d+\\.\\d{2})\\s+(\\d{1,4}\\s+)?(\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4})"),
-            "$1\n$2$3"
+            Regex("""(?i)(Balance(?:\s*\(INR\))?)\s+(?:(\d{1,4})\s+)?(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})"""),
+            "$1\n$2 $3"
+        )
+
+        text = text.replace(
+            Regex("""(\d+\.\d{2})\s+(?:(\d{1,4})\s+)?(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})"""),
+            "$1\n$2 $3"
         )
 
         // ------------------------------------------------------------

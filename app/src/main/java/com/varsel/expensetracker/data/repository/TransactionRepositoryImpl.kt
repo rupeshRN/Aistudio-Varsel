@@ -19,7 +19,10 @@ class TransactionRepositoryImpl @Inject constructor(
         TransactionDao,
 
     private val financialEventAllocationRepository:
-        FinancialEventAllocationRepository
+        FinancialEventAllocationRepository,
+
+    private val descriptionNormalizer:
+        com.varsel.expensetracker.category.DescriptionNormalizer
 
 ) : TransactionRepository {
 
@@ -482,16 +485,53 @@ class TransactionRepositoryImpl @Inject constructor(
     override suspend fun getLinkedTransferTransactions(
         transferLinkId: String
     ): List<Transaction> {
-
-        /*
-         * The current DAO exposes a method for retrieving
-         * the other side of a transfer rather than all
-         * transactions by transferLinkId.
-         *
-         * The current transfer UI works with the existing
-         * transaction + getLinkedTransfer() flow.
-         */
         return emptyList()
+    }
+
+    override suspend fun updateTransactions(transactions: List<Transaction>) {
+        if (transactions.isEmpty()) return
+        transactionDao.updateTransactions(transactions.map { it.toEntity() })
+    }
+
+    override suspend fun findSimilarTransactions(
+        excludeId: Long,
+        pattern: String,
+        isIncome: Boolean,
+        sinceTimestamp: Long
+    ): List<Transaction> {
+        val cleanPattern = pattern.trim().lowercase()
+        val normalizedPattern = descriptionNormalizer.normalize(pattern).trim()
+
+        val noiseWords = setOf("upi", "pos", "inb", "neft", "rtgs", "ach", "trf", "dr", "cr", "xx", "xxx", "the", "and", "for", "to")
+        val patternTokens = normalizedPattern.split(Regex("\\s+"))
+            .map { it.trim() }
+            .filter { it.length >= 3 && !noiseWords.contains(it) }
+
+        val candidates = transactionDao.getTransactionsSince(excludeId, sinceTimestamp)
+
+        return candidates.filter { entity ->
+            val entityIsIncome = entity.type.equals("INCOME", ignoreCase = true) || entity.type.equals("CREDIT", ignoreCase = true)
+            if (entityIsIncome != isIncome) return@filter false
+
+            val entityDesc = entity.description.trim().lowercase()
+            val entityNorm = descriptionNormalizer.normalize(entity.description).trim()
+
+            when {
+                // Exact description match
+                entityDesc == cleanPattern -> true
+                // Exact normalized description match
+                normalizedPattern.isNotBlank() && entityNorm == normalizedPattern -> true
+                // Substring containment on normalized forms
+                normalizedPattern.length >= 4 && (entityNorm.contains(normalizedPattern) || normalizedPattern.contains(entityNorm)) -> true
+                // Substring containment on raw descriptions
+                cleanPattern.length >= 4 && (entityDesc.contains(cleanPattern) || cleanPattern.contains(entityDesc)) -> true
+                // Matching token overlap (e.g. key merchant name present in both)
+                patternTokens.isNotEmpty() && patternTokens.any { token ->
+                    entityNorm.contains(token) || entityDesc.contains(token)
+                } -> true
+                else -> false
+            }
+        }.map { it.toDomain() }
     }
 }
 
@@ -562,7 +602,10 @@ fun TransactionEntity.toDomain():
             ) {
 
                 TransactionRole.NORMAL
-            }
+            },
+
+        bankName = bankName,
+        rawDescription = rawDescription
     )
 }
 
@@ -622,6 +665,12 @@ fun Transaction.toEntity():
             transferLinkId,
 
         role =
-            role.name
+            role.name,
+
+        bankName =
+            bankName,
+
+        rawDescription =
+            rawDescription
     )
 }

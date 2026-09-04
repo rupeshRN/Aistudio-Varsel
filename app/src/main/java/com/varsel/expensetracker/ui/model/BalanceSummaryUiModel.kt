@@ -61,6 +61,8 @@ data class AccountBalanceUiModel(
 
     val bankName: String,
 
+    val bankShortName: String = "",
+
     val accountDisplayName: String,
 
     val balance: Double

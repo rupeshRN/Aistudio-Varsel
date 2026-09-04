@@ -1,11 +1,18 @@
 package com.varsel.expensetracker.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.varsel.expensetracker.domain.model.TransactionRole
 
 @Entity(
-    tableName = "transactions"
+    tableName = "transactions",
+    indices = [
+        Index(value = ["amount"]),
+        Index(value = ["transferLinkId"]),
+        Index(value = ["dateTimestamp"]),
+        Index(value = ["referenceNumber"])
+    ]
 )
 data class TransactionEntity(
 
@@ -65,5 +72,15 @@ data class TransactionEntity(
      */
     val role:
         String =
-            TransactionRole.NORMAL.name
+            TransactionRole.NORMAL.name,
+
+    /**
+     * Name of the issuing bank.
+     */
+    val bankName: String? = null,
+
+    /**
+     * Original uncleaned transaction narration from statement or OCR.
+     */
+    val rawDescription: String? = null
 )

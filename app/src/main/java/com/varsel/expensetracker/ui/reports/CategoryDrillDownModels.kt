@@ -32,6 +32,9 @@ data class CategoryDrillDownState(
     val items: List<CategoryDrillDownItem> = emptyList(),
     val searchQuery: String = ""
 ) {
+    val isSearching: Boolean
+        get() = searchQuery.isNotBlank()
+
     val filteredItems: List<CategoryDrillDownItem>
         get() = if (searchQuery.isBlank()) {
             items
@@ -40,7 +43,22 @@ data class CategoryDrillDownState(
             items.filter { item ->
                 item.description.lowercase().contains(q) ||
                     (item.eventName?.lowercase()?.contains(q) == true) ||
-                    (item.accountLast4?.contains(q) == true)
+                    (item.accountLast4?.contains(q) == true) ||
+                    item.amount.toInt().toString() == q
             }
+        }
+
+    val displayAmount: Double
+        get() = if (isSearching) {
+            filteredItems.sumOf { it.amount }
+        } else {
+            totalCategoryAmount
+        }
+
+    val searchPercentOfCategory: Double
+        get() = if (totalCategoryAmount > 0.0) {
+            (displayAmount / totalCategoryAmount) * 100.0
+        } else {
+            0.0
         }
 }

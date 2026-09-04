@@ -2,6 +2,7 @@ package com.varsel.expensetracker.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.varsel.expensetracker.domain.engine.AutoTransferReconciliationEngine
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.repository.LoanRepository
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
@@ -25,7 +26,9 @@ class DashboardViewModel @Inject constructor(
 
     private val loanRepository: LoanRepository,
 
-    private val dashboardUiMapper: DashboardUiMapper
+    private val dashboardUiMapper: DashboardUiMapper,
+
+    private val autoTransferReconciliationEngine: AutoTransferReconciliationEngine
 
 ) : ViewModel() {
 
@@ -36,6 +39,11 @@ class DashboardViewModel @Inject constructor(
         _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                autoTransferReconciliationEngine.reconcileTransfers()
+            } catch (_: Exception) {}
+        }
         loadDashboard()
     }
 

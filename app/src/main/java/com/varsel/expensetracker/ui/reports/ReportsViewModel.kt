@@ -635,6 +635,17 @@ private fun observeReportData() {
             latestAllocations =
                 sourceData.allocations
 
+            val currentSelected = _uiState.value.selectedMonth
+            if (currentSelected == YearMonth.now() &&
+                latestTransactions.isNotEmpty() &&
+                latestTransactions.none { transactionYearMonth(it.dateTimestamp) == currentSelected }
+            ) {
+                val latestMonth = latestTransactions.maxOfOrNull { it.dateTimestamp }?.let { transactionYearMonth(it) }
+                if (latestMonth != null) {
+                    _uiState.value = _uiState.value.copy(selectedMonth = latestMonth)
+                }
+            }
+
             rebuildReport()
         }
     }

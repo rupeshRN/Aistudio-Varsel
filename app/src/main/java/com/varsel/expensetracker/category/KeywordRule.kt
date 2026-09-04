@@ -6,5 +6,7 @@ data class KeywordRule(
 
     val category: String,
 
-    val confidence: Int
+    val confidence: Int,
+
+    val isIncome: Boolean? = null
 )

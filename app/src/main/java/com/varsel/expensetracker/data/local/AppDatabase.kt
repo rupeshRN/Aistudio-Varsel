@@ -36,7 +36,7 @@ import javax.inject.Provider
         LoanAccountEntity::class,
         LoanPaymentEntity::class
     ],
-    version = 12,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -443,6 +443,32 @@ val MIGRATION_8_9 =
                     )
                 }
             }
+
+        val MIGRATION_12_13 =
+            object : Migration(12, 13) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE transactions ADD COLUMN bankName TEXT")
+                    database.execSQL("ALTER TABLE statement_snapshots ADD COLUMN bankName TEXT")
+                }
+            }
+
+        val MIGRATION_13_14 =
+            object : Migration(13, 14) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE transactions ADD COLUMN rawDescription TEXT")
+                    database.execSQL("ALTER TABLE statement_snapshots ADD COLUMN ifscCode TEXT")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_amount ON transactions(amount)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_transferLinkId ON transactions(transferLinkId)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_dateTimestamp ON transactions(dateTimestamp)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_referenceNumber ON transactions(referenceNumber)")
+                }
+            }
     }
     class SeedCallback(
         private val categoryDaoProvider: Provider<CategoryDao>
@@ -497,7 +523,7 @@ val MIGRATION_8_9 =
                     name = "Rental & Property",
                     iconName = "ic_home",
                     colorHex = "#795548",
-                    keywords = "RENT,TENANT,LEASE",
+                    keywords = "RENT RECEIVED,TENANT PAYMENT,PROPERTY INCOME,RENTAL INCOME",
                     type = "INCOME"
                 ),
                 CategoryEntity(
@@ -516,6 +542,13 @@ val MIGRATION_8_9 =
                 ),
 
                 // Expense categories
+                CategoryEntity(
+                    name = "Housing & Rent",
+                    iconName = "ic_home",
+                    colorHex = "#795548",
+                    keywords = "RENT,HOUSE RENT,ROOM RENT,FLAT RENT,LEASE,MAINTENANCE,TENANCY,SOCIETY,SOCIETY MAINTENANCE",
+                    type = "EXPENSE"
+                ),
                 CategoryEntity(
                     name = "Dining & Food",
                     iconName = "ic_restaurant",

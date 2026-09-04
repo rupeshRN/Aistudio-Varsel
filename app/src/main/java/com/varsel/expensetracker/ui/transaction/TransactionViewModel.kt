@@ -2,6 +2,7 @@ package com.varsel.expensetracker.ui.transaction
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.varsel.expensetracker.domain.engine.AutoTransferReconciliationEngine
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.domain.repository.TransactionRepository
@@ -24,7 +25,9 @@ class TransactionViewModel @Inject constructor(
 
     private val repository: TransactionRepository,
 
-    private val transactionUiMapper: TransactionUiMapper
+    private val transactionUiMapper: TransactionUiMapper,
+
+    private val autoTransferReconciliationEngine: AutoTransferReconciliationEngine
 
 ) : ViewModel() {
 
@@ -40,9 +43,12 @@ class TransactionViewModel @Inject constructor(
         emptyList()
 
     init {
-
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                autoTransferReconciliationEngine.reconcileTransfers()
+            } catch (_: Exception) {}
+        }
         loadTransactions()
-
     }
 
     private fun loadTransactions() {

@@ -14,7 +14,7 @@ class FieldInterpreter @Inject constructor() {
         Regex(".+@.+", RegexOption.IGNORE_CASE)
 
     private val referenceRegex =
-        Regex("^\\d{10,18}$")
+        Regex("^(?:\\d{10,18}|(?=[A-Za-z0-9]*\\d)[A-Za-z0-9]{10,22})$")
 
     private val paymentChannels = setOf(
         "UPI",

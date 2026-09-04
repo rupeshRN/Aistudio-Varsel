@@ -65,9 +65,25 @@ data class Transaction(
      */
     val role:
         TransactionRole =
-            TransactionRole.NORMAL
+            TransactionRole.NORMAL,
+
+    /**
+     * Name of the issuing bank (e.g. "Indian Bank", "ICICI Bank").
+     */
+    val bankName: String? = null,
+
+    /**
+     * Original uncleaned transaction narration from statement or OCR.
+     */
+    val rawDescription: String? = null
 ) {
     val isImported: Boolean
-        get() = !transactionFingerprint.isNullOrBlank() || !referenceNumber.isNullOrBlank()
+        get() = !transactionFingerprint.isNullOrBlank() || !referenceNumber.isNullOrBlank() || !bankName.isNullOrBlank()
+
+    val isTransfer: Boolean
+        get() = role == TransactionRole.TRANSFER_IN ||
+                role == TransactionRole.TRANSFER_OUT ||
+                transferLinkId != null ||
+                category.equals("Transfer", ignoreCase = true)
 }
 
