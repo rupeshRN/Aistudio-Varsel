@@ -99,7 +99,6 @@ class HdfcBankParserTest {
         assertTrue(tx.description.contains("Interest Paid till"))
         assertEquals(Category.OTHER_INCOME, tx.category)
     }
-<<<<<<< HEAD
 
     @Test
     fun testLastTransactionDoesNotContainAppendedBranchAddressOrThisStatement() {
@@ -203,6 +202,4 @@ class HdfcBankParserTest {
             org.junit.Assert.assertFalse(tx.rawDescription.orEmpty().contains("Kodambakkam", ignoreCase = true))
         }
     }
-=======
->>>>>>> 08f131e6d95e5da6254954872bb635abd22c6dc8
 }
