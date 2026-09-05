@@ -48,5 +48,13 @@ interface LoanRepository {
         reductionType: PrepaymentReductionType
     ): PrepaymentSimulationResult?
 
+    suspend fun updateFloatingRate(
+        loanId: Long,
+        newAnnualRate: Double,
+        newBenchmarkRate: Double?,
+        newSpreadRate: Double?,
+        recalculateEmi: Boolean
+    ): LoanAccount?
+
     suspend fun onTransactionDeleted(transactionId: Long)
 }

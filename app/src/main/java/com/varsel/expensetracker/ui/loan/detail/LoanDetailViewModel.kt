@@ -3,6 +3,7 @@ package com.varsel.expensetracker.ui.loan.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.varsel.expensetracker.domain.engine.LoanAmortizationEngine
 import com.varsel.expensetracker.domain.model.loan.LoanPayment
 import com.varsel.expensetracker.domain.model.loan.PrepaymentReductionType
 import com.varsel.expensetracker.domain.repository.LoanRepository
@@ -17,6 +18,7 @@ import javax.inject.Inject
 @HiltViewModel
 class LoanDetailViewModel @Inject constructor(
     private val loanRepository: LoanRepository,
+    val amortizationEngine: LoanAmortizationEngine,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -115,6 +117,28 @@ class LoanDetailViewModel @Inject constructor(
                 reductionType = reductionType
             )
             _uiState.value = _uiState.value.copy(simulationResult = result)
+        }
+    }
+
+    fun updateFloatingRate(
+        newAnnualRate: Double,
+        newBenchmarkRate: Double?,
+        newSpreadRate: Double?,
+        recalculateEmi: Boolean,
+        onSuccess: () -> Unit
+    ) {
+        val currentId = _uiState.value.loanSummary?.loan?.id ?: loanId
+        viewModelScope.launch {
+            loanRepository.updateFloatingRate(
+                loanId = currentId,
+                newAnnualRate = newAnnualRate,
+                newBenchmarkRate = newBenchmarkRate,
+                newSpreadRate = newSpreadRate,
+                recalculateEmi = recalculateEmi
+            )
+            val updatedSchedule = loanRepository.getAmortizationSchedule(currentId)
+            _uiState.value = _uiState.value.copy(amortizationSchedule = updatedSchedule)
+            onSuccess()
         }
     }
 }

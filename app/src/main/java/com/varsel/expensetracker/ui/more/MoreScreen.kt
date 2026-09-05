@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -21,7 +22,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun MoreScreen(
     onLoansClick: () -> Unit,
-    onImportClick: () -> Unit
+    onImportClick: () -> Unit,
+    onBudgetsClick: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -39,13 +41,25 @@ fun MoreScreen(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = "Loans, statements & account tools",
+            text = "Budgets, loans, statements & account tools",
             modifier = Modifier.padding(horizontal = 20.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(20.dp))
+
+        // Budgets Section
+        ToolHubCard(
+            title = "Budgets & Spending Limits",
+            subtitle = "Set daily & monthly spending caps, track progress with Today indicators and historical trends",
+            icon = Icons.Outlined.PieChart,
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+            iconTint = MaterialTheme.colorScheme.tertiary,
+            onClick = onBudgetsClick
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Financial Hub Section
         ToolHubCard(

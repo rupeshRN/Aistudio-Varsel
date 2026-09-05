@@ -17,6 +17,9 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Palette
 import com.varsel.expensetracker.ui.about.AboutScreen
 import com.varsel.expensetracker.ui.appearance.AppearanceScreen
+import com.varsel.expensetracker.ui.budget.BudgetDetailScreen
+import com.varsel.expensetracker.ui.budget.BudgetHistoryScreen
+import com.varsel.expensetracker.ui.budget.BudgetsOverviewScreen
 import com.varsel.expensetracker.ui.category.CategoryScreen
 import com.varsel.expensetracker.ui.dashboard.DashboardScreen
 import com.varsel.expensetracker.ui.developer.DeveloperSettingsScreen
@@ -142,6 +145,65 @@ composable(
     )
 }
 
+composable(AppDestination.Budgets.route) {
+    BudgetsOverviewScreen(
+        viewModel = hiltViewModel(),
+        onBackClick = {
+            navController.popBackStack()
+        },
+        onNavigateToBudgetDetail = { budgetId ->
+            navController.navigate("budget_detail/$budgetId")
+        },
+        onNavigateToBudgetHistory = { budgetId ->
+            navController.navigate("budget_history/$budgetId")
+        }
+    )
+}
+
+composable(
+    route = "budget_detail/{budgetId}",
+    arguments = listOf(
+        navArgument("budgetId") {
+            type = NavType.LongType
+            defaultValue = 0L
+        }
+    )
+) { backStackEntry ->
+    val budgetId = backStackEntry.arguments?.getLong("budgetId") ?: 0L
+    BudgetDetailScreen(
+        budgetId = budgetId,
+        viewModel = hiltViewModel(),
+        onBackClick = {
+            navController.popBackStack()
+        },
+        onNavigateToHistory = { id ->
+            navController.navigate("budget_history/$id")
+        },
+        onTransactionClick = { txId ->
+            navController.navigate("transaction_detail/$txId")
+        }
+    )
+}
+
+composable(
+    route = "budget_history/{budgetId}",
+    arguments = listOf(
+        navArgument("budgetId") {
+            type = NavType.LongType
+            defaultValue = 0L
+        }
+    )
+) { backStackEntry ->
+    val budgetId = backStackEntry.arguments?.getLong("budgetId") ?: 0L
+    BudgetHistoryScreen(
+        budgetId = budgetId,
+        viewModel = hiltViewModel(),
+        onBackClick = {
+            navController.popBackStack()
+        }
+    )
+}
+
 composable(AppDestination.Reports.route) {
 
     ReportsScreen(
@@ -170,6 +232,9 @@ composable(AppDestination.Reports.route) {
                 },
                 onImportClick = {
                     navController.navigate("import_statement")
+                },
+                onBudgetsClick = {
+                    navController.navigate(AppDestination.Budgets.route)
                 }
             )
         }

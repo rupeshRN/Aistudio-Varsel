@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.varsel.expensetracker.domain.model.loan.InterestRateType
 import com.varsel.expensetracker.domain.model.loan.LoanStatus
 import com.varsel.expensetracker.domain.model.loan.LoanSummary
 import com.varsel.expensetracker.domain.model.loan.LoanType
@@ -302,11 +303,30 @@ private fun LoanSummaryItemCard(
                     Spacer(modifier = Modifier.width(12.dp))
 
                     Column {
-                        Text(
-                            text = loan.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = loan.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (loan.interestType == InterestRateType.FLOATING) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.tertiaryContainer
+                                ) {
+                                    Text(
+                                        text = "Floating",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            }
+                        }
                         Text(
                             text = loan.lenderName ?: loan.loanType.displayName,
                             style = MaterialTheme.typography.bodySmall,
@@ -350,7 +370,7 @@ private fun LoanSummaryItemCard(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "${loan.annualInterestRate}% • ${loanSummary.remainingTenureMonths}m left",
+                        text = "${loan.annualInterestRate}% (${loan.interestType.shortName}) • ${loanSummary.remainingTenureMonths}m left",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

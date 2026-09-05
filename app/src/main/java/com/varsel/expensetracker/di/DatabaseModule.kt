@@ -3,6 +3,7 @@ package com.varsel.expensetracker.di
 import android.content.Context
 import androidx.room.Room
 import com.varsel.expensetracker.data.local.AppDatabase
+import com.varsel.expensetracker.data.local.dao.BudgetDao
 import com.varsel.expensetracker.data.local.dao.CategoryDao
 import com.varsel.expensetracker.data.local.dao.CustomRuleDao
 import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
@@ -109,7 +110,10 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_10_11,
                 AppDatabase.MIGRATION_11_12,
                 AppDatabase.MIGRATION_12_13,
-                AppDatabase.MIGRATION_13_14
+                AppDatabase.MIGRATION_13_14,
+                AppDatabase.MIGRATION_14_15,
+                AppDatabase.MIGRATION_15_16,
+                AppDatabase.MIGRATION_16_17
             )
             .addCallback(
                 AppDatabase.SeedCallback(
@@ -119,6 +123,12 @@ object DatabaseModule {
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
+
+    @Provides
+    fun provideBudgetDao(
+        db: AppDatabase
+    ): BudgetDao =
+        db.budgetDao()
 
     @Provides
     fun provideTransactionDao(

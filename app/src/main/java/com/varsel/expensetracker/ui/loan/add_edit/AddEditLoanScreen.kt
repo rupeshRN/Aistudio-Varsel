@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.varsel.expensetracker.domain.model.loan.InterestRateType
 import com.varsel.expensetracker.domain.model.loan.LoanType
 import java.text.SimpleDateFormat
 import java.util.*
@@ -171,6 +172,84 @@ fun AddEditLoanScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // Interest Rate Type Selector
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Interest Type",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    InterestRateType.entries.forEach { type ->
+                        val isSelected = uiState.interestType == type
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { viewModel.onInterestTypeChange(type) },
+                            label = {
+                                Text(
+                                    text = type.displayName,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            // Floating Rate parameters breakdown if selected
+            if (uiState.interestType == InterestRateType.FLOATING) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Repo-Linked Floating Parameters",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = uiState.benchmarkRateString,
+                                onValueChange = { viewModel.onBenchmarkRateChange(it) },
+                                label = { Text("Repo Rate %") },
+                                placeholder = { Text("e.g. 6.50") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = uiState.spreadRateString,
+                                onValueChange = { viewModel.onSpreadRateChange(it) },
+                                label = { Text("Bank Spread %") },
+                                placeholder = { Text("e.g. 2.25") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Text(
+                            text = "Future repo rate changes can be updated anytime from the loan screen to automatically recalculate your EMI and schedule.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             // Interest Rate and Tenure Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -179,7 +258,7 @@ fun AddEditLoanScreen(
                 OutlinedTextField(
                     value = uiState.interestRateString,
                     onValueChange = { viewModel.onInterestRateChange(it) },
-                    label = { Text("Interest Rate (% p.a.) *") },
+                    label = { Text(if (uiState.interestType == InterestRateType.FLOATING) "Total Rate (% p.a.) *" else "Interest Rate (% p.a.) *") },
                     placeholder = { Text("e.g. 8.5") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     leadingIcon = { Icon(Icons.Outlined.Percent, contentDescription = null) },

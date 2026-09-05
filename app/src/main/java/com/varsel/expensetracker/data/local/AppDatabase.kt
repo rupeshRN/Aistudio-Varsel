@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.varsel.expensetracker.data.local.dao.BudgetDao
 import com.varsel.expensetracker.data.local.dao.CategoryDao
 import com.varsel.expensetracker.data.local.dao.CustomRuleDao
 import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
@@ -12,6 +13,7 @@ import com.varsel.expensetracker.data.local.dao.LoanPaymentDao
 import com.varsel.expensetracker.data.local.dao.StatementSnapshotDao
 import com.varsel.expensetracker.data.local.dao.TransactionDao
 import com.varsel.expensetracker.data.local.dao.TransactionLinkGroupDao
+import com.varsel.expensetracker.data.local.entity.BudgetEntity
 import com.varsel.expensetracker.data.local.entity.CategoryEntity
 import com.varsel.expensetracker.data.local.entity.CustomRuleEntity
 import com.varsel.expensetracker.data.local.entity.FinancialEventAllocationEntity
@@ -34,9 +36,10 @@ import javax.inject.Provider
         TransactionLinkGroupEntity::class,
         FinancialEventAllocationEntity::class,
         LoanAccountEntity::class,
-        LoanPaymentEntity::class
+        LoanPaymentEntity::class,
+        BudgetEntity::class
     ],
-    version = 14,
+    version = 17,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -57,6 +60,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun loanAccountDao(): LoanAccountDao
 
     abstract fun loanPaymentDao(): LoanPaymentDao
+
+    abstract fun budgetDao(): BudgetDao
 
     companion object {
 
@@ -467,6 +472,55 @@ val MIGRATION_8_9 =
                     database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_transferLinkId ON transactions(transferLinkId)")
                     database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_dateTimestamp ON transactions(dateTimestamp)")
                     database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_referenceNumber ON transactions(referenceNumber)")
+                }
+            }
+
+        val MIGRATION_14_15 =
+            object : Migration(14, 15) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS budgets (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            name TEXT NOT NULL,
+                            categoryName TEXT NOT NULL,
+                            amount REAL NOT NULL,
+                            period TEXT NOT NULL DEFAULT 'MONTHLY',
+                            startDayOfMonth INTEGER NOT NULL DEFAULT 1,
+                            limitTotalType TEXT NOT NULL DEFAULT 'CONTRIBUTED',
+                            spendingLimitType TEXT NOT NULL DEFAULT 'FIXED',
+                            budgetType TEXT NOT NULL DEFAULT 'EXPENSE',
+                            colorHex TEXT,
+                            iconName TEXT,
+                            createdAt INTEGER NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+                }
+            }
+
+        val MIGRATION_15_16 =
+            object : Migration(15, 16) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE budgets ADD COLUMN budgetType TEXT NOT NULL DEFAULT 'EXPENSE'")
+                }
+            }
+
+        val MIGRATION_16_17 =
+            object : Migration(16, 17) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE loan_accounts ADD COLUMN interestType TEXT NOT NULL DEFAULT 'FIXED'")
+                    database.execSQL("ALTER TABLE loan_accounts ADD COLUMN benchmarkRate REAL")
+                    database.execSQL("ALTER TABLE loan_accounts ADD COLUMN spreadRate REAL")
                 }
             }
     }

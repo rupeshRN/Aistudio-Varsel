@@ -21,12 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.varsel.expensetracker.domain.model.loan.AmortizationScheduleItem
+import com.varsel.expensetracker.domain.model.loan.InterestRateType
 import com.varsel.expensetracker.domain.model.loan.LoanPayment
 import com.varsel.expensetracker.domain.model.loan.LoanPaymentType
 import com.varsel.expensetracker.domain.model.loan.LoanStatus
 import com.varsel.expensetracker.domain.model.loan.LoanSummary
 import com.varsel.expensetracker.ui.loan.components.PrepaymentCalculatorView
 import com.varsel.expensetracker.ui.loan.components.RecordPaymentDialog
+import com.varsel.expensetracker.ui.loan.components.UpdateFloatingRateDialog
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -42,6 +44,7 @@ fun LoanDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showRecordPaymentDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showFloatingRateDialog by remember { mutableStateOf(false) }
 
     val currencyFormatter = remember {
         NumberFormat.getCurrencyInstance(Locale("en", "IN")).apply {
@@ -91,6 +94,26 @@ fun LoanDetailScreen(
                     bankAccountId = accountId,
                     bankAccountLast4 = accountLast4,
                     onSuccess = { showRecordPaymentDialog = false }
+                )
+            }
+        )
+    }
+
+    if (showFloatingRateDialog && loanSummary != null) {
+        UpdateFloatingRateDialog(
+            loanSummary = loanSummary,
+            amortizationEngine = viewModel.amortizationEngine,
+            currencyFormatter = currencyFormatter,
+            onDismiss = { showFloatingRateDialog = false },
+            onConfirm = { newAnnualRate, newBenchmarkRate, newSpreadRate, recalculateEmi ->
+                viewModel.updateFloatingRate(
+                    newAnnualRate = newAnnualRate,
+                    newBenchmarkRate = newBenchmarkRate,
+                    newSpreadRate = newSpreadRate,
+                    recalculateEmi = recalculateEmi,
+                    onSuccess = {
+                        showFloatingRateDialog = false
+                    }
                 )
             }
         )
@@ -174,7 +197,8 @@ fun LoanDetailScreen(
                         LoanOverviewTab(
                             loanSummary = loanSummary,
                             currencyFormatter = currencyFormatter,
-                            dateFormat = dateFormat
+                            dateFormat = dateFormat,
+                            onUpdateFloatingRateClick = { showFloatingRateDialog = true }
                         )
                     }
                     LoanDetailTab.SCHEDULE -> {
@@ -211,7 +235,8 @@ fun LoanDetailScreen(
 private fun LoanOverviewTab(
     loanSummary: LoanSummary,
     currencyFormatter: NumberFormat,
-    dateFormat: SimpleDateFormat
+    dateFormat: SimpleDateFormat,
+    onUpdateFloatingRateClick: () -> Unit
 ) {
     val loan = loanSummary.loan
 
@@ -355,6 +380,79 @@ private fun LoanOverviewTab(
             }
         }
 
+        // Floating Interest Rate Revision Card (if Floating)
+        if (loan.interestType == InterestRateType.FLOATING) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AutoGraph,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Text(
+                                text = "Repo-Linked Floating Loan",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                text = "${loan.annualInterestRate}% p.a.",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+
+                    val rateInfo = if (loan.benchmarkRate != null && loan.spreadRate != null) {
+                        "Repo Rate: ${loan.benchmarkRate}% • Spread: ${loan.spreadRate}%"
+                    } else {
+                        "Tied to central bank / RBI repo rate revisions"
+                    }
+
+                    Text(
+                        text = "$rateInfo. Has RBI revised the repo rate? Update your rate to automatically recalculate future EMI & amortization schedule.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
+                    )
+
+                    Button(
+                        onClick = onUpdateFloatingRateClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+                    ) {
+                        Icon(imageVector = Icons.Outlined.ChangeCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Update Floating Rate / Repo Rate Change")
+                    }
+                }
+            }
+        }
+
         // Details Grid
         Text(
             text = "Loan Specifications",
@@ -374,7 +472,7 @@ private fun LoanOverviewTab(
             )
             DetailMetricCard(
                 title = "Interest Rate",
-                value = "${loan.annualInterestRate}% p.a.",
+                value = "${loan.annualInterestRate}% (${loan.interestType.shortName})",
                 icon = Icons.Outlined.Percent,
                 modifier = Modifier.weight(1f)
             )

@@ -176,6 +176,54 @@ class LoanRepositoryImpl @Inject constructor(
         )
     }
 
+    override suspend fun updateFloatingRate(
+        loanId: Long,
+        newAnnualRate: Double,
+        newBenchmarkRate: Double?,
+        newSpreadRate: Double?,
+        recalculateEmi: Boolean
+    ): LoanAccount? {
+        val loanEntity = loanAccountDao.getLoanAccountByIdSync(loanId) ?: return null
+        val payments = loanPaymentDao.getPaymentsForLoanAscSync(loanId).map { it.toDomain() }
+        val loan = loanEntity.toDomain()
+        val summary = amortizationEngine.computeLoanSummary(loan, payments)
+        val outstanding = summary.currentOutstandingBalance
+        val completedMonths = summary.completedTenureMonths
+
+        val updatedLoan = if (recalculateEmi) {
+            val remainingMonths = kotlin.math.max(1, loan.totalTenureMonths - completedMonths)
+            val newEmi = amortizationEngine.calculateEmi(
+                principal = outstanding,
+                annualInterestRate = newAnnualRate,
+                tenureMonths = remainingMonths
+            )
+            loan.copy(
+                annualInterestRate = newAnnualRate,
+                emiAmount = newEmi,
+                benchmarkRate = newBenchmarkRate,
+                spreadRate = newSpreadRate,
+                interestType = InterestRateType.FLOATING
+            )
+        } else {
+            val newRemainingMonths = amortizationEngine.calculateTenureMonths(
+                principal = outstanding,
+                annualInterestRate = newAnnualRate,
+                emiAmount = loan.emiAmount
+            )
+            val newTotalTenure = completedMonths + newRemainingMonths
+            loan.copy(
+                annualInterestRate = newAnnualRate,
+                totalTenureMonths = kotlin.math.max(1, newTotalTenure),
+                benchmarkRate = newBenchmarkRate,
+                spreadRate = newSpreadRate,
+                interestType = InterestRateType.FLOATING
+            )
+        }
+
+        loanAccountDao.updateLoanAccount(updatedLoan.toEntity())
+        return updatedLoan
+    }
+
     override suspend fun onTransactionDeleted(transactionId: Long) {
         loanPaymentDao.deletePaymentByTransactionId(transactionId)
     }
@@ -211,6 +259,9 @@ class LoanRepositoryImpl @Inject constructor(
             bankAccountLast4 = bankAccountLast4,
             lenderName = lenderName,
             loanAccountNumber = loanAccountNumber,
+            interestType = try { InterestRateType.valueOf(interestType) } catch (e: Exception) { InterestRateType.FIXED },
+            benchmarkRate = benchmarkRate,
+            spreadRate = spreadRate,
             createdAt = createdAt
         )
     }
@@ -231,6 +282,9 @@ class LoanRepositoryImpl @Inject constructor(
             bankAccountLast4 = bankAccountLast4,
             lenderName = lenderName,
             loanAccountNumber = loanAccountNumber,
+            interestType = interestType.name,
+            benchmarkRate = benchmarkRate,
+            spreadRate = spreadRate,
             createdAt = createdAt
         )
     }

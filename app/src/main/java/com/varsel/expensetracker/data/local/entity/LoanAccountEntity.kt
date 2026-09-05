@@ -20,5 +20,8 @@ data class LoanAccountEntity(
     val bankAccountLast4: String? = null,
     val lenderName: String? = null,
     val loanAccountNumber: String? = null,
+    val interestType: String = "FIXED",
+    val benchmarkRate: Double? = null,
+    val spreadRate: Double? = null,
     val createdAt: Long = System.currentTimeMillis()
 )

@@ -1,9 +1,11 @@
 package com.varsel.expensetracker.di
 
+import com.varsel.expensetracker.data.repository.BudgetRepositoryImpl
 import com.varsel.expensetracker.data.repository.LoanRepositoryImpl
 import com.varsel.expensetracker.data.repository.StatementSnapshotRepositoryImpl
 import com.varsel.expensetracker.data.repository.TransactionLinkGroupRepositoryImpl
 import com.varsel.expensetracker.data.repository.TransactionRepositoryImpl
+import com.varsel.expensetracker.domain.repository.BudgetRepository
 import com.varsel.expensetracker.domain.repository.LoanRepository
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
 import com.varsel.expensetracker.domain.repository.TransactionLinkGroupRepository
@@ -60,4 +62,11 @@ abstract class RepositoryModule {
     abstract fun bindLoanRepository(
         impl: LoanRepositoryImpl
     ): LoanRepository
+
+    /** Binds [BudgetRepositoryImpl] to the [BudgetRepository] interface contract */
+    @Binds
+    @Singleton
+    abstract fun bindBudgetRepository(
+        impl: BudgetRepositoryImpl
+    ): BudgetRepository
 }

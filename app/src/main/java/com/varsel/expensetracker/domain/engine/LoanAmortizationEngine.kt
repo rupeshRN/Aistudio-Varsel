@@ -40,7 +40,32 @@ class LoanAmortizationEngine @Inject constructor() {
     }
 
     /**
+     * Calculates the required tenure in months given an EMI amount and interest rate.
+     * Formula: n = -ln(1 - P * r / EMI) / ln(1 + r)
+     */
+    fun calculateTenureMonths(
+        principal: Double,
+        annualInterestRate: Double,
+        emiAmount: Double
+    ): Int {
+        if (principal <= 0.0 || emiAmount <= 0.0) return 0
+        if (annualInterestRate <= 0.0) {
+            return kotlin.math.ceil(principal / emiAmount).toInt().coerceIn(1, 600)
+        }
+        val monthlyRate = annualInterestRate / (12.0 * 100.0)
+        val ratio = principal * monthlyRate / emiAmount
+        if (ratio >= 1.0) {
+            // EMI does not even cover monthly interest
+            return 600
+        }
+        val months = -kotlin.math.ln(1.0 - ratio) / kotlin.math.ln(1.0 + monthlyRate)
+        return kotlin.math.ceil(months).toInt().coerceIn(1, 600)
+    }
+
+    /**
      * Generates a full amortization schedule for the entire loan tenure.
+     * Incorporates historical payments and projects future installments using
+     * the current interest rate (e.g. updated floating rate) and EMI.
      */
     fun generateSchedule(
         principal: Double,
@@ -62,8 +87,47 @@ class LoanAmortizationEngine @Inject constructor() {
 
         val paymentsByMonth = payments.filter { it.paymentType == LoanPaymentType.REGULAR_EMI }
             .sortedBy { it.paymentDateTimestamp }
+        val prepaymentsTotal = payments.filter { it.paymentType == LoanPaymentType.PRE_PAYMENT }.sumOf { it.amount }
 
-        for (monthIndex in 1..tenureMonths) {
+        val completedCount = paymentsByMonth.size
+
+        // Step 1: Add actual historical paid EMIs
+        for (i in 0 until completedCount) {
+            val monthIndex = i + 1
+            val payment = paymentsByMonth[i]
+            val dueLocalDate = startLocalDate.plusMonths(monthIndex.toLong())
+            val dueDateTimestamp = dueLocalDate.atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+
+            val pComp = min(currentBalance, payment.principalComponent)
+            val iComp = payment.interestComponent
+            val closingBalance = max(0.0, round((currentBalance - pComp) * 100.0) / 100.0)
+
+            schedule.add(
+                AmortizationScheduleItem(
+                    monthIndex = monthIndex,
+                    dueDateTimestamp = dueDateTimestamp,
+                    openingBalance = currentBalance,
+                    emiAmount = payment.amount,
+                    principalComponent = pComp,
+                    interestComponent = iComp,
+                    closingBalance = closingBalance,
+                    isPaid = true
+                )
+            )
+            currentBalance = closingBalance
+        }
+
+        // Account for any lump-sum prepayments on running balance
+        if (prepaymentsTotal > 0.0) {
+            currentBalance = max(0.0, round((currentBalance - prepaymentsTotal) * 100.0) / 100.0)
+        }
+
+        // Step 2: Project remaining installments with current (or updated floating) interest rate and EMI
+        val effectiveEmi = if (emiAmount > 0.0) emiAmount else calculateEmi(currentBalance, annualInterestRate, max(1, tenureMonths - completedCount))
+
+        for (monthIndex in (completedCount + 1)..tenureMonths) {
             if (currentBalance <= 0.0) break
 
             val dueLocalDate = startLocalDate.plusMonths(monthIndex.toLong())
@@ -75,27 +139,25 @@ class LoanAmortizationEngine @Inject constructor() {
                 round((currentBalance * monthlyRate) * 100.0) / 100.0
             } else 0.0
 
-            var principalComponent = emiAmount - interestComponent
+            var principalComponent = effectiveEmi - interestComponent
             if (principalComponent > currentBalance || monthIndex == tenureMonths) {
                 principalComponent = currentBalance
             }
             if (principalComponent < 0.0) principalComponent = 0.0
 
-            val effectiveEmi = principalComponent + interestComponent
+            val installmentEmi = principalComponent + interestComponent
             val closingBalance = max(0.0, round((currentBalance - principalComponent) * 100.0) / 100.0)
-
-            val isPaid = monthIndex <= paymentsByMonth.size
 
             schedule.add(
                 AmortizationScheduleItem(
                     monthIndex = monthIndex,
                     dueDateTimestamp = dueDateTimestamp,
                     openingBalance = currentBalance,
-                    emiAmount = effectiveEmi,
+                    emiAmount = installmentEmi,
                     principalComponent = principalComponent,
                     interestComponent = interestComponent,
                     closingBalance = closingBalance,
-                    isPaid = isPaid
+                    isPaid = false
                 )
             )
 
@@ -126,47 +188,31 @@ class LoanAmortizationEngine @Inject constructor() {
 
         val completedTenureMonths = payments.count { it.paymentType == LoanPaymentType.REGULAR_EMI }
         
-        // Calculate projected total interest on original schedule
+        // Generate schedule taking into account historical payments and future amortization
         val fullSchedule = generateSchedule(
             principal = loan.principal,
             annualInterestRate = loan.annualInterestRate,
             emiAmount = loan.emiAmount,
             tenureMonths = loan.totalTenureMonths,
-            startDateTimestamp = loan.startDateTimestamp
+            startDateTimestamp = loan.startDateTimestamp,
+            payments = payments
         )
         val totalProjectedInterest = fullSchedule.sumOf { it.interestComponent }
 
-        // Compute remaining schedule based on current outstanding balance
-        val remainingTenureMonths = if (currentOutstandingBalance > 0.0 && loan.emiAmount > 0.0) {
-            val remainingSchedule = generateSchedule(
-                principal = currentOutstandingBalance,
-                annualInterestRate = loan.annualInterestRate,
-                emiAmount = loan.emiAmount,
-                tenureMonths = max(1, loan.totalTenureMonths - completedTenureMonths),
-                startDateTimestamp = System.currentTimeMillis()
-            )
-            remainingSchedule.size
-        } else 0
-
-        val totalRemainingInterest = if (currentOutstandingBalance > 0.0 && loan.emiAmount > 0.0) {
-            val remainingSchedule = generateSchedule(
-                principal = currentOutstandingBalance,
-                annualInterestRate = loan.annualInterestRate,
-                emiAmount = loan.emiAmount,
-                tenureMonths = max(1, loan.totalTenureMonths - completedTenureMonths),
-                startDateTimestamp = System.currentTimeMillis()
-            )
-            remainingSchedule.sumOf { it.interestComponent }
-        } else 0.0
+        val unpaidSchedule = fullSchedule.filter { !it.isPaid }
+        val remainingTenureMonths = unpaidSchedule.size
+        val totalRemainingInterest = unpaidSchedule.sumOf { it.interestComponent }
 
         // Calculate next EMI due date
         val nextEmiDueDateTimestamp = if (currentOutstandingBalance > 0.0) {
-            val startLocalDate = Instant.ofEpochMilli(loan.startDateTimestamp)
-                .atZone(ZoneId.systemDefault())
-                .toLocalDate()
-            val nextMonthIndex = completedTenureMonths + 1
-            val nextDueDate = startLocalDate.plusMonths(nextMonthIndex.toLong())
-            nextDueDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            unpaidSchedule.firstOrNull()?.dueDateTimestamp ?: run {
+                val startLocalDate = Instant.ofEpochMilli(loan.startDateTimestamp)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                val nextMonthIndex = completedTenureMonths + 1
+                val nextDueDate = startLocalDate.plusMonths(nextMonthIndex.toLong())
+                nextDueDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
         } else null
 
         return LoanSummary(

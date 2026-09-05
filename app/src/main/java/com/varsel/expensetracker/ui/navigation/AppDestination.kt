@@ -6,6 +6,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ListAlt
 import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.outlined.PieChart
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class AppDestination(
@@ -26,6 +27,12 @@ sealed class AppDestination(
         "transactions",
         "Transactions",
         Icons.Outlined.ListAlt
+    )
+
+    data object Budgets : AppDestination(
+        "budgets",
+        "Budgets",
+        Icons.Outlined.PieChart
     )
 
     data object TransactionDetail : AppDestination(

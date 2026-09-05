@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.varsel.expensetracker.domain.engine.LoanAmortizationEngine
+import com.varsel.expensetracker.domain.model.loan.InterestRateType
 import com.varsel.expensetracker.domain.model.loan.LoanAccount
 import com.varsel.expensetracker.domain.model.loan.LoanStatus
 import com.varsel.expensetracker.domain.model.loan.LoanType
@@ -28,6 +29,9 @@ data class AddEditLoanUiState(
     val name: String = "",
     val loanType: LoanType = LoanType.HOME_LOAN,
     val principalString: String = "",
+    val interestType: InterestRateType = InterestRateType.FIXED,
+    val benchmarkRateString: String = "",
+    val spreadRateString: String = "",
     val interestRateString: String = "",
     val tenureMonthsString: String = "",
     val emiAmountString: String = "",
@@ -96,6 +100,9 @@ class AddEditLoanViewModel @Inject constructor(
                         loanType = loan.loanType,
                         principalString = if (loan.principal > 0) loan.principal.toLong().toString() else "",
                         interestRateString = if (loan.annualInterestRate > 0) loan.annualInterestRate.toString() else "",
+                        interestType = loan.interestType,
+                        benchmarkRateString = loan.benchmarkRate?.toString().orEmpty(),
+                        spreadRateString = loan.spreadRate?.toString().orEmpty(),
                         tenureMonthsString = if (loan.totalTenureMonths > 0) loan.totalTenureMonths.toString() else "",
                         emiAmountString = if (loan.emiAmount > 0) loan.emiAmount.toLong().toString() else "",
                         startDateTimestamp = loan.startDateTimestamp,
@@ -128,6 +135,36 @@ class AddEditLoanViewModel @Inject constructor(
     fun onInterestRateChange(rate: String) {
         _uiState.value = _uiState.value.copy(interestRateString = rate, errorMessage = null)
         recalculateEmiIfAuto()
+    }
+
+    fun onInterestTypeChange(type: InterestRateType) {
+        _uiState.value = _uiState.value.copy(interestType = type)
+        if (type == InterestRateType.FLOATING) {
+            updateFloatingTotalRate()
+        }
+    }
+
+    fun onBenchmarkRateChange(rate: String) {
+        _uiState.value = _uiState.value.copy(benchmarkRateString = rate, errorMessage = null)
+        updateFloatingTotalRate()
+    }
+
+    fun onSpreadRateChange(spread: String) {
+        _uiState.value = _uiState.value.copy(spreadRateString = spread, errorMessage = null)
+        updateFloatingTotalRate()
+    }
+
+    private fun updateFloatingTotalRate() {
+        val state = _uiState.value
+        val benchmark = state.benchmarkRateString.toDoubleOrNull()
+        val spread = state.spreadRateString.toDoubleOrNull()
+        if (benchmark != null && spread != null) {
+            val total = benchmark + spread
+            _uiState.value = _uiState.value.copy(
+                interestRateString = (kotlin.math.round(total * 100.0) / 100.0).toString()
+            )
+            recalculateEmiIfAuto()
+        }
     }
 
     fun onTenureMonthsChange(tenure: String) {
@@ -232,7 +269,10 @@ class AddEditLoanViewModel @Inject constructor(
                 linkedBankAccountId = state.selectedBankAccountId,
                 bankAccountLast4 = state.selectedBankAccountLast4,
                 lenderName = state.lenderName.trim().ifEmpty { null },
-                loanAccountNumber = state.loanAccountNumber.trim().ifEmpty { null }
+                loanAccountNumber = state.loanAccountNumber.trim().ifEmpty { null },
+                interestType = state.interestType,
+                benchmarkRate = state.benchmarkRateString.toDoubleOrNull(),
+                spreadRate = state.spreadRateString.toDoubleOrNull()
             )
 
             if (state.isEditing) {
