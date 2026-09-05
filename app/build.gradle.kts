@@ -18,8 +18,53 @@ android {
         versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
         vectorDrawables {
             useSupportLibrary = true
+        }
+    }
+
+    /*
+     * -------------------------------------------------------------------------
+     * RELEASE SIGNING
+     *
+     * The release keystore is supplied by GitHub Actions through environment
+     * variables. The actual keystore file is created temporarily on the
+     * GitHub Actions runner and is NEVER committed to the repository.
+     *
+     * Environment variables expected:
+     *
+     * VARSEL_KEYSTORE_FILE
+     * VARSEL_KEYSTORE_PASSWORD
+     * VARSEL_KEY_ALIAS
+     * VARSEL_KEY_PASSWORD
+     *
+     * This allows Gradle to sign BOTH:
+     *   - APK
+     *   - AAB
+     *
+     * directly during assembleRelease / bundleRelease.
+     * -------------------------------------------------------------------------
+     */
+
+    signingConfigs {
+        create("release") {
+            val keystoreFile = System.getenv("VARSEL_KEYSTORE_FILE")
+            val keystorePassword = System.getenv("VARSEL_KEYSTORE_PASSWORD")
+            val keyAlias = System.getenv("VARSEL_KEY_ALIAS")
+            val keyPassword = System.getenv("VARSEL_KEY_PASSWORD")
+
+            if (
+                !keystoreFile.isNullOrBlank() &&
+                !keystorePassword.isNullOrBlank() &&
+                !keyAlias.isNullOrBlank() &&
+                !keyPassword.isNullOrBlank()
+            ) {
+                storeFile = file(keystoreFile)
+                storePassword = keystorePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
         }
     }
 
@@ -27,11 +72,19 @@ android {
         release {
             isMinifyEnabled = false
             isShrinkResources = false
+
+            /*
+             * Release builds produced by CI will be signed by this signing
+             * configuration.
+             */
+            signingConfig = signingConfigs.getByName("release")
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+
         debug {
             isDebuggable = true
         }
@@ -44,6 +97,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+
         freeCompilerArgs += listOf(
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi"
@@ -54,7 +108,6 @@ android {
         compose = true
     }
 }
-
 
 dependencies {
     // AndroidX Core & Lifecycle
@@ -87,7 +140,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     testImplementation("junit:junit:4.13.2")
 
-    // SQLCipher for encrypted Room DB (Single unified source)
+    // SQLCipher for encrypted Room DB
     implementation(libs.sqlcipher.android)
 
     // Navigation & Hilt Integration for Compose
