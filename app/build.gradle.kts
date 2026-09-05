@@ -47,20 +47,20 @@ android {
      * -------------------------------------------------------------------------
      */
 
-    signingConfigs {
-        create("release") {
-            val keystoreFile = System.getenv("VARSEL_KEYSTORE_FILE")
-            val keystorePassword = System.getenv("VARSEL_KEYSTORE_PASSWORD")
-            val keyAlias = System.getenv("VARSEL_KEY_ALIAS")
-            val keyPassword = System.getenv("VARSEL_KEY_PASSWORD")
+    val keystoreFile = System.getenv("VARSEL_KEYSTORE_FILE")
+    val keystorePassword = System.getenv("VARSEL_KEYSTORE_PASSWORD")
+    val keyAlias = System.getenv("VARSEL_KEY_ALIAS")
+    val keyPassword = System.getenv("VARSEL_KEY_PASSWORD")
+    val hasReleaseSigning = !keystoreFile.isNullOrBlank() &&
+            !keystorePassword.isNullOrBlank() &&
+            !keyAlias.isNullOrBlank() &&
+            !keyPassword.isNullOrBlank() &&
+            file(keystoreFile).exists()
 
-            if (
-                !keystoreFile.isNullOrBlank() &&
-                !keystorePassword.isNullOrBlank() &&
-                !keyAlias.isNullOrBlank() &&
-                !keyPassword.isNullOrBlank()
-            ) {
-                storeFile = file(keystoreFile)
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(keystoreFile!!)
                 storePassword = keystorePassword
                 this.keyAlias = keyAlias
                 this.keyPassword = keyPassword
@@ -74,10 +74,14 @@ android {
             isShrinkResources = false
 
             /*
-             * Release builds produced by CI will be signed by this signing
-             * configuration.
+             * Release builds produced by CI will be signed by release signing config
+             * when environment variables and keystore are present.
              */
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
