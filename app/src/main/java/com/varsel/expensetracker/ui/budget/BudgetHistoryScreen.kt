@@ -1,21 +1,32 @@
 package com.varsel.expensetracker.ui.budget
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -24,6 +35,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.ui.budget.components.BudgetSplineChart
@@ -35,12 +47,30 @@ fun BudgetHistoryScreen(
     budgetId: Long,
     viewModel: BudgetViewModel,
     onBackClick: () -> Unit,
+    onNavigateToPeriodDetail: ((budgetId: Long, referenceTime: Long) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val historyFlow = remember(budgetId) { viewModel.getBudgetHistory(budgetId) }
     val historyModel by historyFlow.collectAsState()
 
     val currentModel = historyModel
+
+    val listState = rememberLazyListState()
+
+    val isScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 30
+        }
+    }
+
+    val scrollFraction by animateFloatAsState(
+        targetValue = if (isScrolled) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "budget_history_scroll_fraction"
+    )
 
     if (currentModel == null) {
         Box(
@@ -60,23 +90,57 @@ fun BudgetHistoryScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.testTag("budget_history_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back"
-                        )
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = (4 * scrollFraction).dp,
+                shadowElevation = (3 * scrollFraction).dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TopAppBar(
+                    title = {
+                        AnimatedVisibility(
+                            visible = isScrolled,
+                            enter = fadeIn(animationSpec = tween(200)) + slideInVertically { it / 2 },
+                            exit = fadeOut(animationSpec = tween(150)) + slideOutVertically { it / 2 }
+                        ) {
+                            Column {
+                                Text(
+                                    text = "History",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = currentModel.budget.name,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    ),
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.testTag("budget_history_back_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -188,7 +252,10 @@ fun BudgetHistoryScreen(
             items(currentModel.pastPeriods, key = { it.periodTitle }) { pastPeriod ->
                 PastPeriodCard(
                     period = pastPeriod,
-                    accentColor = accentColor
+                    accentColor = accentColor,
+                    onClick = {
+                        onNavigateToPeriodDetail?.invoke(budgetId, pastPeriod.referenceTimestamp)
+                    }
                 )
             }
         }
@@ -199,10 +266,18 @@ fun BudgetHistoryScreen(
 fun PastPeriodCard(
     period: BudgetPastPeriodUiModel,
     accentColor: Color,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(onClick = onClick)
+                } else Modifier
+            ),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     ) {
@@ -236,12 +311,24 @@ fun PastPeriodCard(
                 )
             }
 
+            Spacer(modifier = Modifier.width(12.dp))
+
             // Circular Mini Progress Ring with percentage in center (Cashew Screenshot 3)
             MiniCircularProgressRing(
                 percent = period.percentSpent,
                 ratio = period.spentRatio,
                 color = if (period.isOverBudget) MaterialTheme.colorScheme.error else accentColor
             )
+
+            if (onClick != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
+                    contentDescription = "View Details",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(14.dp)
+                )
+            }
         }
     }
 }

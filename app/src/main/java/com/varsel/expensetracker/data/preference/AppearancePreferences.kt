@@ -30,4 +30,5 @@ object AppearancePreferenceKeys {
     val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
     val ACCENT_SCHEME = stringPreferencesKey("accent_scheme")
     val AMOLED_DARK = booleanPreferencesKey("amoled_dark")
+    val ACTIONABLE_INSIGHTS = booleanPreferencesKey("actionable_insights")
 }

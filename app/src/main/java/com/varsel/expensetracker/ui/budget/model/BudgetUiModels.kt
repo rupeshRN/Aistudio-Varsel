@@ -48,7 +48,8 @@ data class BudgetPastPeriodUiModel(
     val amountLeft: Double,
     val percentSpent: Int,
     val spentRatio: Float,
-    val isOverBudget: Boolean
+    val isOverBudget: Boolean,
+    val referenceTimestamp: Long = 0L
 )
 
 data class BudgetHistoryUiModel(

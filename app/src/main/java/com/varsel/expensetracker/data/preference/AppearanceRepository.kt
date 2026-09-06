@@ -12,7 +12,8 @@ data class AppearanceConfig(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val accentScheme: AccentScheme = AccentScheme.EMERALD,
-    val amoledDark: Boolean = false
+    val amoledDark: Boolean = false,
+    val actionableInsights: Boolean = true
 )
 
 @Singleton
@@ -31,11 +32,14 @@ class AppearanceRepository @Inject constructor(
 
         val amoledDark = prefs[AppearancePreferenceKeys.AMOLED_DARK] ?: false
 
+        val actionableInsights = prefs[AppearancePreferenceKeys.ACTIONABLE_INSIGHTS] ?: true
+
         AppearanceConfig(
             themeMode = themeMode,
             dynamicColor = dynamicColor,
             accentScheme = accentScheme,
-            amoledDark = amoledDark
+            amoledDark = amoledDark,
+            actionableInsights = actionableInsights
         )
     }
 
@@ -60,6 +64,12 @@ class AppearanceRepository @Inject constructor(
     suspend fun setAmoledDark(enabled: Boolean) {
         context.appearanceDataStore.edit { prefs ->
             prefs[AppearancePreferenceKeys.AMOLED_DARK] = enabled
+        }
+    }
+
+    suspend fun setActionableInsights(enabled: Boolean) {
+        context.appearanceDataStore.edit { prefs ->
+            prefs[AppearancePreferenceKeys.ACTIONABLE_INSIGHTS] = enabled
         }
     }
 }

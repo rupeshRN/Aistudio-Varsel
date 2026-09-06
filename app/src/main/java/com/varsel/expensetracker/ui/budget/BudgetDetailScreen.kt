@@ -1,10 +1,20 @@
 package com.varsel.expensetracker.ui.budget
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.ui.budget.components.AddEditBudgetBottomSheet
@@ -34,13 +45,14 @@ import java.util.Locale
 @Composable
 fun BudgetDetailScreen(
     budgetId: Long,
+    referenceTime: Long = System.currentTimeMillis(),
     viewModel: BudgetViewModel,
     onBackClick: () -> Unit,
     onNavigateToHistory: (Long) -> Unit,
     onTransactionClick: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val detailFlow = remember(budgetId) { viewModel.getBudgetDetail(budgetId) }
+    val detailFlow = remember(budgetId, referenceTime) { viewModel.getBudgetDetail(budgetId, referenceTime) }
     val budgetUiModel by detailFlow.collectAsState()
     val state by viewModel.uiState.collectAsState()
 
@@ -49,6 +61,23 @@ fun BudgetDetailScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val currentModel = budgetUiModel
+
+    val listState = rememberLazyListState()
+
+    val isScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 30
+        }
+    }
+
+    val scrollFraction by animateFloatAsState(
+        targetValue = if (isScrolled) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "budget_detail_scroll_fraction"
+    )
 
     if (currentModel == null) {
         Box(
@@ -68,69 +97,109 @@ fun BudgetDetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onBackClick,
-                        modifier = Modifier.testTag("budget_detail_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = { onNavigateToHistory(budgetId) },
-                        modifier = Modifier.testTag("budget_detail_history_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.History,
-                            contentDescription = "History"
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { showEditSheet = true },
-                        modifier = Modifier.testTag("budget_detail_edit_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Edit,
-                            contentDescription = "Edit Budget"
-                        )
-                    }
-
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "More")
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = (4 * scrollFraction).dp,
+                shadowElevation = (3 * scrollFraction).dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                TopAppBar(
+                    title = {
+                        AnimatedVisibility(
+                            visible = isScrolled,
+                            enter = fadeIn(animationSpec = tween(200)) + slideInVertically { it / 2 },
+                            exit = fadeOut(animationSpec = tween(150)) + slideOutVertically { it / 2 }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Delete Budget", color = MaterialTheme.colorScheme.error) },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Delete,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    showDeleteConfirm = true
+                            Column {
+                                Text(
+                                    text = currentModel.budget.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                val leftOrOverText = if (currentModel.isOverBudget) {
+                                    "${BudgetCalculator.formatCurrency(currentModel.overBudgetAmount, round = true)} over"
+                                } else {
+                                    "${BudgetCalculator.formatCurrency(currentModel.amountLeft, round = true)} left"
                                 }
+                                Text(
+                                    text = leftOrOverText,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (currentModel.isOverBudget) MaterialTheme.colorScheme.error else accentColor,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    ),
+                    navigationIcon = {
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier.testTag("budget_detail_back_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back"
                             )
                         }
+                    },
+                    actions = {
+                        IconButton(
+                            onClick = { onNavigateToHistory(budgetId) },
+                            modifier = Modifier.testTag("budget_detail_history_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.History,
+                                contentDescription = "History"
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { showEditSheet = true },
+                            modifier = Modifier.testTag("budget_detail_edit_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = "Edit Budget"
+                            )
+                        }
+
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "More")
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete Budget", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Delete,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteConfirm = true
+                                    }
+                                )
+                            }
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     ) { innerPadding ->
         LazyColumn(
+            state = listState,
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)

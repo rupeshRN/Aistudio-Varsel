@@ -128,8 +128,12 @@ class BudgetCalculatorTest {
 
         val history = BudgetCalculator.computeBudgetHistory(budget, emptyList(), refTime)
 
-        assertEquals(5, history.trendPoints.size)
-        assertEquals(5, history.pastPeriods.size)
+        assertEquals(12, history.trendPoints.size)
+        assertEquals(12, history.pastPeriods.size)
         assertEquals("Current Period", history.pastPeriods.first().periodTitle)
+
+        val historyCustom = BudgetCalculator.computeBudgetHistory(budget, emptyList(), refTime, monthsCount = 5)
+        assertEquals(5, historyCustom.trendPoints.size)
+        assertEquals(5, historyCustom.pastPeriods.size)
     }
 }

@@ -80,7 +80,7 @@ fun CategoryDrillDownBottomSheet(
     }
 
     val monthFormatter = remember {
-        DateTimeFormatter.ofPattern("MMMM yyyy")
+        DateTimeFormatter.ofPattern("MMM yyyy")
     }
 
     val categoryColor = remember(state.categoryName) {
@@ -116,9 +116,20 @@ fun CategoryDrillDownBottomSheet(
             val isSearching = state.isSearching
             val displayedAmount = state.displayAmount
             val countText = if (isSearching) {
-                "${filteredItems.size} of ${state.items.size}"
+                "${filteredItems.size}/${state.items.size}"
             } else {
                 "${state.items.size}"
+            }
+
+            val periodDisplay = remember(state.periodLabel, state.month) {
+                val raw = state.periodLabel.ifBlank { state.month.format(monthFormatter) }
+                val fullMonths = listOf(
+                    "January" to "Jan", "February" to "Feb", "March" to "Mar",
+                    "April" to "Apr", "May" to "May", "June" to "Jun",
+                    "July" to "Jul", "August" to "Aug", "September" to "Sep",
+                    "October" to "Oct", "November" to "Nov", "December" to "Dec"
+                )
+                fullMonths.fold(raw) { acc, (full, short) -> acc.replace(full, short) }
             }
 
             // Category Header Card
@@ -186,7 +197,7 @@ fun CategoryDrillDownBottomSheet(
                             )
 
                             Text(
-                                text = "${state.periodLabel.ifBlank { state.month.format(monthFormatter) }} ($countText)",
+                                text = "$periodDisplay ($countText)",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,

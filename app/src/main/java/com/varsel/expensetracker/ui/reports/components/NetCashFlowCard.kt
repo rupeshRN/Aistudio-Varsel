@@ -63,7 +63,6 @@ fun NetCashFlowCard(
 
     val isPositive = netCashFlow >= 0.0
     val netColor = if (isPositive) incomeColor else expenseColor
-    val netPillBg = if (isPositive) incomePillBg else expensePillBg
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -92,8 +91,8 @@ fun NetCashFlowCard(
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = netPillBg,
-                    border = BorderStroke(1.dp, netColor.copy(alpha = 0.25f))
+                    color = Color.Transparent,
+                    border = BorderStroke(1.dp, netColor.copy(alpha = 0.4f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -131,7 +130,6 @@ fun NetCashFlowCard(
                     label = "Income",
                     value = actualIncome,
                     color = incomeColor,
-                    backgroundColor = incomePillBg,
                     icon = Icons.Outlined.ArrowDownward,
                     modifier = Modifier.weight(1f)
                 )
@@ -140,7 +138,6 @@ fun NetCashFlowCard(
                     label = "Expenses",
                     value = effectiveExpense,
                     color = expenseColor,
-                    backgroundColor = expensePillBg,
                     icon = Icons.Outlined.ArrowUpward,
                     modifier = Modifier.weight(1f)
                 )
@@ -154,7 +151,6 @@ private fun CashFlowValue(
     label: String,
     value: Double,
     color: Color,
-    backgroundColor: Color,
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
@@ -162,8 +158,8 @@ private fun CashFlowValue(
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = backgroundColor,
-        border = BorderStroke(1.dp, color.copy(alpha = 0.25f)),
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, color.copy(alpha = 0.35f)),
         modifier = modifier
     ) {
         Column(

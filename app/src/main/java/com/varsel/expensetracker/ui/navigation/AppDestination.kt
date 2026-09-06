@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Home
@@ -47,6 +48,12 @@ sealed class AppDestination(
         Icons.Outlined.Assessment
     )
 
+    data object Loans : AppDestination(
+        "loans",
+        "Loans",
+        Icons.Outlined.AccountBalance
+    )
+
     data object More : AppDestination(
         "more",
         "More",
@@ -54,6 +61,19 @@ sealed class AppDestination(
     )
 
     companion object {
+
+        val allNavDestinations = listOf(
+            Home,
+            Transactions,
+            Budgets,
+            Reports,
+            Loans,
+            More
+        )
+
+        fun fromRoute(route: String?): AppDestination {
+            return allNavDestinations.firstOrNull { it.route == route } ?: Home
+        }
 
         val bottomBarItems = listOf(
             Home,

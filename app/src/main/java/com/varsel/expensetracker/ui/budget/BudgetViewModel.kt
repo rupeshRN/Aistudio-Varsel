@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.varsel.expensetracker.data.local.dao.CategoryDao
 import com.varsel.expensetracker.data.local.entity.BudgetEntity
 import com.varsel.expensetracker.data.local.entity.CategoryEntity
+import com.varsel.expensetracker.data.preference.BudgetDisplayRepository
 import com.varsel.expensetracker.domain.repository.BudgetRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.ui.budget.model.BudgetHistoryUiModel
@@ -20,6 +21,8 @@ import javax.inject.Inject
 
 data class BudgetScreenState(
     val budgets: List<BudgetUiModel> = emptyList(),
+    val allBudgets: List<BudgetUiModel> = emptyList(),
+    val hiddenBudgetIds: Set<Long> = emptySet(),
     val totalBudgetLimit: Double = 0.0,
     val totalAmountSpent: Double = 0.0,
     val totalAmountLeft: Double = 0.0,
@@ -31,27 +34,36 @@ data class BudgetScreenState(
 class BudgetViewModel @Inject constructor(
     private val budgetRepository: BudgetRepository,
     private val transactionRepository: TransactionRepository,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val budgetDisplayRepository: BudgetDisplayRepository
 ) : ViewModel() {
 
     val uiState: StateFlow<BudgetScreenState> = combine(
         budgetRepository.getAllBudgets(),
         transactionRepository.getAllTransactions(),
-        categoryDao.getAllCategories()
-    ) { rawBudgets, transactions, categories ->
-        val budgetUiModels = rawBudgets.map { budget ->
+        categoryDao.getAllCategories(),
+        budgetDisplayRepository.config
+    ) { rawBudgets, transactions, categories, displayConfig ->
+        val orderMap = displayConfig.orderedBudgetIds.mapIndexed { idx, id -> id to idx }.toMap()
+        val sortedRaw = rawBudgets.sortedBy { orderMap[it.id] ?: Int.MAX_VALUE }
+
+        val allBudgetUiModels = sortedRaw.map { budget ->
             BudgetCalculator.computeBudgetUiModel(
                 budget = budget,
                 transactions = transactions
             )
         }
 
-        val totalLimit = budgetUiModels.sumOf { it.budget.amount }
-        val totalSpent = budgetUiModels.sumOf { it.amountSpent }
+        val visibleBudgets = allBudgetUiModels.filter { it.budget.id !in displayConfig.hiddenBudgetIds }
+
+        val totalLimit = visibleBudgets.sumOf { it.budget.amount }
+        val totalSpent = visibleBudgets.sumOf { it.amountSpent }
         val totalLeft = (totalLimit - totalSpent).coerceAtLeast(0.0)
 
         BudgetScreenState(
-            budgets = budgetUiModels,
+            budgets = visibleBudgets,
+            allBudgets = allBudgetUiModels,
+            hiddenBudgetIds = displayConfig.hiddenBudgetIds,
             totalBudgetLimit = totalLimit,
             totalAmountSpent = totalSpent,
             totalAmountLeft = totalLeft,
@@ -64,17 +76,18 @@ class BudgetViewModel @Inject constructor(
         initialValue = BudgetScreenState(isLoading = true)
     )
 
-    private val detailFlows = mutableMapOf<Long, StateFlow<BudgetUiModel?>>()
+    private val detailFlows = mutableMapOf<Pair<Long, Long>, StateFlow<BudgetUiModel?>>()
     private val historyFlows = mutableMapOf<Long, StateFlow<BudgetHistoryUiModel?>>()
 
-    fun getBudgetDetail(budgetId: Long): StateFlow<BudgetUiModel?> {
-        return detailFlows.getOrPut(budgetId) {
+    fun getBudgetDetail(budgetId: Long, referenceTime: Long = System.currentTimeMillis()): StateFlow<BudgetUiModel?> {
+        val key = Pair(budgetId, referenceTime)
+        return detailFlows.getOrPut(key) {
             combine(
                 budgetRepository.getBudgetById(budgetId),
                 transactionRepository.getAllTransactions()
             ) { budget, transactions ->
                 if (budget != null) {
-                    BudgetCalculator.computeBudgetUiModel(budget, transactions)
+                    BudgetCalculator.computeBudgetUiModel(budget, transactions, referenceTime = referenceTime)
                 } else null
             }.stateIn(
                 scope = viewModelScope,
@@ -139,6 +152,36 @@ class BudgetViewModel @Inject constructor(
     fun deleteBudget(budgetId: Long) {
         viewModelScope.launch {
             budgetRepository.deleteBudgetById(budgetId)
+        }
+    }
+
+    fun toggleHideBudget(budgetId: Long) {
+        viewModelScope.launch {
+            budgetDisplayRepository.toggleHideBudget(budgetId)
+        }
+    }
+
+    fun moveBudgetUp(budgetId: Long) {
+        val currentOrder = uiState.value.allBudgets.map { it.budget.id }.toMutableList()
+        val index = currentOrder.indexOf(budgetId)
+        if (index > 0) {
+            currentOrder.removeAt(index)
+            currentOrder.add(index - 1, budgetId)
+            viewModelScope.launch {
+                budgetDisplayRepository.saveOrder(currentOrder)
+            }
+        }
+    }
+
+    fun moveBudgetDown(budgetId: Long) {
+        val currentOrder = uiState.value.allBudgets.map { it.budget.id }.toMutableList()
+        val index = currentOrder.indexOf(budgetId)
+        if (index in 0 until currentOrder.size - 1) {
+            currentOrder.removeAt(index)
+            currentOrder.add(index + 1, budgetId)
+            viewModelScope.launch {
+                budgetDisplayRepository.saveOrder(currentOrder)
+            }
         }
     }
 }

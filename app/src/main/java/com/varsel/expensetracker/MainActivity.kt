@@ -1,34 +1,49 @@
 package com.varsel.expensetracker
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import androidx.lifecycle.lifecycleScope
 import com.varsel.expensetracker.category.CategoryIconCatalog
 import com.varsel.expensetracker.data.local.dao.CategoryDao
 import com.varsel.expensetracker.data.preference.AppearanceConfig
 import com.varsel.expensetracker.data.preference.AppearanceRepository
+import com.varsel.expensetracker.data.preference.GeneralConfig
+import com.varsel.expensetracker.data.preference.GeneralPreferencesRepository
+import com.varsel.expensetracker.security.BiometricAuthManager
+import com.varsel.expensetracker.security.BiometricLockOverlay
 import com.varsel.expensetracker.ui.navigation.AppDestination
 import com.varsel.expensetracker.ui.navigation.AppShell
 import com.varsel.expensetracker.ui.navigation.NavGraph
 import com.varsel.expensetracker.ui.theme.VarselExpenseTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var categoryDao: CategoryDao
 
     @Inject
     lateinit var appearanceRepository: AppearanceRepository
+
+    @Inject
+    lateinit var generalPreferencesRepository: GeneralPreferencesRepository
+
+    @Inject
+    lateinit var biometricAuthManager: BiometricAuthManager
+
+    private var currentTimeout = com.varsel.expensetracker.data.preference.BiometricTimeout.AFTER_5_MIN
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,12 +54,23 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        lifecycleScope.launch {
+            generalPreferencesRepository.generalConfig.collect { config ->
+                currentTimeout = config.biometricTimeout
+            }
+        }
+
         enableEdgeToEdge()
 
         setContent {
             val appearanceConfig by appearanceRepository.appearanceConfig.collectAsState(
                 initial = AppearanceConfig()
             )
+            val generalConfig by generalPreferencesRepository.generalConfig.collectAsState(
+                initial = GeneralConfig()
+            )
+            val isLocked by biometricAuthManager.isLocked.collectAsState()
+            var authErrorMessage by remember { mutableStateOf<String?>(null) }
 
             VarselExpenseTrackerTheme(
                 themeMode = appearanceConfig.themeMode,
@@ -52,56 +78,79 @@ class MainActivity : ComponentActivity() {
                 accentScheme = appearanceConfig.accentScheme,
                 amoledDark = appearanceConfig.amoledDark
             ) {
-
                 val navController = rememberNavController()
-
                 val backStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = backStackEntry?.destination?.route
 
-                val currentRoute =
-                    backStackEntry?.destination?.route
+                // Map 4 configured tab routes to AppDestinations
+                val currentNavDestinations = remember(generalConfig.navigationTabs) {
+                    generalConfig.navigationTabs.take(4).map { route ->
+                        AppDestination.fromRoute(route)
+                    }
+                }
 
-                val showBottomBar =
-                        AppDestination.bottomBarItems.any {
-                    
-                            it.route == currentRoute
-                    
-                        }
+                val showBottomBar = currentNavDestinations.any { it.route == currentRoute }
 
-                val currentDestination =
-                    AppDestination.bottomBarItems.firstOrNull {
-                        it.route == currentRoute
-                    } ?: AppDestination.Home
+                val currentDestination = currentNavDestinations.firstOrNull {
+                    it.route == currentRoute
+                } ?: AppDestination.fromRoute(currentRoute)
 
-                AppShell(
-
-                    currentDestination = currentDestination,
-
-                    showBottomBar = showBottomBar,
-
-                    onDestinationSelected = { destination ->
-                        if (destination.route == AppDestination.Home.route) {
-                            navController.popBackStack(AppDestination.Home.route, inclusive = false)
-                        } else {
-                            navController.navigate(destination.route) {
-                                popUpTo(AppDestination.Home.route) {
-                                    saveState = true
+                Box(modifier = Modifier.fillMaxSize()) {
+                    AppShell(
+                        currentDestination = currentDestination,
+                        showBottomBar = showBottomBar,
+                        destinations = currentNavDestinations,
+                        showNavLabels = generalConfig.showNavLabels,
+                        isFloatingNavBar = generalConfig.floatingNavBar,
+                        onDestinationSelected = { destination ->
+                            if (destination.route == AppDestination.Home.route) {
+                                navController.popBackStack(AppDestination.Home.route, inclusive = false)
+                            } else {
+                                navController.navigate(destination.route) {
+                                    popUpTo(AppDestination.Home.route) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
                         }
+                    ) { padding ->
+                        NavGraph(
+                            navController = navController,
+                            innerPadding = padding
+                        )
                     }
 
-                ) { padding ->
-
-                    NavGraph(
-
-                        navController = navController,
-
-                        innerPadding = padding
+                    // Biometric Lock overlay
+                    BiometricLockOverlay(
+                        isLocked = isLocked,
+                        errorMessage = authErrorMessage,
+                        onUnlockRequest = {
+                            authErrorMessage = null
+                            biometricAuthManager.authenticate(
+                                activity = this@MainActivity,
+                                onSuccess = { authErrorMessage = null },
+                                onError = { msg -> authErrorMessage = msg }
+                            )
+                        },
+                        onFallbackUnlock = {
+                            authErrorMessage = null
+                            biometricAuthManager.unlockManually()
+                        }
                     )
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        biometricAuthManager.checkLockOnResume(currentTimeout)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        biometricAuthManager.onAppBackgrounded(currentTimeout)
     }
 }

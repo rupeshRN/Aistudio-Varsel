@@ -48,4 +48,10 @@ class AppearanceViewModel @Inject constructor(
             repository.setAmoledDark(enabled)
         }
     }
+
+    fun setActionableInsights(enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setActionableInsights(enabled)
+        }
+    }
 }

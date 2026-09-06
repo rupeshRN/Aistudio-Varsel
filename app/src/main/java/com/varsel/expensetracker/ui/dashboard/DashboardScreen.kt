@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.data.preference.HomeSection
 import com.varsel.expensetracker.ui.components.AppIconLoadingView
 import com.varsel.expensetracker.ui.dashboard.components.BalanceCard
 import com.varsel.expensetracker.ui.dashboard.components.DashboardLoanWidget
@@ -41,9 +42,11 @@ fun DashboardScreen(
     onNavigateToAnalytics: () -> Unit = {},
     onNavigateToTransactionDetail: (Long) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToLoans: () -> Unit = {}
+    onNavigateToLoans: () -> Unit = {},
+    onNavigateToBudgets: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val activeSections by viewModel.activeHomeSections.collectAsStateWithLifecycle()
     var featureDialog by remember { mutableStateOf<FeatureDialogState>(FeatureDialogState.None) }
 
     Box(
@@ -62,62 +65,118 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
             ) {
-                item(key = "greeting") {
-                    GreetingHeader(
-                        onSettingsClick = onNavigateToSettings
-                    )
-                }
-
-                item(key = "balance_card") {
-                    BalanceCard(
-                        summary = uiState.balanceSummary
-                    )
-                }
-
-                item(key = "quick_actions") {
-                    QuickActionBar(
-                        onImportClick = onNavigateToImport,
-                        onAddTransactionClick = {
-                            featureDialog = FeatureDialogState.UnderDevelopment(
-                                title = "Manual Entry In Development",
-                                message = "Varsel is designed to automatically ingest, categorize, and reconcile transactions directly from your bank statements with zero manual input.\n\nManual expense and income creation is planned for users who prefer manual bookkeeping.",
-                                icon = Icons.Outlined.Construction
-                            )
-                        },
-                        onTransferClick = {
-                            featureDialog = FeatureDialogState.UnderDevelopment(
-                                title = "Account Transfer",
-                                message = "Transfer transactions are automatically identified and linked between your accounts during Statement Import.\n\nDirect manual transfer entry is currently under development.",
-                                icon = Icons.Outlined.SwapHoriz
-                            )
-                        },
-                        onAnalyticsClick = onNavigateToAnalytics
-                    )
-                }
-
-                item(key = "insights") {
-                    InsightsCard(
-                        insights = uiState.insights,
-                        onNavigateToAnalytics = onNavigateToAnalytics,
-                        onNavigateToTransactions = onNavigateToAllTransactions
-                    )
-                }
-
-                item(key = "loans_widget") {
-                    DashboardLoanWidget(
-                        loans = uiState.loans,
-                        onNavigateToLoans = onNavigateToLoans
-                    )
-                }
-
-                item(key = "recent_transactions") {
-                    DashboardRecentSection(
-                        transactions = uiState.recentTransactions,
-                        onViewAll = onNavigateToAllTransactions,
-                        onTransactionClick = { transactionUiModel ->
-                            onNavigateToTransactionDetail(transactionUiModel.id)
+                activeSections.forEach { sectionId ->
+                    when (sectionId) {
+                        HomeSection.BANNER.id -> {
+                            item(key = "greeting") {
+                                GreetingHeader(
+                                    onSettingsClick = onNavigateToSettings
+                                )
+                            }
                         }
-                    )
+
+                        HomeSection.NET_WORTH.id -> {
+                            item(key = "balance_card") {
+                                BalanceCard(
+                                    summary = uiState.balanceSummary
+                                )
+                            }
+                        }
+
+                        HomeSection.QUICK_ACTIONS.id -> {
+                            item(key = "quick_actions") {
+                                QuickActionBar(
+                                    onImportClick = onNavigateToImport,
+                                    onAddTransactionClick = {
+                                        featureDialog = FeatureDialogState.UnderDevelopment(
+                                            title = "Manual Entry In Development",
+                                            message = "Varsel is designed to automatically ingest, categorize, and reconcile transactions directly from your bank statements with zero manual input.\n\nManual expense and income creation is planned for users who prefer manual bookkeeping.",
+                                            icon = Icons.Outlined.Construction
+                                        )
+                                    },
+                                    onTransferClick = {
+                                        featureDialog = FeatureDialogState.UnderDevelopment(
+                                            title = "Account Transfer",
+                                            message = "Transfer transactions are automatically identified and linked between your accounts during Statement Import.\n\nDirect manual transfer entry is currently under development.",
+                                            icon = Icons.Outlined.SwapHoriz
+                                        )
+                                    },
+                                    onAnalyticsClick = onNavigateToAnalytics
+                                )
+                            }
+                        }
+
+                        HomeSection.INSIGHTS.id -> {
+                            if (uiState.insights.isNotEmpty()) {
+                                item(key = "insights") {
+                                    InsightsCard(
+                                        insights = uiState.insights,
+                                        onNavigateToAnalytics = onNavigateToAnalytics,
+                                        onNavigateToTransactions = onNavigateToAllTransactions
+                                    )
+                                }
+                            }
+                        }
+
+                        HomeSection.LOANS.id -> {
+                            item(key = "loans_widget") {
+                                DashboardLoanWidget(
+                                    loans = uiState.loans,
+                                    onNavigateToLoans = onNavigateToLoans
+                                )
+                            }
+                        }
+
+                        HomeSection.TRANSACTIONS.id -> {
+                            item(key = "recent_transactions") {
+                                DashboardRecentSection(
+                                    transactions = uiState.recentTransactions,
+                                    onViewAll = onNavigateToAllTransactions,
+                                    onTransactionClick = { transactionUiModel ->
+                                        onNavigateToTransactionDetail(transactionUiModel.id)
+                                    }
+                                )
+                            }
+                        }
+
+                        HomeSection.BUDGETS.id -> {
+                            item(key = "budgets_widget") {
+                                DashboardBudgetsWidget(
+                                    onNavigateToBudgets = onNavigateToBudgets
+                                )
+                            }
+                        }
+
+                        HomeSection.INCOME_EXPENSE.id -> {
+                            item(key = "income_expense_widget") {
+                                DashboardIncomeExpenseWidget(
+                                    summary = uiState.balanceSummary
+                                )
+                            }
+                        }
+
+                        HomeSection.TRENDS_GRAPH.id -> {
+                            item(key = "trends_widget") {
+                                DashboardTrendsWidget(
+                                    onNavigateToAnalytics = onNavigateToAnalytics
+                                )
+                            }
+                        }
+
+                        HomeSection.ACCOUNTS_LIST.id -> {
+                            item(key = "accounts_widget") {
+                                DashboardAccountsWidget(
+                                    snapshots = uiState.balanceSummary.accounts
+                                )
+                            }
+                        }
+
+                        HomeSection.GOALS.id -> {
+                            item(key = "goals_widget") {
+                                DashboardGoalsWidget()
+                            }
+                        }
+                    }
                 }
             }
         }

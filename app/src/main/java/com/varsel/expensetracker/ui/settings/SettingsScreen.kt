@@ -22,6 +22,7 @@ import com.varsel.expensetracker.ui.more.MoreMenuItem
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit,
+    onGeneralClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onLearningRulesClick: () -> Unit,
     onAppearanceClick: () -> Unit,
@@ -61,7 +62,38 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(vertical = 12.dp)
         ) {
-            // Group 1: Preferences & Appearance
+            // Group 1: Customization
+            Text(
+                text = "Customization",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                shadowElevation = 1.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Column {
+                    MoreMenuItem(
+                        icon = Icons.Outlined.Tune,
+                        title = "General",
+                        subtitle = "Biometric lock, edit homepage, navigation tabs",
+                        showDivider = false,
+                        onClick = onGeneralClick
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Group 2: Preferences & Rules
             Text(
                 text = "Preferences & Rules",
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),

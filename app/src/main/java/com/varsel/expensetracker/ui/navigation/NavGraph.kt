@@ -32,6 +32,8 @@ import com.varsel.expensetracker.ui.more.MoreScreen
 import com.varsel.expensetracker.ui.more.SettingsDetailScreen
 import com.varsel.expensetracker.ui.reports.ReportsScreen
 import com.varsel.expensetracker.ui.settings.SettingsScreen
+import com.varsel.expensetracker.ui.settings.general.EditHomeScreen
+import com.varsel.expensetracker.ui.settings.general.GeneralSettingsScreen
 import com.varsel.expensetracker.ui.transaction.TransactionDetailScreen
 import com.varsel.expensetracker.ui.transaction.TransactionScreen
 
@@ -68,6 +70,9 @@ fun NavGraph(
                 },
                 onNavigateToLoans = {
                     navController.navigate("loans")
+                },
+                onNavigateToBudgets = {
+                    navController.navigate("budgets")
                 }
             )
         }
@@ -161,17 +166,23 @@ composable(AppDestination.Budgets.route) {
 }
 
 composable(
-    route = "budget_detail/{budgetId}",
+    route = "budget_detail/{budgetId}?referenceTime={referenceTime}",
     arguments = listOf(
         navArgument("budgetId") {
+            type = NavType.LongType
+            defaultValue = 0L
+        },
+        navArgument("referenceTime") {
             type = NavType.LongType
             defaultValue = 0L
         }
     )
 ) { backStackEntry ->
     val budgetId = backStackEntry.arguments?.getLong("budgetId") ?: 0L
+    val referenceTime = backStackEntry.arguments?.getLong("referenceTime") ?: 0L
     BudgetDetailScreen(
         budgetId = budgetId,
+        referenceTime = if (referenceTime > 0L) referenceTime else System.currentTimeMillis(),
         viewModel = hiltViewModel(),
         onBackClick = {
             navController.popBackStack()
@@ -200,6 +211,9 @@ composable(
         viewModel = hiltViewModel(),
         onBackClick = {
             navController.popBackStack()
+        },
+        onNavigateToPeriodDetail = { id, refTime ->
+            navController.navigate("budget_detail/$id?referenceTime=$refTime")
         }
     )
 }
@@ -235,6 +249,18 @@ composable(AppDestination.Reports.route) {
                 },
                 onBudgetsClick = {
                     navController.navigate(AppDestination.Budgets.route)
+                },
+                onReportsClick = {
+                    navController.navigate(AppDestination.Reports.route)
+                },
+                onTransactionsClick = {
+                    navController.navigate(AppDestination.Transactions.route)
+                },
+                onSettingsClick = {
+                    navController.navigate("settings")
+                },
+                onGeneralSettingsClick = {
+                    navController.navigate("general_settings")
                 }
             )
         }
@@ -244,6 +270,9 @@ composable(AppDestination.Reports.route) {
             SettingsScreen(
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onGeneralClick = {
+                    navController.navigate("general_settings")
                 },
                 onCategoriesClick = {
                     navController.navigate("categories")
@@ -259,6 +288,25 @@ composable(AppDestination.Reports.route) {
                 },
                 onAboutClick = {
                     navController.navigate("about")
+                }
+            )
+        }
+
+        composable("general_settings") {
+            GeneralSettingsScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onNavigateToEditHome = {
+                    navController.navigate("edit_home")
+                }
+            )
+        }
+
+        composable("edit_home") {
+            EditHomeScreen(
+                onBackClick = {
+                    navController.popBackStack()
                 }
             )
         }

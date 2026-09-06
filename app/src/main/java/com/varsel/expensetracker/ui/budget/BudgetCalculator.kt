@@ -290,7 +290,8 @@ object BudgetCalculator {
     fun computeBudgetHistory(
         budget: BudgetEntity,
         transactions: List<Transaction>,
-        referenceTime: Long = System.currentTimeMillis()
+        referenceTime: Long = System.currentTimeMillis(),
+        monthsCount: Int = 12
     ): BudgetHistoryUiModel {
         val isSavings = budget.budgetType.equals("SAVINGS", ignoreCase = true)
         val isAllCategories = budget.categoryName.equals("ALL", ignoreCase = true) ||
@@ -311,7 +312,7 @@ object BudgetCalculator {
 
         val totalAllTimeSpent = allCategoryExpenses.sumOf { it.amount }
 
-        // Compute past 5 monthly periods
+        // Compute past monthly periods
         val pastPeriods = mutableListOf<BudgetPastPeriodUiModel>()
         val trendPoints = mutableListOf<BudgetTrendPoint>()
 
@@ -323,8 +324,8 @@ object BudgetCalculator {
             timeInMillis = referenceTime
         }
 
-        // We generate 5 months backwards from current month: e.g. -4, -3, -2, -1, 0
-        for (i in 4 downTo 0) {
+        val count = monthsCount.coerceAtLeast(1)
+        for (i in (count - 1) downTo 0) {
             val monthCal = (cal.clone() as Calendar).apply {
                 add(Calendar.MONTH, -i)
             }
@@ -355,7 +356,8 @@ object BudgetCalculator {
                 amountLeft = left,
                 percentSpent = percent,
                 spentRatio = ratio,
-                isOverBudget = isOver
+                isOverBudget = isOver,
+                referenceTimestamp = bounds.startMillis
             )
             pastPeriods.add(periodModel)
 

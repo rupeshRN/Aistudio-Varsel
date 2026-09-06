@@ -1,5 +1,6 @@
 package com.varsel.expensetracker.ui.more
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -7,24 +8,36 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
-import androidx.compose.material.icons.outlined.AccountBalance
-import androidx.compose.material.icons.outlined.PieChart
-import androidx.compose.material.icons.outlined.UploadFile
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.ui.settings.general.GeneralSettingsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoreScreen(
     onLoansClick: () -> Unit,
     onImportClick: () -> Unit,
-    onBudgetsClick: () -> Unit = {}
+    onBudgetsClick: () -> Unit = {},
+    onReportsClick: () -> Unit = {},
+    onTransactionsClick: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
+    onGeneralSettingsClick: () -> Unit = {},
+    viewModel: GeneralSettingsViewModel = hiltViewModel()
 ) {
+    val generalConfig by viewModel.generalConfig.collectAsStateWithLifecycle()
+    val pinnedTabs = generalConfig.navigationTabs
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -49,40 +62,85 @@ fun MoreScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Budgets Section
-        ToolHubCard(
-            title = "Budgets & Spending Limits",
-            subtitle = "Set daily & monthly spending caps, track progress with Today indicators and historical trends",
-            icon = Icons.Outlined.PieChart,
-            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-            iconTint = MaterialTheme.colorScheme.tertiary,
-            onClick = onBudgetsClick
-        )
+        // Dynamic Unpinned Primary Sections (Tools that are NOT currently in the bottom bar)
+        val notPinned = remember(pinnedTabs) {
+            val list = mutableListOf<Triple<String, String, ImageVector>>()
+            if (!pinnedTabs.contains("budgets")) {
+                list.add(Triple("budgets", "Budgets & Spending Limits", Icons.Outlined.PieChart))
+            }
+            if (!pinnedTabs.contains("loans")) {
+                list.add(Triple("loans", "Loans & Liabilities", Icons.Outlined.AccountBalance))
+            }
+            if (!pinnedTabs.contains("reports")) {
+                list.add(Triple("reports", "Reports & Analytics", Icons.Outlined.Assessment))
+            }
+            if (!pinnedTabs.contains("transactions")) {
+                list.add(Triple("transactions", "Transactions Ledger", Icons.Outlined.ListAlt))
+            }
+            list
+        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        if (notPinned.isNotEmpty()) {
+            Text(
+                text = "Unpinned Features",
+                modifier = Modifier.padding(horizontal = 20.dp),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
 
-        // Financial Hub Section
-        ToolHubCard(
-            title = "Loans & Liabilities",
-            subtitle = "Track Home, Car, Personal & Gold loans, EMI schedules and prepayment savings",
-            icon = Icons.Outlined.AccountBalance,
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-            iconTint = MaterialTheme.colorScheme.primary,
-            onClick = onLoansClick
-        )
+            notPinned.forEach { (route, title, icon) ->
+                ToolHubCard(
+                    title = title,
+                    subtitle = when (route) {
+                        "budgets" -> "Set daily & monthly spending caps, track progress with Today indicators"
+                        "loans" -> "Track loans, liabilities, EMI schedules and prepayment savings"
+                        "reports" -> "Cash flow analytics, category distribution charts and trend graphs"
+                        "transactions" -> "Complete log of all income, expense and account transfers"
+                        else -> "Tap to open"
+                    },
+                    icon = icon,
+                    isPinned = false,
+                    containerColor = when (route) {
+                        "budgets" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        "loans" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        "reports" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        else -> MaterialTheme.colorScheme.surfaceContainerHigh
+                    },
+                    iconTint = when (route) {
+                        "budgets" -> MaterialTheme.colorScheme.tertiary
+                        "loans" -> MaterialTheme.colorScheme.primary
+                        "reports" -> MaterialTheme.colorScheme.secondary
+                        else -> MaterialTheme.colorScheme.primary
+                    },
+                    onClick = {
+                        when (route) {
+                            "budgets" -> onBudgetsClick()
+                            "loans" -> onLoansClick()
+                            "reports" -> onReportsClick()
+                            "transactions" -> onTransactionsClick()
+                        }
+                    }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
+        // Statement Import Card
         ToolHubCard(
             title = "Import Statement",
             subtitle = "Import bank statement PDFs to auto-categorize and sync offline accounts",
             icon = Icons.Outlined.UploadFile,
-            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+            isPinned = false,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             iconTint = MaterialTheme.colorScheme.secondary,
             onClick = onImportClick
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -91,49 +149,68 @@ fun ToolHubCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    containerColor: androidx.compose.ui.graphics.Color,
-    iconTint: androidx.compose.ui.graphics.Color,
+    isPinned: Boolean = false,
+    containerColor: Color,
+    iconTint: Color,
     onClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .testTag("tool_card_${title.lowercase().replace(" ", "_")}"),
         color = containerColor,
-        shape = RoundedCornerShape(16.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        shape = RoundedCornerShape(18.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(14.dp),
                 color = iconTint.copy(alpha = 0.15f),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(46.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconTint,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (isPinned) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "Pinned",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
@@ -147,7 +224,7 @@ fun ToolHubCard(
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                 modifier = Modifier.size(16.dp)
             )
         }

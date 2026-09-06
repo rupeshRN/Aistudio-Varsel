@@ -6,37 +6,27 @@ import androidx.compose.runtime.Composable
 
 @Composable
 fun AppShell(
-
     currentDestination: AppDestination,
-
     showBottomBar: Boolean,
-
+    destinations: List<AppDestination> = AppDestination.bottomBarItems,
+    showNavLabels: Boolean = true,
+    isFloatingNavBar: Boolean = false,
     onDestinationSelected: (AppDestination) -> Unit,
-
-    content: @Composable (
-        PaddingValues
-    ) -> Unit
+    content: @Composable (PaddingValues) -> Unit
 ) {
-
-Scaffold(
-
-    bottomBar = {
-
-        if (showBottomBar) {
-
-            BottomNavigationBar(
-
-                currentDestination = currentDestination,
-
-                onDestinationSelected =
-                    onDestinationSelected
-
-            )
+    Scaffold(
+        bottomBar = {
+            if (showBottomBar) {
+                BottomNavigationBar(
+                    currentDestination = currentDestination,
+                    destinations = destinations,
+                    showLabels = showNavLabels,
+                    isFloating = isFloatingNavBar,
+                    onDestinationSelected = onDestinationSelected
+                )
+            }
         }
-    }
-
-) { padding ->
-
+    ) { padding ->
         content(padding)
     }
 }

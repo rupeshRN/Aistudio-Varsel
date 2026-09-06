@@ -119,6 +119,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.biometric)
 
     // Jetpack Compose (BOM Managed)
     implementation(platform(libs.androidx.compose.bom))
