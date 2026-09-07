@@ -24,8 +24,10 @@ import com.varsel.expensetracker.domain.model.loan.AmortizationScheduleItem
 import com.varsel.expensetracker.domain.model.loan.InterestRateType
 import com.varsel.expensetracker.domain.model.loan.LoanPayment
 import com.varsel.expensetracker.domain.model.loan.LoanPaymentType
+import com.varsel.expensetracker.domain.model.loan.LoanRepaymentType
 import com.varsel.expensetracker.domain.model.loan.LoanStatus
 import com.varsel.expensetracker.domain.model.loan.LoanSummary
+import com.varsel.expensetracker.domain.model.loan.LoanType
 import com.varsel.expensetracker.ui.loan.components.PrepaymentCalculatorView
 import com.varsel.expensetracker.ui.loan.components.RecordPaymentDialog
 import com.varsel.expensetracker.ui.loan.components.UpdateFloatingRateDialog
@@ -203,6 +205,7 @@ fun LoanDetailScreen(
                     }
                     LoanDetailTab.SCHEDULE -> {
                         LoanScheduleTab(
+                            isBullet = loanSummary.loan.loanType == LoanType.GOLD_LOAN && loanSummary.loan.repaymentType == LoanRepaymentType.BULLET_YEARLY,
                             schedule = uiState.amortizationSchedule,
                             currencyFormatter = currencyFormatter,
                             dateFormat = dateFormat
@@ -334,14 +337,19 @@ private fun LoanOverviewTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val isBullet = loan.loanType == LoanType.GOLD_LOAN && loan.repaymentType == LoanRepaymentType.BULLET_YEARLY
                         Column {
                             Text(
-                                text = "Monthly EMI",
+                                text = if (isBullet) "Total Due at Maturity" else "Monthly EMI",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = currencyFormatter.format(loanSummary.nextEmiAmount),
+                                text = if (isBullet) {
+                                    currencyFormatter.format(loanSummary.currentOutstandingBalance + loanSummary.totalRemainingInterest)
+                                } else {
+                                    currencyFormatter.format(loanSummary.nextEmiAmount)
+                                },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -349,12 +357,12 @@ private fun LoanOverviewTab(
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Balance Tenure",
+                                text = if (isBullet) "Tenure" else "Balance Tenure",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "${loanSummary.remainingTenureMonths} mo left",
+                                text = if (isBullet) "${loan.totalTenureMonths} mo total" else "${loanSummary.remainingTenureMonths} mo left",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
@@ -364,7 +372,7 @@ private fun LoanOverviewTab(
                         if (loanSummary.nextEmiDueDateTimestamp != null) {
                             Column(horizontalAlignment = Alignment.End) {
                                 Text(
-                                    text = "Next Due Date",
+                                    text = if (isBullet) "Maturity Date" else "Next Due Date",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -380,8 +388,8 @@ private fun LoanOverviewTab(
             }
         }
 
-        // Floating Interest Rate Revision Card (if Floating)
-        if (loan.interestType == InterestRateType.FLOATING) {
+        // Floating Interest Rate Revision Card (if Home Loan and Floating)
+        if (loan.loanType == LoanType.HOME_LOAN && loan.interestType == InterestRateType.FLOATING) {
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f))
@@ -464,15 +472,16 @@ private fun LoanOverviewTab(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            val isBullet = loan.loanType == LoanType.GOLD_LOAN && loan.repaymentType == LoanRepaymentType.BULLET_YEARLY
             DetailMetricCard(
-                title = "Balance Tenure",
-                value = "${loanSummary.remainingTenureMonths} of ${loan.totalTenureMonths} M",
-                icon = Icons.Outlined.HourglassTop,
+                title = if (isBullet) "Repayment Mode" else "Balance Tenure",
+                value = if (isBullet) loan.repaymentType.displayName else "${loanSummary.remainingTenureMonths} of ${loan.totalTenureMonths} M",
+                icon = if (isBullet) Icons.Outlined.Payment else Icons.Outlined.HourglassTop,
                 modifier = Modifier.weight(1f)
             )
             DetailMetricCard(
                 title = "Interest Rate",
-                value = "${loan.annualInterestRate}% (${loan.interestType.shortName})",
+                value = if (loan.loanType == LoanType.HOME_LOAN) "${loan.annualInterestRate}% (${loan.interestType.shortName})" else "${loan.annualInterestRate}% Fixed",
                 icon = Icons.Outlined.Percent,
                 modifier = Modifier.weight(1f)
             )
@@ -602,6 +611,7 @@ private fun InfoRow(label: String, value: String) {
 
 @Composable
 private fun LoanScheduleTab(
+    isBullet: Boolean = false,
     schedule: List<AmortizationScheduleItem>,
     currencyFormatter: NumberFormat,
     dateFormat: SimpleDateFormat
@@ -627,15 +637,28 @@ private fun LoanScheduleTab(
                             .padding(12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Month / Date", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                        Text("Principal + Int = EMI", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isBullet) "Tenure / Due Date" else "Month / Date",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (isBullet) "Principal + Int = Total" else "Principal + Int = EMI",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
                         Text("Balance", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
             items(schedule) { item ->
-                ScheduleRowItem(item = item, currencyFormatter = currencyFormatter, dateFormat = dateFormat)
+                ScheduleRowItem(
+                    isBullet = isBullet,
+                    item = item,
+                    currencyFormatter = currencyFormatter,
+                    dateFormat = dateFormat
+                )
             }
 
             item { Spacer(modifier = Modifier.height(72.dp)) }
@@ -645,6 +668,7 @@ private fun LoanScheduleTab(
 
 @Composable
 private fun ScheduleRowItem(
+    isBullet: Boolean = false,
     item: AmortizationScheduleItem,
     currencyFormatter: NumberFormat,
     dateFormat: SimpleDateFormat
@@ -674,7 +698,7 @@ private fun ScheduleRowItem(
                 }
                 Column {
                     Text(
-                        text = "M${item.monthIndex}",
+                        text = if (isBullet) "Maturity Due" else "M${item.monthIndex}",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )

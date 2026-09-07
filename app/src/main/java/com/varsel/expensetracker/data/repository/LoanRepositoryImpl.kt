@@ -153,7 +153,8 @@ class LoanRepositoryImpl @Inject constructor(
             emiAmount = loan.emiAmount,
             tenureMonths = loan.totalTenureMonths,
             startDateTimestamp = loan.startDateTimestamp,
-            payments = payments
+            payments = payments,
+            repaymentType = loan.repaymentType
         )
     }
 
@@ -260,6 +261,7 @@ class LoanRepositoryImpl @Inject constructor(
             lenderName = lenderName,
             loanAccountNumber = loanAccountNumber,
             interestType = try { InterestRateType.valueOf(interestType) } catch (e: Exception) { InterestRateType.FIXED },
+            repaymentType = try { LoanRepaymentType.valueOf(repaymentType) } catch (e: Exception) { LoanRepaymentType.MONTHLY_EMI },
             benchmarkRate = benchmarkRate,
             spreadRate = spreadRate,
             createdAt = createdAt
@@ -283,6 +285,7 @@ class LoanRepositoryImpl @Inject constructor(
             lenderName = lenderName,
             loanAccountNumber = loanAccountNumber,
             interestType = interestType.name,
+            repaymentType = repaymentType.name,
             benchmarkRate = benchmarkRate,
             spreadRate = spreadRate,
             createdAt = createdAt

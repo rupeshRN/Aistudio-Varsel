@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 fun BiometricLockOverlay(
     isLocked: Boolean,
     onUnlockRequest: () -> Unit,
-    onFallbackUnlock: () -> Unit,
     errorMessage: String? = null
 ) {
     AnimatedVisibility(
@@ -83,7 +82,7 @@ fun BiometricLockOverlay(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "Touch the fingerprint sensor or confirm your device credentials to continue.",
+                        text = "Touch the fingerprint sensor or confirm your device PIN/pattern/password to continue.",
                         style = MaterialTheme.typography.bodyMedium,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -116,25 +115,9 @@ fun BiometricLockOverlay(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Unlock with Biometrics",
+                            text = "Unlock App",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedButton(
-                        onClick = onFallbackUnlock,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("fallback_unlock_button"),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text(
-                            text = "Bypass / Device Unlock",
-                            style = MaterialTheme.typography.labelLarge
                         )
                     }
                 }

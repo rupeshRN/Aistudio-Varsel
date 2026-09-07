@@ -7,9 +7,11 @@ import com.varsel.expensetracker.data.preference.GeneralPreferencesRepository
 import com.varsel.expensetracker.data.preference.HomeSection
 import com.varsel.expensetracker.domain.engine.AutoTransferReconciliationEngine
 import com.varsel.expensetracker.domain.model.Transaction
+import com.varsel.expensetracker.domain.repository.BudgetRepository
 import com.varsel.expensetracker.domain.repository.LoanRepository
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
+import com.varsel.expensetracker.ui.budget.BudgetCalculator
 import com.varsel.expensetracker.ui.mapper.DashboardUiMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +30,7 @@ class DashboardViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
     private val statementSnapshotRepository: StatementSnapshotRepository,
     private val loanRepository: LoanRepository,
+    private val budgetRepository: BudgetRepository,
     private val dashboardUiMapper: DashboardUiMapper,
     private val autoTransferReconciliationEngine: AutoTransferReconciliationEngine,
     private val appearanceRepository: AppearanceRepository,
@@ -58,17 +61,14 @@ class DashboardViewModel @Inject constructor(
     }
 
     private fun loadDashboard() {
-
         viewModelScope.launch(Dispatchers.IO) {
-
             combine(
                 transactionRepository.getAllTransactions(),
                 loanRepository.getAllLoansSummary(),
-                appearanceRepository.appearanceConfig
-            ) { transactions, loans, appearanceConfig ->
-                Triple(transactions, loans, appearanceConfig)
-            }.collect { (transactions, loans, appearanceConfig) ->
-
+                appearanceRepository.appearanceConfig,
+                budgetRepository.getAllBudgets(),
+                generalPreferencesRepository.generalConfig
+            ) { transactions, loans, appearanceConfig, rawBudgets, generalConfig ->
                 val snapshots =
                     statementSnapshotRepository
                         .getAllSnapshots()
@@ -85,11 +85,67 @@ class DashboardViewModel @Inject constructor(
                     emptyList()
                 }
 
+                val allBudgets = rawBudgets.map { budget ->
+                    BudgetCalculator.computeBudgetUiModel(
+                        budget = budget,
+                        transactions = transactions
+                    )
+                }
+
+                val expenseBudgets = allBudgets.filter { !it.budget.budgetType.equals("SAVINGS", ignoreCase = true) }
+                val savingsGoals = allBudgets.filter { it.budget.budgetType.equals("SAVINGS", ignoreCase = true) }
+
+                val homeBudgetsSelection = generalConfig.homeBudgetsSelection
+                val homeGoalsSelection = generalConfig.homeGoalsSelection
+
+                val visibleBudgets = if (homeBudgetsSelection == "ALL" || homeBudgetsSelection.isBlank()) {
+                    expenseBudgets
+                } else {
+                    val selectedIds = homeBudgetsSelection.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+                    val filtered = expenseBudgets.filter { it.budget.id in selectedIds }
+                    if (filtered.isNotEmpty()) filtered else expenseBudgets
+                }
+
+                val visibleGoals = if (homeGoalsSelection == "ALL" || homeGoalsSelection.isBlank()) {
+                    savingsGoals
+                } else {
+                    val selectedIds = homeGoalsSelection.split(",").mapNotNull { it.trim().toLongOrNull() }.toSet()
+                    val filtered = savingsGoals.filter { it.budget.id in selectedIds }
+                    if (filtered.isNotEmpty()) filtered else savingsGoals
+                }
+
+                val totalBudgetLimit = visibleBudgets.sumOf { it.budget.amount }
+                val totalBudgetSpent = visibleBudgets.sumOf { it.amountSpent }
+                val totalGoalTarget = visibleGoals.sumOf { it.budget.amount }
+                val totalGoalSaved = visibleGoals.sumOf { it.amountSpent }
+
                 _uiState.value = baseDashboard.copy(
                     loans = loans,
-                    insights = insights
+                    insights = insights,
+                    allBudgets = expenseBudgets,
+                    allGoals = savingsGoals,
+                    visibleBudgets = visibleBudgets,
+                    visibleGoals = visibleGoals,
+                    homeBudgetsSelection = homeBudgetsSelection,
+                    homeGoalsSelection = homeGoalsSelection,
+                    totalBudgetLimit = totalBudgetLimit,
+                    totalBudgetSpent = totalBudgetSpent,
+                    totalGoalTarget = totalGoalTarget,
+                    totalGoalSaved = totalGoalSaved
                 )
-            }
+            }.collect {}
+        }
+    }
+
+    fun setHomeBudgetsSelection(selection: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            generalPreferencesRepository.setHomeBudgetsSelection(selection)
+        }
+    }
+
+    fun setHomeGoalsSelection(selection: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            generalPreferencesRepository.setHomeGoalsSelection(selection)
         }
     }
 

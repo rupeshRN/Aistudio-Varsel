@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.varsel.expensetracker.domain.model.loan.InterestRateType
+import com.varsel.expensetracker.domain.model.loan.LoanRepaymentType
 import com.varsel.expensetracker.domain.model.loan.LoanType
 import java.text.SimpleDateFormat
 import java.util.*
@@ -172,80 +173,122 @@ fun AddEditLoanScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Interest Rate Type Selector
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Interest Type",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    InterestRateType.entries.forEach { type ->
-                        val isSelected = uiState.interestType == type
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { viewModel.onInterestTypeChange(type) },
-                            label = {
-                                Text(
-                                    text = type.displayName,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            // Floating Rate parameters breakdown if selected
-            if (uiState.interestType == InterestRateType.FLOATING) {
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f))
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Gold Loan Repayment Mode Selector (Monthly EMI vs Yearly / Bullet Repayment)
+            if (uiState.loanType == LoanType.GOLD_LOAN) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Gold Loan Repayment Mode",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = "Repo-Linked Floating Parameters",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = uiState.benchmarkRateString,
-                                onValueChange = { viewModel.onBenchmarkRateChange(it) },
-                                label = { Text("Repo Rate %") },
-                                placeholder = { Text("e.g. 6.50") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                singleLine = true,
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedTextField(
-                                value = uiState.spreadRateString,
-                                onValueChange = { viewModel.onSpreadRateChange(it) },
-                                label = { Text("Bank Spread %") },
-                                placeholder = { Text("e.g. 2.25") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                singleLine = true,
+                        LoanRepaymentType.entries.forEach { type ->
+                            val isSelected = uiState.repaymentType == type
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { viewModel.onRepaymentTypeChange(type) },
+                                label = {
+                                    Text(
+                                        text = type.displayName,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        Text(
-                            text = "Future repo rate changes can be updated anytime from the loan screen to automatically recalculate your EMI and schedule.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    }
+                    Text(
+                        text = if (uiState.repaymentType == LoanRepaymentType.BULLET_YEARLY) {
+                            "Principal is repaid in full at the end of the tenure (typically 12 months), along with accumulated interest."
+                        } else {
+                            "Monthly installments covering both principal and interest components."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Interest Rate Type Selector (ONLY applicable for Home Loan)
+            if (uiState.loanType == LoanType.HOME_LOAN) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Interest Type",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        InterestRateType.entries.forEach { type ->
+                            val isSelected = uiState.interestType == type
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { viewModel.onInterestTypeChange(type) },
+                                label = {
+                                    Text(
+                                        text = type.displayName,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                // Floating Rate parameters breakdown if selected
+                if (uiState.interestType == InterestRateType.FLOATING) {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Repo-Linked Floating Parameters",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = uiState.benchmarkRateString,
+                                    onValueChange = { viewModel.onBenchmarkRateChange(it) },
+                                    label = { Text("Repo Rate %") },
+                                    placeholder = { Text("e.g. 6.50") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedTextField(
+                                    value = uiState.spreadRateString,
+                                    onValueChange = { viewModel.onSpreadRateChange(it) },
+                                    label = { Text("Bank Spread %") },
+                                    placeholder = { Text("e.g. 2.25") },
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    singleLine = true,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            Text(
+                                text = "Future repo rate changes can be updated anytime from the loan screen to automatically recalculate your EMI and schedule.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -258,7 +301,15 @@ fun AddEditLoanScreen(
                 OutlinedTextField(
                     value = uiState.interestRateString,
                     onValueChange = { viewModel.onInterestRateChange(it) },
-                    label = { Text(if (uiState.interestType == InterestRateType.FLOATING) "Total Rate (% p.a.) *" else "Interest Rate (% p.a.) *") },
+                    label = {
+                        Text(
+                            if (uiState.loanType == LoanType.HOME_LOAN && uiState.interestType == InterestRateType.FLOATING) {
+                                "Total Rate (% p.a.) *"
+                            } else {
+                                "Interest Rate (% p.a.) *"
+                            }
+                        )
+                    },
                     placeholder = { Text("e.g. 8.5") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     leadingIcon = { Icon(Icons.Outlined.Percent, contentDescription = null) },
@@ -269,8 +320,16 @@ fun AddEditLoanScreen(
                 OutlinedTextField(
                     value = uiState.tenureMonthsString,
                     onValueChange = { viewModel.onTenureMonthsChange(it) },
-                    label = { Text("Tenure (Months) *") },
-                    placeholder = { Text("e.g. 240") },
+                    label = {
+                        Text(
+                            if (uiState.loanType == LoanType.GOLD_LOAN && uiState.repaymentType == LoanRepaymentType.BULLET_YEARLY) {
+                                "Tenure (Months, e.g. 12) *"
+                            } else {
+                                "Tenure (Months) *"
+                            }
+                        )
+                    },
+                    placeholder = { Text(if (uiState.loanType == LoanType.GOLD_LOAN) "12" else "240") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     leadingIcon = { Icon(Icons.Outlined.CalendarMonth, contentDescription = null) },
                     singleLine = true,
@@ -278,43 +337,91 @@ fun AddEditLoanScreen(
                 )
             }
 
-            // EMI Amount & Auto-calc switch
-            Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            // Repayment Amount Card
+            val isBulletGold = uiState.loanType == LoanType.GOLD_LOAN && uiState.repaymentType == LoanRepaymentType.BULLET_YEARLY
+            if (isBulletGold) {
+                val principalVal = uiState.principalString.toDoubleOrNull() ?: 0.0
+                val rateVal = uiState.interestRateString.toDoubleOrNull() ?: 0.0
+                val tenureVal = uiState.tenureMonthsString.toIntOrNull() ?: 12
+                val bulletInterest = (principalVal * (rateVal / 100.0) * (tenureVal / 12.0))
+                val totalPayable = principalVal + bulletInterest
+
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f))
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Auto-Calculate EMI",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
+                            text = "Bullet Repayment Calculation",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
-                        Switch(
-                            checked = uiState.isAutoEmi,
-                            onCheckedChange = { viewModel.onToggleAutoEmi(it) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Estimated Annual Interest:", style = MaterialTheme.typography.bodyMedium)
+                            Text("₹%,.0f".format(bulletInterest), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Total Due at Maturity:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                            Text("₹%,.0f".format(totalPayable), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        }
+                        Text(
+                            text = "No monthly EMI is required. Full principal and interest are paid at maturity, or you can record periodic interest payments.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+            } else {
+                // EMI Amount & Auto-calc switch
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Auto-Calculate EMI",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Switch(
+                                checked = uiState.isAutoEmi,
+                                onCheckedChange = { viewModel.onToggleAutoEmi(it) }
+                            )
+                        }
 
-                    OutlinedTextField(
-                        value = uiState.emiAmountString,
-                        onValueChange = { viewModel.onEmiAmountChange(it) },
-                        label = { Text("Monthly EMI (₹)") },
-                        enabled = !uiState.isAutoEmi,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        leadingIcon = { Icon(Icons.Outlined.Payment, contentDescription = null) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        OutlinedTextField(
+                            value = uiState.emiAmountString,
+                            onValueChange = { viewModel.onEmiAmountChange(it) },
+                            label = { Text("Monthly EMI (₹)") },
+                            enabled = !uiState.isAutoEmi,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            leadingIcon = { Icon(Icons.Outlined.Payment, contentDescription = null) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 

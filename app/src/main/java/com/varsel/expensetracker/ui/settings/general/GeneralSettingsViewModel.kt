@@ -119,12 +119,6 @@ class GeneralSettingsViewModel @Inject constructor(
         }
     }
 
-    fun setIncomeExpenseWidgetPeriod(period: String) {
-        viewModelScope.launch {
-            repository.setIncomeExpenseWidgetPeriod(period)
-        }
-    }
-
     fun setBudgetWidgetCategory(category: String) {
         viewModelScope.launch {
             repository.setBudgetWidgetCategory(category)

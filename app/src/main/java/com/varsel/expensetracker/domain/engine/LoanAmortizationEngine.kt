@@ -73,17 +73,47 @@ class LoanAmortizationEngine @Inject constructor() {
         emiAmount: Double,
         tenureMonths: Int,
         startDateTimestamp: Long,
-        payments: List<LoanPayment> = emptyList()
+        payments: List<LoanPayment> = emptyList(),
+        repaymentType: LoanRepaymentType = LoanRepaymentType.MONTHLY_EMI
     ): List<AmortizationScheduleItem> {
         if (principal <= 0.0 || tenureMonths <= 0) return emptyList()
 
-        val monthlyRate = annualInterestRate / (12.0 * 100.0)
         val schedule = mutableListOf<AmortizationScheduleItem>()
-        var currentBalance = principal
 
         val startLocalDate = Instant.ofEpochMilli(startDateTimestamp)
             .atZone(ZoneId.systemDefault())
             .toLocalDate()
+
+        if (repaymentType == LoanRepaymentType.BULLET_YEARLY) {
+            // For Bullet / Yearly loans, principal is due at maturity with accumulated interest
+            val totalInterest = round((principal * (annualInterestRate / 100.0) * (tenureMonths / 12.0)) * 100.0) / 100.0
+            val totalPrincipalPaid = payments.sumOf { it.principalComponent }
+            val totalInterestPaid = payments.sumOf { it.interestComponent }
+            val remainingPrincipal = max(0.0, round((principal - totalPrincipalPaid) * 100.0) / 100.0)
+            val remainingInterest = max(0.0, round((totalInterest - totalInterestPaid) * 100.0) / 100.0)
+
+            val dueLocalDate = startLocalDate.plusMonths(tenureMonths.toLong())
+            val dueDateTimestamp = dueLocalDate.atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+
+            schedule.add(
+                AmortizationScheduleItem(
+                    monthIndex = 1,
+                    dueDateTimestamp = dueDateTimestamp,
+                    openingBalance = principal,
+                    emiAmount = remainingPrincipal + remainingInterest,
+                    principalComponent = remainingPrincipal,
+                    interestComponent = remainingInterest,
+                    closingBalance = 0.0,
+                    isPaid = remainingPrincipal <= 0.0 && remainingInterest <= 0.0
+                )
+            )
+            return schedule
+        }
+
+        val monthlyRate = annualInterestRate / (12.0 * 100.0)
+        var currentBalance = principal
 
         val paymentsByMonth = payments.filter { it.paymentType == LoanPaymentType.REGULAR_EMI }
             .sortedBy { it.paymentDateTimestamp }
@@ -195,7 +225,8 @@ class LoanAmortizationEngine @Inject constructor() {
             emiAmount = loan.emiAmount,
             tenureMonths = loan.totalTenureMonths,
             startDateTimestamp = loan.startDateTimestamp,
-            payments = payments
+            payments = payments,
+            repaymentType = loan.repaymentType
         )
         val totalProjectedInterest = fullSchedule.sumOf { it.interestComponent }
 
@@ -203,17 +234,25 @@ class LoanAmortizationEngine @Inject constructor() {
         val remainingTenureMonths = unpaidSchedule.size
         val totalRemainingInterest = unpaidSchedule.sumOf { it.interestComponent }
 
-        // Calculate next EMI due date
+        // Calculate next payment due date
         val nextEmiDueDateTimestamp = if (currentOutstandingBalance > 0.0) {
             unpaidSchedule.firstOrNull()?.dueDateTimestamp ?: run {
                 val startLocalDate = Instant.ofEpochMilli(loan.startDateTimestamp)
                     .atZone(ZoneId.systemDefault())
                     .toLocalDate()
-                val nextMonthIndex = completedTenureMonths + 1
+                val nextMonthIndex = if (loan.repaymentType == LoanRepaymentType.BULLET_YEARLY) loan.totalTenureMonths else completedTenureMonths + 1
                 val nextDueDate = startLocalDate.plusMonths(nextMonthIndex.toLong())
                 nextDueDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             }
         } else null
+
+        val nextEmiAmount = if (currentOutstandingBalance > 0.0) {
+            if (loan.repaymentType == LoanRepaymentType.BULLET_YEARLY) {
+                0.0
+            } else {
+                min(loan.emiAmount, currentOutstandingBalance)
+            }
+        } else 0.0
 
         return LoanSummary(
             loan = loan,
@@ -225,7 +264,7 @@ class LoanAmortizationEngine @Inject constructor() {
             completedTenureMonths = completedTenureMonths,
             remainingTenureMonths = remainingTenureMonths,
             nextEmiDueDateTimestamp = nextEmiDueDateTimestamp,
-            nextEmiAmount = if (currentOutstandingBalance > 0.0) min(loan.emiAmount, currentOutstandingBalance) else 0.0,
+            nextEmiAmount = nextEmiAmount,
             progressPercentage = progressPercentage,
             paymentsCount = payments.size,
             prepaymentsTotal = prepaymentsTotal

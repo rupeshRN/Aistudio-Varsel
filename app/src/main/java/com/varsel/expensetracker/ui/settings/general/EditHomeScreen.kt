@@ -448,14 +448,12 @@ fun getIconForSection(section: HomeSection): ImageVector {
     return when (section) {
         HomeSection.BANNER -> Icons.Outlined.ViewAgenda
         HomeSection.NET_WORTH -> Icons.Outlined.TrendingUp
+        HomeSection.ACCOUNTS_LIST -> Icons.Outlined.AccountBalanceWallet
         HomeSection.QUICK_ACTIONS -> Icons.Outlined.FlashOn
         HomeSection.TRANSACTIONS -> Icons.Outlined.ReceiptLong
         HomeSection.INSIGHTS -> Icons.Outlined.Lightbulb
         HomeSection.LOANS -> Icons.Outlined.AccountBalance
         HomeSection.BUDGETS -> Icons.Outlined.PieChart
-        HomeSection.INCOME_EXPENSE -> Icons.Outlined.SwapVert
-        HomeSection.TRENDS_GRAPH -> Icons.Outlined.ShowChart
-        HomeSection.ACCOUNTS_LIST -> Icons.Outlined.AccountBalanceWallet
         HomeSection.GOALS -> Icons.Outlined.Savings
     }
 }

@@ -142,23 +142,11 @@ fun DashboardScreen(
                         HomeSection.BUDGETS.id -> {
                             item(key = "budgets_widget") {
                                 DashboardBudgetsWidget(
+                                    visibleBudgets = uiState.visibleBudgets,
+                                    allBudgets = uiState.allBudgets,
+                                    currentSelection = uiState.homeBudgetsSelection,
+                                    onSelectBudgets = { viewModel.setHomeBudgetsSelection(it) },
                                     onNavigateToBudgets = onNavigateToBudgets
-                                )
-                            }
-                        }
-
-                        HomeSection.INCOME_EXPENSE.id -> {
-                            item(key = "income_expense_widget") {
-                                DashboardIncomeExpenseWidget(
-                                    summary = uiState.balanceSummary
-                                )
-                            }
-                        }
-
-                        HomeSection.TRENDS_GRAPH.id -> {
-                            item(key = "trends_widget") {
-                                DashboardTrendsWidget(
-                                    onNavigateToAnalytics = onNavigateToAnalytics
                                 )
                             }
                         }
@@ -173,7 +161,13 @@ fun DashboardScreen(
 
                         HomeSection.GOALS.id -> {
                             item(key = "goals_widget") {
-                                DashboardGoalsWidget()
+                                DashboardGoalsWidget(
+                                    visibleGoals = uiState.visibleGoals,
+                                    allGoals = uiState.allGoals,
+                                    currentSelection = uiState.homeGoalsSelection,
+                                    onSelectGoals = { viewModel.setHomeGoalsSelection(it) },
+                                    onNavigateToGoals = onNavigateToBudgets
+                                )
                             }
                         }
                     }

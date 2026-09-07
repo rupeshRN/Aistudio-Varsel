@@ -43,10 +43,18 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var biometricAuthManager: BiometricAuthManager
 
-    private var currentTimeout = com.varsel.expensetracker.data.preference.BiometricTimeout.AFTER_5_MIN
+    private var currentTimeout = com.varsel.expensetracker.data.preference.BiometricTimeout.OFF
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Read fast synchronous preference on launch
+        currentTimeout = generalPreferencesRepository.getBiometricTimeoutSync()
+        if (currentTimeout == com.varsel.expensetracker.data.preference.BiometricTimeout.OFF) {
+            biometricAuthManager.unlockManually()
+        } else {
+            biometricAuthManager.lockOnAppLaunch(currentTimeout)
+        }
 
         lifecycleScope.launch {
             categoryDao.getAllCategories().collect { categories ->
@@ -57,6 +65,9 @@ class MainActivity : FragmentActivity() {
         lifecycleScope.launch {
             generalPreferencesRepository.generalConfig.collect { config ->
                 currentTimeout = config.biometricTimeout
+                if (config.biometricTimeout == com.varsel.expensetracker.data.preference.BiometricTimeout.OFF) {
+                    biometricAuthManager.unlockManually()
+                }
             }
         }
 
@@ -71,6 +82,18 @@ class MainActivity : FragmentActivity() {
             )
             val isLocked by biometricAuthManager.isLocked.collectAsState()
             var authErrorMessage by remember { mutableStateOf<String?>(null) }
+
+            // Auto-trigger biometric / credentials prompt when app is locked
+            LaunchedEffect(isLocked) {
+                if (isLocked && currentTimeout != com.varsel.expensetracker.data.preference.BiometricTimeout.OFF) {
+                    authErrorMessage = null
+                    biometricAuthManager.authenticate(
+                        activity = this@MainActivity,
+                        onSuccess = { authErrorMessage = null },
+                        onError = { msg -> authErrorMessage = msg }
+                    )
+                }
+            }
 
             VarselExpenseTrackerTheme(
                 themeMode = appearanceConfig.themeMode,
@@ -133,10 +156,6 @@ class MainActivity : FragmentActivity() {
                                 onSuccess = { authErrorMessage = null },
                                 onError = { msg -> authErrorMessage = msg }
                             )
-                        },
-                        onFallbackUnlock = {
-                            authErrorMessage = null
-                            biometricAuthManager.unlockManually()
                         }
                     )
                 }
@@ -152,5 +171,10 @@ class MainActivity : FragmentActivity() {
     override fun onPause() {
         super.onPause()
         biometricAuthManager.onAppBackgrounded(currentTimeout)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        biometricAuthManager.onAppClosed(currentTimeout)
     }
 }

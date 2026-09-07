@@ -39,7 +39,7 @@ import javax.inject.Provider
         LoanPaymentEntity::class,
         BudgetEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -521,6 +521,16 @@ val MIGRATION_8_9 =
                     database.execSQL("ALTER TABLE loan_accounts ADD COLUMN interestType TEXT NOT NULL DEFAULT 'FIXED'")
                     database.execSQL("ALTER TABLE loan_accounts ADD COLUMN benchmarkRate REAL")
                     database.execSQL("ALTER TABLE loan_accounts ADD COLUMN spreadRate REAL")
+                }
+            }
+
+        val MIGRATION_17_18 =
+            object : Migration(17, 18) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE loan_accounts ADD COLUMN repaymentType TEXT NOT NULL DEFAULT 'MONTHLY_EMI'")
                 }
             }
     }

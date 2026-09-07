@@ -34,8 +34,6 @@ fun GeneralSettingsScreen(
 
     // Dialogs for widgets
     var showNetWorthDialog by remember { mutableStateOf(false) }
-    var showIncomeExpenseDialog by remember { mutableStateOf(false) }
-    var showBudgetWidgetDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -242,53 +240,13 @@ fun GeneralSettingsScreen(
                 onClick = { showNetWorthDialog = true }
             )
 
-            // Income/Expense Widget Row
-            WidgetSettingRow(
-                icon = Icons.Outlined.SwapVert,
-                title = "Income/Expense Widget",
-                subtitle = "Period: ${generalConfig.incomeExpenseWidgetPeriod}",
-                onClick = { showIncomeExpenseDialog = true }
-            )
-
             // Budget Widget Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showBudgetWidgetDialog = true }
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.PieChart,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(26.dp)
-                )
-
-                Spacer(modifier = Modifier.width(20.dp))
-
-                Text(
-                    text = "Budget Widget",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    modifier = Modifier.padding(start = 8.dp)
-                ) {
-                    Text(
-                        text = generalConfig.budgetWidgetCategory,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                    )
-                }
-            }
+            WidgetSettingRow(
+                icon = Icons.Outlined.PieChart,
+                title = "Home Budgets & Goals",
+                subtitle = "Customizable directly on home widgets via the tune icon",
+                onClick = { }
+            )
 
             // Widget Theme Row
             WidgetSettingRow(
@@ -351,84 +309,6 @@ fun GeneralSettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showNetWorthDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-
-    if (showIncomeExpenseDialog) {
-        val periods = listOf("This Week", "This Month", "Last Month", "This Year")
-        AlertDialog(
-            onDismissRequest = { showIncomeExpenseDialog = false },
-            title = { Text("Income / Expense Period") },
-            text = {
-                Column {
-                    periods.forEach { period ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setIncomeExpenseWidgetPeriod(period)
-                                    showIncomeExpenseDialog = false
-                                }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = generalConfig.incomeExpenseWidgetPeriod == period,
-                                onClick = {
-                                    viewModel.setIncomeExpenseWidgetPeriod(period)
-                                    showIncomeExpenseDialog = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(period)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showIncomeExpenseDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-
-    if (showBudgetWidgetDialog) {
-        val categories = listOf("Food", "Groceries", "Transport", "Shopping", "Entertainment", "Utilities", "All Categories")
-        AlertDialog(
-            onDismissRequest = { showBudgetWidgetDialog = false },
-            title = { Text("Select Budget Category") },
-            text = {
-                Column {
-                    categories.forEach { cat ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setBudgetWidgetCategory(cat)
-                                    showBudgetWidgetDialog = false
-                                }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = generalConfig.budgetWidgetCategory == cat,
-                                onClick = {
-                                    viewModel.setBudgetWidgetCategory(cat)
-                                    showBudgetWidgetDialog = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(cat)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showBudgetWidgetDialog = false }) {
                     Text("Close")
                 }
             }

@@ -16,6 +16,7 @@ data class LoanAccount(
     val lenderName: String? = null,
     val loanAccountNumber: String? = null,
     val interestType: InterestRateType = InterestRateType.FIXED,
+    val repaymentType: LoanRepaymentType = LoanRepaymentType.MONTHLY_EMI,
     val benchmarkRate: Double? = null,
     val spreadRate: Double? = null,
     val createdAt: Long = System.currentTimeMillis()

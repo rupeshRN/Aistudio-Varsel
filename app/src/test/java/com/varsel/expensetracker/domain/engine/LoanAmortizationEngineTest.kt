@@ -4,6 +4,7 @@ import com.varsel.expensetracker.domain.model.loan.InterestRateType
 import com.varsel.expensetracker.domain.model.loan.LoanAccount
 import com.varsel.expensetracker.domain.model.loan.LoanPayment
 import com.varsel.expensetracker.domain.model.loan.LoanPaymentType
+import com.varsel.expensetracker.domain.model.loan.LoanRepaymentType
 import com.varsel.expensetracker.domain.model.loan.LoanStatus
 import com.varsel.expensetracker.domain.model.loan.LoanType
 import org.junit.Assert.assertEquals
@@ -80,5 +81,40 @@ class LoanAmortizationEngineTest {
         val unpaidFirst = schedule.first { !it.isPaid }
         assertEquals(3, unpaidFirst.monthIndex)
         assertTrue(unpaidFirst.closingBalance < unpaidFirst.openingBalance)
+    }
+
+    @Test
+    fun generateSchedule_bulletYearlyGoldLoan_generatesSingleMaturityInstallment() {
+        val loan = LoanAccount(
+            id = 10L,
+            name = "Gold Loan",
+            loanType = LoanType.GOLD_LOAN,
+            principal = 200_000.0,
+            annualInterestRate = 9.0,
+            emiAmount = 218_000.0,
+            totalTenureMonths = 12,
+            startDateTimestamp = 1672531199000L,
+            repaymentType = LoanRepaymentType.BULLET_YEARLY
+        )
+
+        val schedule = engine.generateSchedule(
+            principal = loan.principal,
+            annualInterestRate = loan.annualInterestRate,
+            emiAmount = loan.emiAmount,
+            tenureMonths = loan.totalTenureMonths,
+            startDateTimestamp = loan.startDateTimestamp,
+            repaymentType = loan.repaymentType
+        )
+
+        assertEquals(1, schedule.size)
+        val item = schedule[0]
+        assertEquals(200_000.0, item.principalComponent, 0.01)
+        assertEquals(18_000.0, item.interestComponent, 0.01)
+        assertEquals(218_000.0, item.emiAmount, 0.01)
+
+        val summary = engine.computeLoanSummary(loan, emptyList())
+        assertEquals(200_000.0, summary.currentOutstandingBalance, 0.01)
+        assertEquals(0.0, summary.nextEmiAmount, 0.01)
+        assertEquals(18_000.0, summary.totalRemainingInterest, 0.01)
     }
 }

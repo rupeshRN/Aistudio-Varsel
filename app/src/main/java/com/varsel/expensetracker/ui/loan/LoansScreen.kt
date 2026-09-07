@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.varsel.expensetracker.domain.model.loan.InterestRateType
+import com.varsel.expensetracker.domain.model.loan.LoanRepaymentType
 import com.varsel.expensetracker.domain.model.loan.LoanStatus
 import com.varsel.expensetracker.domain.model.loan.LoanSummary
 import com.varsel.expensetracker.domain.model.loan.LoanType
@@ -312,7 +313,7 @@ private fun LoanSummaryItemCard(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            if (loan.interestType == InterestRateType.FLOATING) {
+                            if (loan.loanType == LoanType.HOME_LOAN && loan.interestType == InterestRateType.FLOATING) {
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
                                     color = MaterialTheme.colorScheme.tertiaryContainer
@@ -323,6 +324,19 @@ private fun LoanSummaryItemCard(
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.onTertiaryContainer
+                                    )
+                                }
+                            } else if (loan.loanType == LoanType.GOLD_LOAN && loan.repaymentType == LoanRepaymentType.BULLET_YEARLY) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer
+                                ) {
+                                    Text(
+                                        text = "Yearly / Bullet",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )
                                 }
                             }
@@ -364,13 +378,18 @@ private fun LoanSummaryItemCard(
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
+                    val isBullet = loan.loanType == LoanType.GOLD_LOAN && loan.repaymentType == LoanRepaymentType.BULLET_YEARLY
                     Text(
-                        text = "EMI: ${currencyFormatter.format(loan.emiAmount)}",
+                        text = if (isBullet) "Due: ${currencyFormatter.format(loan.emiAmount)}" else "EMI: ${currencyFormatter.format(loan.emiAmount)}",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "${loan.annualInterestRate}% (${loan.interestType.shortName}) • ${loanSummary.remainingTenureMonths}m left",
+                        text = if (isBullet) {
+                            "${loan.annualInterestRate}% • Yearly Bullet"
+                        } else {
+                            "${loan.annualInterestRate}% (${loan.interestType.shortName}) • ${loanSummary.remainingTenureMonths}m left"
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

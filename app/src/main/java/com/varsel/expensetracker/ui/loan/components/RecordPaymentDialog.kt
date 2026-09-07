@@ -18,7 +18,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.domain.model.loan.LoanPayment
 import com.varsel.expensetracker.domain.model.loan.LoanPaymentType
+import com.varsel.expensetracker.domain.model.loan.LoanRepaymentType
 import com.varsel.expensetracker.domain.model.loan.LoanSummary
+import com.varsel.expensetracker.domain.model.loan.LoanType
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.max
@@ -33,18 +35,27 @@ fun RecordPaymentDialog(
     onConfirm: (payment: LoanPayment, createBankTx: Boolean, accountId: String?, accountLast4: String?) -> Unit
 ) {
     val loan = loanSummary.loan
-    var paymentType by remember { mutableStateOf(LoanPaymentType.REGULAR_EMI) }
+    val isBulletGold = loan.loanType == LoanType.GOLD_LOAN && loan.repaymentType == LoanRepaymentType.BULLET_YEARLY
+    var paymentType by remember { mutableStateOf(if (isBulletGold) LoanPaymentType.CLOSURE else LoanPaymentType.REGULAR_EMI) }
 
-    val defaultEmiAmount = if (loanSummary.currentOutstandingBalance > 0) {
-        min(loan.emiAmount, loanSummary.currentOutstandingBalance)
+    val defaultPaymentAmount = if (loanSummary.currentOutstandingBalance > 0) {
+        if (isBulletGold) {
+            loanSummary.currentOutstandingBalance + loanSummary.totalRemainingInterest
+        } else {
+            min(loan.emiAmount, loanSummary.currentOutstandingBalance)
+        }
     } else 0.0
 
     var amountString by remember {
-        mutableStateOf(if (defaultEmiAmount > 0) defaultEmiAmount.toLong().toString() else "")
+        mutableStateOf(if (defaultPaymentAmount > 0) defaultPaymentAmount.toLong().toString() else "")
     }
 
     val monthlyRate = loan.annualInterestRate / (12.0 * 100.0)
-    val defaultInterest = round(loanSummary.currentOutstandingBalance * monthlyRate * 100.0) / 100.0
+    val defaultInterest = if (isBulletGold) {
+        min(loanSummary.totalRemainingInterest, defaultPaymentAmount)
+    } else {
+        round(loanSummary.currentOutstandingBalance * monthlyRate * 100.0) / 100.0
+    }
     val defaultPrincipal = max(0.0, (amountString.toDoubleOrNull() ?: 0.0) - defaultInterest)
 
     var principalString by remember {
@@ -73,7 +84,11 @@ fun RecordPaymentDialog(
                 interestString = "0"
             }
             LoanPaymentType.CLOSURE -> {
-                val interest = min(total, round(loanSummary.currentOutstandingBalance * monthlyRate * 100.0) / 100.0)
+                val interest = if (isBulletGold) {
+                    min(total, loanSummary.totalRemainingInterest)
+                } else {
+                    min(total, round(loanSummary.currentOutstandingBalance * monthlyRate * 100.0) / 100.0)
+                }
                 val principal = max(0.0, total - interest)
                 interestString = interest.toLong().toString()
                 principalString = principal.toLong().toString()
@@ -141,25 +156,47 @@ fun RecordPaymentDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    FilterChip(
-                        selected = paymentType == LoanPaymentType.REGULAR_EMI,
-                        onClick = {
-                            paymentType = LoanPaymentType.REGULAR_EMI
-                            amountString = if (defaultEmiAmount > 0) defaultEmiAmount.toLong().toString() else ""
-                            updateSplits(amountString.toDoubleOrNull() ?: 0.0, LoanPaymentType.REGULAR_EMI)
-                        },
-                        label = { Text("Regular EMI", style = MaterialTheme.typography.bodySmall) },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        selected = paymentType == LoanPaymentType.PRE_PAYMENT,
-                        onClick = {
-                            paymentType = LoanPaymentType.PRE_PAYMENT
-                            updateSplits(amountString.toDoubleOrNull() ?: 0.0, LoanPaymentType.PRE_PAYMENT)
-                        },
-                        label = { Text("Pre-payment", style = MaterialTheme.typography.bodySmall) },
-                        modifier = Modifier.weight(1f)
-                    )
+                    if (isBulletGold) {
+                        FilterChip(
+                            selected = paymentType == LoanPaymentType.CLOSURE,
+                            onClick = {
+                                paymentType = LoanPaymentType.CLOSURE
+                                amountString = if (defaultPaymentAmount > 0) defaultPaymentAmount.toLong().toString() else ""
+                                updateSplits(amountString.toDoubleOrNull() ?: 0.0, LoanPaymentType.CLOSURE)
+                            },
+                            label = { Text("Full Settlement", style = MaterialTheme.typography.bodySmall) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = paymentType == LoanPaymentType.PRE_PAYMENT,
+                            onClick = {
+                                paymentType = LoanPaymentType.PRE_PAYMENT
+                                updateSplits(amountString.toDoubleOrNull() ?: 0.0, LoanPaymentType.PRE_PAYMENT)
+                            },
+                            label = { Text("Part Payment", style = MaterialTheme.typography.bodySmall) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        FilterChip(
+                            selected = paymentType == LoanPaymentType.REGULAR_EMI,
+                            onClick = {
+                                paymentType = LoanPaymentType.REGULAR_EMI
+                                amountString = if (defaultPaymentAmount > 0) defaultPaymentAmount.toLong().toString() else ""
+                                updateSplits(amountString.toDoubleOrNull() ?: 0.0, LoanPaymentType.REGULAR_EMI)
+                            },
+                            label = { Text("Regular EMI", style = MaterialTheme.typography.bodySmall) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        FilterChip(
+                            selected = paymentType == LoanPaymentType.PRE_PAYMENT,
+                            onClick = {
+                                paymentType = LoanPaymentType.PRE_PAYMENT
+                                updateSplits(amountString.toDoubleOrNull() ?: 0.0, LoanPaymentType.PRE_PAYMENT)
+                            },
+                            label = { Text("Pre-payment", style = MaterialTheme.typography.bodySmall) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
                 // Total Amount

@@ -68,7 +68,7 @@ fun AddEditBudgetBottomSheet(
         )
     }
     var amountText by remember {
-        mutableStateOf(existingBudget?.amount?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: if (isSavings) "5000" else "3000")
+        mutableStateOf(existingBudget?.amount?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
     }
     var selectedPeriod by remember { mutableStateOf(existingBudget?.period ?: "MONTHLY") }
     var startDay by remember { mutableStateOf(existingBudget?.startDayOfMonth?.toString() ?: "1") }
@@ -176,10 +176,13 @@ fun AddEditBudgetBottomSheet(
                 value = amountText,
                 onValueChange = { input ->
                     if (input.isEmpty() || input.all { it.isDigit() || it == '.' }) {
-                        amountText = input
+                        if (input.count { it == '.' } <= 1) {
+                            amountText = input
+                        }
                     }
                 },
                 label = { Text(if (isSavings) "Target Savings Goal (₹)" else "Budget Limit (₹)") },
+                placeholder = { Text("0") },
                 prefix = { Text("₹ ", fontWeight = FontWeight.Bold) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -381,9 +384,13 @@ fun AddEditBudgetBottomSheet(
                     }
                 }
 
+                val parsedAmount = amountText.toDoubleOrNull() ?: 0.0
+                val isAmountValid = parsedAmount > 0.0
+
                 Button(
                     onClick = {
-                        val amount = amountText.toDoubleOrNull() ?: if (isSavings) 5000.0 else 3000.0
+                        val amount = amountText.toDoubleOrNull() ?: return@Button
+                        if (amount <= 0.0) return@Button
                         val startDayInt = startDay.toIntOrNull() ?: 1
                         val finalCategory = if (selectedCategory == "All Expenses" || selectedCategory == "All Savings") "ALL" else selectedCategory
                         val finalName = if (name.isBlank()) finalCategory else name
@@ -402,6 +409,7 @@ fun AddEditBudgetBottomSheet(
                             catEntity?.iconName
                         )
                     },
+                    enabled = isAmountValid,
                     modifier = Modifier
                         .weight(if (existingBudget != null && onDelete != null) 1.5f else 1f)
                         .height(52.dp)
