@@ -65,6 +65,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +96,7 @@ import com.varsel.expensetracker.ui.import_statement.components.TransactionRevie
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportScreen(
+    initialFileUri: Uri? = null,
     onBackClick: () -> Unit,
     onNavigateToTransactions: () -> Unit = onBackClick,
     viewModel: ImportViewModel = hiltViewModel()
@@ -107,6 +109,13 @@ fun ImportScreen(
     var showTransactionReview by remember { mutableStateOf(false) }
     var selectedSnapshotForDetail by remember { mutableStateOf<StatementSnapshotEntity?>(null) }
     var selectedSnapshotForDelete by remember { mutableStateOf<StatementSnapshotEntity?>(null) }
+
+    LaunchedEffect(initialFileUri) {
+        if (initialFileUri != null) {
+            showTransactionReview = false
+            viewModel.processSelectedFile(initialFileUri, null)
+        }
+    }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()

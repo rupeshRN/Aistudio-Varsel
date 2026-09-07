@@ -34,6 +34,7 @@ fun DeveloperSettingsScreen(
                 title = {
                     Text(
                         text = "Developer Tools",
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                 },
@@ -50,8 +51,7 @@ fun DeveloperSettingsScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
-                ),
-                windowInsets = WindowInsets(0, 0, 0, 0)
+                )
             )
         }
     ) { paddingValues ->

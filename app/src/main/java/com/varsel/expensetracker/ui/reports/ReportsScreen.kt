@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ReportsScreen(
     viewModel: ReportsViewModel = hiltViewModel(),
+    onBackClick: () -> Unit = {},
     onTransactionClick: (Long) -> Unit = {},
     onFinancialEventClick: (String) -> Unit
 ) {
@@ -81,6 +82,7 @@ fun ReportsScreen(
 
     ReportsScreenContent(
         uiState = uiState,
+        onBackClick = onBackClick,
 
         onPreviousMonth =
             viewModel::previousMonth,
@@ -197,6 +199,7 @@ fun ReportsScreen(
 @Composable
 private fun ReportsScreenContent(
     uiState: ReportsUiState,
+    onBackClick: () -> Unit,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onFilterClick: () -> Unit,
@@ -257,6 +260,7 @@ private fun ReportsScreenContent(
                         onPreviousPeriod = onPreviousMonth,
                         onNextPeriod = onNextMonth,
                         onFilterClick = onFilterClick,
+                        onBackClick = onBackClick,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
                     )
 

@@ -1,11 +1,21 @@
 package com.varsel.expensetracker.ui.settings.general
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,13 +27,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.varsel.expensetracker.data.preference.HomeSection
+import com.varsel.expensetracker.ui.dashboard.HomeWidgetItemsSelectionDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +47,8 @@ fun EditHomeScreen(
     viewModel: GeneralSettingsViewModel = hiltViewModel()
 ) {
     val generalConfig by viewModel.generalConfig.collectAsStateWithLifecycle()
+    val allBudgets by viewModel.allBudgets.collectAsStateWithLifecycle()
+    val availableAccounts by viewModel.availableAccounts.collectAsStateWithLifecycle()
     val activeSections = generalConfig.activeHomeSections
 
     val allSections = HomeSection.entries
@@ -39,10 +56,42 @@ fun EditHomeScreen(
 
     var selectedSectionForCustomization by remember { mutableStateOf<HomeSection?>(null) }
 
+    val lazyListState = rememberLazyListState()
+    val showCollapsedTitle by remember {
+        derivedStateOf {
+            lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 30
+        }
+    }
+
+    var draggingSectionId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val density = LocalDensity.current
+    val stepThresholdPx = with(density) { 56.dp.toPx() }
+    val currentActiveSections by rememberUpdatedState(activeSections)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { },
+                title = {
+                    AnimatedVisibility(
+                        visible = showCollapsedTitle,
+                        enter = fadeIn(animationSpec = tween(220)) + slideInHorizontally(
+                            animationSpec = tween(220, easing = FastOutSlowInEasing),
+                            initialOffsetX = { -20 }
+                        ),
+                        exit = fadeOut(animationSpec = tween(180)) + slideOutHorizontally(
+                            animationSpec = tween(180, easing = FastOutLinearInEasing),
+                            targetOffsetX = { -20 }
+                        )
+                    ) {
+                        Text(
+                            text = "Edit Home",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = onBackClick,
@@ -55,12 +104,13 @@ fun EditHomeScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
     ) { padding ->
         LazyColumn(
+            state = lazyListState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -124,19 +174,40 @@ fun EditHomeScreen(
                             activeSections.forEachIndexed { index, sectionId ->
                                 val section = HomeSection.findById(sectionId)
                                 if (section != null) {
+                                    val isDraggingThis = draggingSectionId == section.id
                                     ActiveSectionRow(
                                         section = section,
-                                        isFirst = index == 0,
-                                        isLast = index == activeSections.lastIndex,
+                                        isDragging = isDraggingThis,
+                                        dragOffsetY = if (isDraggingThis) dragOffsetY else 0f,
                                         showDivider = index < activeSections.lastIndex,
                                         onRemove = {
                                             viewModel.removeHomeSection(sectionId)
                                         },
-                                        onMoveUp = {
-                                            viewModel.moveHomeSectionUp(index)
+                                        onDragStart = {
+                                            draggingSectionId = section.id
+                                            dragOffsetY = 0f
                                         },
-                                        onMoveDown = {
-                                            viewModel.moveHomeSectionDown(index)
+                                        onDragEnd = {
+                                            draggingSectionId = null
+                                            dragOffsetY = 0f
+                                        },
+                                        onVerticalDrag = { dragAmount ->
+                                            dragOffsetY += dragAmount
+                                            val currentList = currentActiveSections
+                                            val currentIndex = currentList.indexOf(section.id)
+                                            if (currentIndex != -1) {
+                                                if (currentIndex == 0 && dragOffsetY < 0f) {
+                                                    dragOffsetY = 0f
+                                                } else if (currentIndex == currentList.lastIndex && dragOffsetY > 0f) {
+                                                    dragOffsetY = 0f
+                                                } else if (dragOffsetY > stepThresholdPx && currentIndex < currentList.lastIndex) {
+                                                    viewModel.moveHomeSectionDown(currentIndex)
+                                                    dragOffsetY -= stepThresholdPx
+                                                } else if (dragOffsetY < -stepThresholdPx && currentIndex > 0) {
+                                                    viewModel.moveHomeSectionUp(currentIndex)
+                                                    dragOffsetY += stepThresholdPx
+                                                }
+                                            }
                                         },
                                         onCustomizationClick = {
                                             selectedSectionForCustomization = section
@@ -206,61 +277,121 @@ fun EditHomeScreen(
         }
     }
 
-    // Detail customization dialog
-    selectedSectionForCustomization?.let { section ->
-        AlertDialog(
-            onDismissRequest = { selectedSectionForCustomization = null },
-            icon = {
-                Icon(
-                    imageVector = getIconForSection(section),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            },
-            title = {
-                Text(
-                    text = section.displayName,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = section.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Status: ${if (section.id in activeSections) "Visible on Homepage" else "Hidden"}",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (section.id in activeSections) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { selectedSectionForCustomization = null }) {
-                    Text("Done")
-                }
-            }
-        )
+    // Section-specific customization dialogs/sheets
+    when (selectedSectionForCustomization) {
+        HomeSection.ACCOUNTS_LIST -> {
+            SelectAccountsSheet(
+                pinnedAccounts = generalConfig.pinnedAccounts,
+                availableAccounts = availableAccounts,
+                primaryAccount = generalConfig.primaryAccount,
+                onPrimaryAccountChange = { viewModel.setPrimaryAccount(it) },
+                onTogglePin = { viewModel.togglePinAccount(it) },
+                onAddAccount = { viewModel.addCustomAccount(it) },
+                onRemoveAccount = { viewModel.removePinnedAccount(it) },
+                onMoveUp = { viewModel.movePinnedAccountUp(it) },
+                onMoveDown = { viewModel.movePinnedAccountDown(it) },
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.BUDGETS -> {
+            val expenseBudgets = allBudgets.filter { !it.budget.budgetType.equals("SAVINGS", ignoreCase = true) }
+            HomeWidgetItemsSelectionDialog(
+                title = "Select Budgets to Display",
+                items = expenseBudgets,
+                currentSelection = generalConfig.homeBudgetsSelection,
+                onSave = {
+                    viewModel.setHomeBudgetsSelection(it)
+                    selectedSectionForCustomization = null
+                },
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.GOALS -> {
+            val savingsGoals = allBudgets.filter { it.budget.budgetType.equals("SAVINGS", ignoreCase = true) }
+            HomeWidgetItemsSelectionDialog(
+                title = "Select Goals to Display",
+                items = savingsGoals,
+                currentSelection = generalConfig.homeGoalsSelection,
+                onSave = {
+                    viewModel.setHomeGoalsSelection(it)
+                    selectedSectionForCustomization = null
+                },
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.NET_WORTH -> {
+            NetWorthCustomizationDialog(
+                currentPeriod = generalConfig.netWorthWidgetPeriod,
+                showBreakdown = generalConfig.showNetWorthBreakdown,
+                onPeriodSelected = { viewModel.setNetWorthWidgetPeriod(it) },
+                onShowBreakdownChange = { viewModel.setShowNetWorthBreakdown(it) },
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.TRANSACTIONS -> {
+            TransactionsCustomizationDialog(
+                currentCount = generalConfig.homeTransactionsCount,
+                currentFilter = generalConfig.homeTransactionsFilter,
+                onCountSelected = { viewModel.setHomeTransactionsCount(it) },
+                onFilterSelected = { viewModel.setHomeTransactionsFilter(it) },
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.BANNER -> {
+            BannerCustomizationDialog(
+                showGreeting = generalConfig.homeBannerShowGreeting,
+                showStatus = generalConfig.homeBannerShowStatus,
+                onShowGreetingChange = { viewModel.setHomeBannerShowGreeting(it) },
+                onShowStatusChange = { viewModel.setHomeBannerShowStatus(it) },
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.LOANS -> {
+            LoansCustomizationDialog(
+                currentFilter = generalConfig.homeLoansFilter,
+                onFilterSelected = { viewModel.setHomeLoansFilter(it) },
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.QUICK_ACTIONS -> {
+            QuickActionsCustomizationDialog(
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        HomeSection.INSIGHTS -> {
+            InsightsCustomizationDialog(
+                onDismiss = { selectedSectionForCustomization = null }
+            )
+        }
+        null -> { /* No customization open */ }
     }
 }
 
 @Composable
 private fun ActiveSectionRow(
     section: HomeSection,
-    isFirst: Boolean,
-    isLast: Boolean,
+    isDragging: Boolean,
+    dragOffsetY: Float,
     showDivider: Boolean,
     onRemove: () -> Unit,
-    onMoveUp: () -> Unit,
-    onMoveDown: () -> Unit,
+    onDragStart: () -> Unit,
+    onDragEnd: () -> Unit,
+    onVerticalDrag: (Float) -> Unit,
     onCustomizationClick: () -> Unit
 ) {
-    Column {
+    Column(
+        modifier = Modifier
+            .zIndex(if (isDragging) 10f else 1f)
+            .graphicsLayer {
+                translationY = if (isDragging) dragOffsetY.coerceIn(-60f, 60f) else 0f
+                scaleX = if (isDragging) 1.02f else 1f
+                scaleY = if (isDragging) 1.02f else 1f
+                shadowElevation = if (isDragging) 12f else 0f
+            }
+            .background(
+                if (isDragging) MaterialTheme.colorScheme.surfaceContainerHighest else Color.Transparent
+            )
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -288,7 +419,9 @@ private fun ActiveSectionRow(
             // More / Customize options
             IconButton(
                 onClick = onCustomizationClick,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("customize_section_${section.id}")
             ) {
                 Icon(
                     imageVector = Icons.Outlined.MoreVert,
@@ -317,41 +450,37 @@ private fun ActiveSectionRow(
                 )
             }
 
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            // Reorder Up & Down handles
-            Column(
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Draggable handle button
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .pointerInput(section.id) {
+                        detectVerticalDragGestures(
+                            onDragStart = { onDragStart() },
+                            onDragEnd = { onDragEnd() },
+                            onDragCancel = { onDragEnd() },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                onVerticalDrag(dragAmount)
+                            }
+                        )
+                    }
+                    .testTag("drag_handle_${section.id}"),
+                contentAlignment = Alignment.Center
             ) {
-                IconButton(
-                    onClick = onMoveUp,
-                    enabled = !isFirst,
+                Icon(
+                    imageVector = Icons.Outlined.DragHandle,
+                    contentDescription = "Drag to reorder",
+                    tint = if (isDragging) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.KeyboardArrowUp,
-                        contentDescription = "Move Up",
-                        tint = if (!isFirst) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                IconButton(
-                    onClick = onMoveDown,
-                    enabled = !isLast,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.KeyboardArrowDown,
-                        contentDescription = "Move Down",
-                        tint = if (!isLast) MaterialTheme.colorScheme.onSurfaceVariant else Color.Transparent,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                )
             }
         }
 
-        if (showDivider) {
+        if (showDivider && !isDragging) {
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
@@ -395,7 +524,9 @@ private fun AvailableSectionRow(
             // More / Info
             IconButton(
                 onClick = onCustomizationClick,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("customize_available_section_${section.id}")
             ) {
                 Icon(
                     imageVector = Icons.Outlined.MoreVert,

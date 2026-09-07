@@ -73,7 +73,15 @@ data class GeneralConfig(
     val netWorthWidgetPeriod: String = "All Time",
     val budgetWidgetCategory: String = "Food",
     val homeBudgetsSelection: String = "ALL",
-    val homeGoalsSelection: String = "ALL"
+    val homeGoalsSelection: String = "ALL",
+    val primaryAccount: String = "First Select",
+    val pinnedAccounts: List<String> = listOf("IB", "IC", "IC Credit card", "HD"),
+    val showNetWorthBreakdown: Boolean = true,
+    val homeTransactionsCount: Int = 5,
+    val homeTransactionsFilter: String = "ALL",
+    val homeBannerShowGreeting: Boolean = true,
+    val homeBannerShowStatus: Boolean = true,
+    val homeLoansFilter: String = "ALL"
 )
 
 object GeneralPreferenceKeys {
@@ -87,6 +95,14 @@ object GeneralPreferenceKeys {
     val BUDGET_WIDGET_CATEGORY = stringPreferencesKey("budget_widget_category")
     val HOME_BUDGETS_SELECTION = stringPreferencesKey("home_budgets_selection")
     val HOME_GOALS_SELECTION = stringPreferencesKey("home_goals_selection")
+    val PRIMARY_ACCOUNT = stringPreferencesKey("primary_account")
+    val PINNED_ACCOUNTS = stringPreferencesKey("pinned_accounts")
+    val SHOW_NET_WORTH_BREAKDOWN = booleanPreferencesKey("show_net_worth_breakdown")
+    val HOME_TRANSACTIONS_COUNT = androidx.datastore.preferences.core.intPreferencesKey("home_transactions_count")
+    val HOME_TRANSACTIONS_FILTER = stringPreferencesKey("home_transactions_filter")
+    val HOME_BANNER_SHOW_GREETING = booleanPreferencesKey("home_banner_show_greeting")
+    val HOME_BANNER_SHOW_STATUS = booleanPreferencesKey("home_banner_show_status")
+    val HOME_LOANS_FILTER = stringPreferencesKey("home_loans_filter")
 }
 
 @Singleton
@@ -137,6 +153,19 @@ class GeneralPreferencesRepository @Inject constructor(
         val budgetCat = prefs[GeneralPreferenceKeys.BUDGET_WIDGET_CATEGORY] ?: "Food"
         val homeBudgets = prefs[GeneralPreferenceKeys.HOME_BUDGETS_SELECTION] ?: "ALL"
         val homeGoals = prefs[GeneralPreferenceKeys.HOME_GOALS_SELECTION] ?: "ALL"
+        val primaryAcc = prefs[GeneralPreferenceKeys.PRIMARY_ACCOUNT] ?: "First Select"
+        val pinnedAccsRaw = prefs[GeneralPreferenceKeys.PINNED_ACCOUNTS]
+        val pinnedAccs = if (!pinnedAccsRaw.isNullOrBlank()) {
+            pinnedAccsRaw.split(",").map { it.trim() }.filter { it.isNotBlank() }
+        } else {
+            listOf("IB", "IC", "IC Credit card", "HD")
+        }
+        val showNwBreakdown = prefs[GeneralPreferenceKeys.SHOW_NET_WORTH_BREAKDOWN] ?: true
+        val txnCount = prefs[GeneralPreferenceKeys.HOME_TRANSACTIONS_COUNT] ?: 5
+        val txnFilter = prefs[GeneralPreferenceKeys.HOME_TRANSACTIONS_FILTER] ?: "ALL"
+        val bannerGreeting = prefs[GeneralPreferenceKeys.HOME_BANNER_SHOW_GREETING] ?: true
+        val bannerStatus = prefs[GeneralPreferenceKeys.HOME_BANNER_SHOW_STATUS] ?: true
+        val loansFilter = prefs[GeneralPreferenceKeys.HOME_LOANS_FILTER] ?: "ALL"
 
         GeneralConfig(
             biometricTimeout = timeout,
@@ -148,7 +177,15 @@ class GeneralPreferencesRepository @Inject constructor(
             netWorthWidgetPeriod = nwPeriod,
             budgetWidgetCategory = budgetCat,
             homeBudgetsSelection = homeBudgets,
-            homeGoalsSelection = homeGoals
+            homeGoalsSelection = homeGoals,
+            primaryAccount = primaryAcc,
+            pinnedAccounts = pinnedAccs,
+            showNetWorthBreakdown = showNwBreakdown,
+            homeTransactionsCount = txnCount,
+            homeTransactionsFilter = txnFilter,
+            homeBannerShowGreeting = bannerGreeting,
+            homeBannerShowStatus = bannerStatus,
+            homeLoansFilter = loansFilter
         )
     }
 
@@ -215,6 +252,54 @@ class GeneralPreferencesRepository @Inject constructor(
     suspend fun setHomeGoalsSelection(selection: String) {
         context.generalDataStore.edit { prefs ->
             prefs[GeneralPreferenceKeys.HOME_GOALS_SELECTION] = selection
+        }
+    }
+
+    suspend fun setPrimaryAccount(account: String) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.PRIMARY_ACCOUNT] = account
+        }
+    }
+
+    suspend fun setPinnedAccounts(accounts: List<String>) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.PINNED_ACCOUNTS] = accounts.joinToString(",")
+        }
+    }
+
+    suspend fun setShowNetWorthBreakdown(show: Boolean) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.SHOW_NET_WORTH_BREAKDOWN] = show
+        }
+    }
+
+    suspend fun setHomeTransactionsCount(count: Int) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.HOME_TRANSACTIONS_COUNT] = count
+        }
+    }
+
+    suspend fun setHomeTransactionsFilter(filter: String) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.HOME_TRANSACTIONS_FILTER] = filter
+        }
+    }
+
+    suspend fun setHomeBannerShowGreeting(show: Boolean) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.HOME_BANNER_SHOW_GREETING] = show
+        }
+    }
+
+    suspend fun setHomeBannerShowStatus(show: Boolean) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.HOME_BANNER_SHOW_STATUS] = show
+        }
+    }
+
+    suspend fun setHomeLoansFilter(filter: String) {
+        context.generalDataStore.edit { prefs ->
+            prefs[GeneralPreferenceKeys.HOME_LOANS_FILTER] = filter
         }
     }
 }

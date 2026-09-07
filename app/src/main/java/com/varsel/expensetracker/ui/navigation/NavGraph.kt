@@ -1,9 +1,11 @@
 package com.varsel.expensetracker.ui.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -58,6 +60,10 @@ fun NavGraph(
                 },
                 onNavigateToImport = {
                     navController.navigate("import_statement")
+                },
+                onNavigateToImportWithUri = { uri ->
+                    val encodedUri = Uri.encode(uri.toString())
+                    navController.navigate("import_statement?initialUri=$encodedUri")
                 },
                 onNavigateToAnalytics = {
                     navController.navigate(AppDestination.Reports.route)
@@ -220,6 +226,10 @@ composable(AppDestination.Reports.route) {
     ReportsScreen(
         viewModel = hiltViewModel(),
 
+        onBackClick = {
+            navController.popBackStack()
+        },
+
         onTransactionClick = { transactionId ->
             navController.navigate(
                 "transaction_detail/$transactionId"
@@ -377,9 +387,23 @@ composable(AppDestination.Reports.route) {
             )
         }
 
-        composable("import_statement") {
+        composable(
+            route = "import_statement?initialUri={initialUri}",
+            arguments = listOf(
+                navArgument("initialUri") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val initialUriStr = backStackEntry.arguments?.getString("initialUri")
+            val initialUri = remember(initialUriStr) {
+                initialUriStr?.let { Uri.parse(Uri.decode(it)) }
+            }
 
             ImportScreen(
+                initialFileUri = initialUri,
                 onBackClick = {
                     navController.popBackStack()
                 },

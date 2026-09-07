@@ -32,13 +32,16 @@ fun GeneralSettingsScreen(
     var showBiometricTimeoutMenu by remember { mutableStateOf(false) }
     var showNavTabsSheet by remember { mutableStateOf(false) }
 
-    // Dialogs for widgets
-    var showNetWorthDialog by remember { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { },
+                title = {
+                    Text(
+                        text = "General",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = onBackClick,
@@ -51,7 +54,7 @@ fun GeneralSettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
@@ -61,18 +64,8 @@ fun GeneralSettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            // Large Title matching Screenshot 1
-            Text(
-                text = "General",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            Spacer(modifier = Modifier.height(28.dp))
-
             // 1. Biometric Lock Row
             Row(
                 modifier = Modifier
@@ -220,42 +213,6 @@ fun GeneralSettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
-
-            // Section: Widgets
-            Text(
-                text = "Widgets",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Net Worth Widget Row
-            WidgetSettingRow(
-                icon = Icons.Outlined.TrendingUp,
-                title = "Net Worth Widget",
-                subtitle = "Period: ${generalConfig.netWorthWidgetPeriod}",
-                onClick = { showNetWorthDialog = true }
-            )
-
-            // Budget Widget Row
-            WidgetSettingRow(
-                icon = Icons.Outlined.PieChart,
-                title = "Home Budgets & Goals",
-                subtitle = "Customizable directly on home widgets via the tune icon",
-                onClick = { }
-            )
-
-            // Widget Theme Row
-            WidgetSettingRow(
-                icon = Icons.Outlined.Palette,
-                title = "Widget Theme",
-                subtitle = "Follows active app theme & accents",
-                onClick = { }
-            )
-
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -272,92 +229,6 @@ fun GeneralSettingsScreen(
             onFloatingNavBarChange = { viewModel.setFloatingNavBar(it) },
             onShowNavLabelsChange = { viewModel.setShowNavLabels(it) },
             onDismiss = { showNavTabsSheet = false }
-        )
-    }
-
-    // Widget Customization Dialogs
-    if (showNetWorthDialog) {
-        val periods = listOf("This Month", "Last 3 Months", "Last 6 Months", "This Year", "All Time")
-        AlertDialog(
-            onDismissRequest = { showNetWorthDialog = false },
-            title = { Text("Net Worth Time Period") },
-            text = {
-                Column {
-                    periods.forEach { period ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setNetWorthWidgetPeriod(period)
-                                    showNetWorthDialog = false
-                                }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = generalConfig.netWorthWidgetPeriod == period,
-                                onClick = {
-                                    viewModel.setNetWorthWidgetPeriod(period)
-                                    showNetWorthDialog = false
-                                }
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(period)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showNetWorthDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-private fun WidgetSettingRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(26.dp)
-        )
-
-        Spacer(modifier = Modifier.width(20.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Icon(
-            imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp)
         )
     }
 }
