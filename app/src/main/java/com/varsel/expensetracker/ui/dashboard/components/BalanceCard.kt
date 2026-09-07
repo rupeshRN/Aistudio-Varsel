@@ -24,9 +24,10 @@ import kotlin.math.abs
 @Composable
 fun BalanceCard(
     summary: BalanceSummaryUiModel,
+    isBalanceHidden: Boolean = false,
+    onToggleVisibility: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var isBalanceHidden by remember { mutableStateOf(false) }
     val isDark = isSystemInDarkTheme()
 
     // Hero Balance Card with Rich Tonal Depth Gradient
@@ -87,7 +88,7 @@ fun BalanceCard(
                     }
 
                     IconButton(
-                        onClick = { isBalanceHidden = !isBalanceHidden },
+                        onClick = onToggleVisibility,
                         modifier = Modifier.size(32.dp)
                     ) {
                         Icon(

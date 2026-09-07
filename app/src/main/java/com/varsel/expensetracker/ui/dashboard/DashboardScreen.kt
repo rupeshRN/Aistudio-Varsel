@@ -78,7 +78,9 @@ fun DashboardScreen(
                         HomeSection.NET_WORTH.id -> {
                             item(key = "balance_card") {
                                 BalanceCard(
-                                    summary = uiState.balanceSummary
+                                    summary = uiState.balanceSummary,
+                                    isBalanceHidden = uiState.isBalanceHidden,
+                                    onToggleVisibility = { viewModel.toggleBalanceVisibility() }
                                 )
                             }
                         }
@@ -154,7 +156,8 @@ fun DashboardScreen(
                         HomeSection.ACCOUNTS_LIST.id -> {
                             item(key = "accounts_widget") {
                                 DashboardAccountsWidget(
-                                    snapshots = uiState.balanceSummary.accounts
+                                    snapshots = uiState.balanceSummary.accounts,
+                                    isBalanceHidden = uiState.isBalanceHidden
                                 )
                             }
                         }

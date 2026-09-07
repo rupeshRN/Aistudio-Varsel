@@ -42,5 +42,7 @@ data class DashboardUiState(
 
     val totalGoalSaved: Double = 0.0,
 
+    val isBalanceHidden: Boolean = false,
+
     val isLoading: Boolean = true
 )

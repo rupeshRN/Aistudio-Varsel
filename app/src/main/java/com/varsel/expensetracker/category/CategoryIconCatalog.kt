@@ -105,32 +105,34 @@ object CategoryIconCatalog {
 
     private val categoryMap = java.util.concurrent.ConcurrentHashMap<String, com.varsel.expensetracker.data.local.entity.CategoryEntity>()
 
+    private val defaultCategories = listOf(
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Salary", iconName = "ic_salary", colorHex = "#4CAF50", type = "INCOME"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Investments", iconName = "ic_trending_up", colorHex = "#1565C0", type = "INCOME"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Freelance & Side Hustle", iconName = "ic_work", colorHex = "#00897B", type = "INCOME"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Refunds & Cashback", iconName = "ic_swap", colorHex = "#00BCD4", type = "INCOME"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Rental & Property", iconName = "ic_home", colorHex = "#795548", type = "INCOME"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Gifts & Grants", iconName = "ic_gift", colorHex = "#E91E63", type = "INCOME"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Other Income", iconName = "ic_paid", colorHex = "#8BC34A", type = "INCOME"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Dining & Food", iconName = "ic_restaurant", colorHex = "#FF9800", type = "EXPENSE"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Groceries", iconName = "ic_cart", colorHex = "#4CAF50", type = "EXPENSE"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Fuel & Transport", iconName = "ic_car", colorHex = "#9C27B0", type = "EXPENSE"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Utilities", iconName = "ic_lightning", colorHex = "#2196F3", type = "EXPENSE"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Healthcare", iconName = "ic_hospital", colorHex = "#F44336", type = "EXPENSE"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Shopping", iconName = "ic_bag", colorHex = "#E91E63", type = "EXPENSE"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Entertainment", iconName = "ic_movies", colorHex = "#673AB7", type = "EXPENSE"),
+        com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Uncategorized", iconName = "ic_help", colorHex = "#9E9E9E", type = "BOTH")
+    )
+
     init {
-        // Pre-seed with default categories matching Category Management
-        val defaults = listOf(
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Salary", iconName = "ic_salary", colorHex = "#4CAF50", type = "INCOME"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Investments", iconName = "ic_trending_up", colorHex = "#1565C0", type = "INCOME"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Freelance & Side Hustle", iconName = "ic_work", colorHex = "#00897B", type = "INCOME"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Refunds & Cashback", iconName = "ic_swap", colorHex = "#00BCD4", type = "INCOME"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Rental & Property", iconName = "ic_home", colorHex = "#795548", type = "INCOME"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Gifts & Grants", iconName = "ic_gift", colorHex = "#E91E63", type = "INCOME"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Other Income", iconName = "ic_paid", colorHex = "#8BC34A", type = "INCOME"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Dining & Food", iconName = "ic_restaurant", colorHex = "#FF9800", type = "EXPENSE"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Groceries", iconName = "ic_cart", colorHex = "#4CAF50", type = "EXPENSE"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Fuel & Transport", iconName = "ic_car", colorHex = "#9C27B0", type = "EXPENSE"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Utilities", iconName = "ic_lightning", colorHex = "#2196F3", type = "EXPENSE"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Healthcare", iconName = "ic_hospital", colorHex = "#F44336", type = "EXPENSE"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Shopping", iconName = "ic_bag", colorHex = "#E91E63", type = "EXPENSE"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Entertainment", iconName = "ic_movies", colorHex = "#673AB7", type = "EXPENSE"),
-            com.varsel.expensetracker.data.local.entity.CategoryEntity(name = "Uncategorized", iconName = "ic_help", colorHex = "#9E9E9E", type = "BOTH")
-        )
-        updateCategories(defaults)
+        updateCategories(emptyList())
     }
 
     fun updateCategories(categories: List<com.varsel.expensetracker.data.local.entity.CategoryEntity>) {
-        categories.forEach { category ->
-            categoryMap[category.name.trim().lowercase()] = category
-        }
+        val newMap = java.util.concurrent.ConcurrentHashMap<String, com.varsel.expensetracker.data.local.entity.CategoryEntity>()
+        defaultCategories.forEach { newMap[it.name.trim().lowercase()] = it }
+        categories.forEach { newMap[it.name.trim().lowercase()] = it }
+        categoryMap.clear()
+        categoryMap.putAll(newMap)
     }
 
     fun getCategory(name: String): com.varsel.expensetracker.data.local.entity.CategoryEntity? {

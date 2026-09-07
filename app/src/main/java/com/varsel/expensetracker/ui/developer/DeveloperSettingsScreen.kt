@@ -50,7 +50,8 @@ fun DeveloperSettingsScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
-                )
+                ),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { paddingValues ->
@@ -111,46 +112,6 @@ fun DeveloperSettingsScreen(
                 onCheckedChange = {
                     viewModel.setParserDiagnostics(it)
                 }
-            )
-
-            DeveloperSettingItem(
-                title = "OCR Diagnostics",
-                description = "Inspect extracted OCR text, normalization results and recognition quality.",
-                checked = false,
-                enabled = false,
-                icon = Icons.Outlined.DocumentScanner,
-                badgeText = "Soon",
-                onCheckedChange = {}
-            )
-
-            DeveloperSettingItem(
-                title = "Import Discovery",
-                description = "Review statement structure detection and multi-column transaction discovery.",
-                checked = false,
-                enabled = false,
-                icon = Icons.Outlined.FileDownload,
-                badgeText = "Soon",
-                onCheckedChange = {}
-            )
-
-            DeveloperSettingItem(
-                title = "Debug Logging",
-                description = "Generate detailed parser logs and regex capture groups for troubleshooting.",
-                checked = false,
-                enabled = false,
-                icon = Icons.Outlined.BugReport,
-                badgeText = "Soon",
-                onCheckedChange = {}
-            )
-
-            DeveloperSettingItem(
-                title = "Experimental Engine",
-                description = "Enable experimental rule synthesis and statement layout learning features.",
-                checked = false,
-                enabled = false,
-                icon = Icons.Outlined.Science,
-                badgeText = "Soon",
-                onCheckedChange = {}
             )
 
             Spacer(modifier = Modifier.height(32.dp))

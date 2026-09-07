@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -119,22 +120,29 @@ class DashboardViewModel @Inject constructor(
                 val totalGoalTarget = visibleGoals.sumOf { it.budget.amount }
                 val totalGoalSaved = visibleGoals.sumOf { it.amountSpent }
 
-                _uiState.value = baseDashboard.copy(
-                    loans = loans,
-                    insights = insights,
-                    allBudgets = expenseBudgets,
-                    allGoals = savingsGoals,
-                    visibleBudgets = visibleBudgets,
-                    visibleGoals = visibleGoals,
-                    homeBudgetsSelection = homeBudgetsSelection,
-                    homeGoalsSelection = homeGoalsSelection,
-                    totalBudgetLimit = totalBudgetLimit,
-                    totalBudgetSpent = totalBudgetSpent,
-                    totalGoalTarget = totalGoalTarget,
-                    totalGoalSaved = totalGoalSaved
-                )
+                _uiState.update { current ->
+                    baseDashboard.copy(
+                        loans = loans,
+                        insights = insights,
+                        allBudgets = expenseBudgets,
+                        allGoals = savingsGoals,
+                        visibleBudgets = visibleBudgets,
+                        visibleGoals = visibleGoals,
+                        homeBudgetsSelection = homeBudgetsSelection,
+                        homeGoalsSelection = homeGoalsSelection,
+                        totalBudgetLimit = totalBudgetLimit,
+                        totalBudgetSpent = totalBudgetSpent,
+                        totalGoalTarget = totalGoalTarget,
+                        totalGoalSaved = totalGoalSaved,
+                        isBalanceHidden = current.isBalanceHidden
+                    )
+                }
             }.collect {}
         }
+    }
+
+    fun toggleBalanceVisibility() {
+        _uiState.update { it.copy(isBalanceHidden = !it.isBalanceHidden) }
     }
 
     fun setHomeBudgetsSelection(selection: String) {

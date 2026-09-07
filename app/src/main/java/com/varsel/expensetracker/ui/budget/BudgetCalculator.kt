@@ -20,15 +20,8 @@ import kotlin.math.roundToInt
 
 object BudgetCalculator {
 
-    private val currencyFormat = DecimalFormat("₹#,##0.##")
-    private val wholeCurrencyFormat = DecimalFormat("₹#,##0")
-
     fun formatCurrency(amount: Double, round: Boolean = false): String {
-        return if (round) {
-            wholeCurrencyFormat.format(amount.roundToInt())
-        } else {
-            currencyFormat.format(amount)
-        }
+        return com.varsel.expensetracker.util.CurrencyFormatter.format(amount, includeDecimals = !round)
     }
 
     data class PeriodBounds(

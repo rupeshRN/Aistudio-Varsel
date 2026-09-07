@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -246,17 +248,16 @@ fun DashboardBudgetsWidget(
 @Composable
 fun DashboardAccountsWidget(
     snapshots: List<AccountBalanceUiModel>,
+    isBalanceHidden: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    var isBalanceHidden by remember { mutableStateOf(false) }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
             .testTag("dashboard_accounts_widget"),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Section Header - Unboxed, clean styling
+        // Section Header - Unboxed, clean styling without duplicate eye button
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -284,20 +285,6 @@ fun DashboardAccountsWidget(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-
-            if (snapshots.isNotEmpty()) {
-                IconButton(
-                    onClick = { isBalanceHidden = !isBalanceHidden },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isBalanceHidden) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                        contentDescription = if (isBalanceHidden) "Show balance" else "Hide balance",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
         }
 
         if (snapshots.isEmpty()) {
@@ -322,66 +309,97 @@ fun DashboardAccountsWidget(
                 )
             }
         } else {
-            // Clean, borderless account rows without any card background
+            val pagerState = rememberPagerState(initialPage = 0, pageCount = { snapshots.size })
+
             Column(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                snapshots.forEachIndexed { index, account ->
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth(),
+                    pageSpacing = 12.dp
+                ) { page ->
+                    val account = snapshots[page]
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            BankLogoBadge(
+                                bankName = account.bankName,
+                                size = 42.dp
+                            )
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                val displayName = if (account.bankShortName.isNotBlank() && account.bankShortName != "Bank") {
+                                    account.bankShortName
+                                } else if (account.bankName.isNotBlank() && account.bankName != "Bank Account") {
+                                    com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(account.bankName)
+                                } else {
+                                    "Bank Account"
+                                }
+                                Text(
+                                    text = displayName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = account.accountDisplayName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = if (isBalanceHidden) "₹ •••••" else formatMoney(account.balance),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Available",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (snapshots.size > 1) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 10.dp, horizontal = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(top = 2.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        BankLogoBadge(
-                            bankName = account.bankName,
-                            size = 40.dp
-                        )
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            val displayName = if (account.bankShortName.isNotBlank() && account.bankShortName != "Bank") {
-                                account.bankShortName
-                            } else if (account.bankName.isNotBlank() && account.bankName != "Bank Account") {
-                                com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(account.bankName)
-                            } else {
-                                "Bank Account"
-                            }
-                            Text(
-                                text = displayName,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1
-                            )
-                            Text(
-                                text = account.accountDisplayName,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        repeat(snapshots.size) { index ->
+                            val isSelected = pagerState.currentPage == index
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 3.dp)
+                                    .height(5.dp)
+                                    .width(if (isSelected) 18.dp else 5.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
                             )
                         }
-
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = if (isBalanceHidden) "₹ •••••" else formatMoney(account.balance),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Available",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                        }
-                    }
-
-                    if (index < snapshots.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 52.dp, end = 2.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                            thickness = 0.5.dp
-                        )
                     }
                 }
             }

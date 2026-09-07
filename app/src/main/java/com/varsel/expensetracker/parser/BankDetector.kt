@@ -82,15 +82,18 @@ class BankDetector @Inject constructor(
         if (upper.contains("INDIAN BANK")) indianScore += 5
         if (upper.contains("ICICI")) iciciScore += 5
 
-        if (hdfcScore > iciciScore && hdfcScore > indianScore) {
-            return hdfcBankParser
-        } else if (iciciScore > indianScore && iciciScore > hdfcScore) {
-            return iciciBankParser
-        } else if (indianScore > iciciScore && indianScore > hdfcScore) {
-            return indianBankParser
+        val maxScore = maxOf(hdfcScore, iciciScore, indianScore)
+        if (maxScore > 0) {
+            if (hdfcScore > iciciScore && hdfcScore > indianScore) {
+                return hdfcBankParser
+            } else if (iciciScore > indianScore && iciciScore > hdfcScore) {
+                return iciciBankParser
+            } else if (indianScore > iciciScore && indianScore > hdfcScore) {
+                return indianBankParser
+            }
         }
 
-        // 3. Fallbacks
+        // 3. Fallbacks using structural canParse validation
         if (hdfcBankParser.canParse(rawText)) {
             return hdfcBankParser
         }
@@ -101,7 +104,7 @@ class BankDetector @Inject constructor(
             return indianBankParser
         }
 
-        return hdfcBankParser
+        throw IllegalArgumentException("Unsupported bank statement format. Supported banks: HDFC, ICICI, and Indian Bank.")
     }
 }
 

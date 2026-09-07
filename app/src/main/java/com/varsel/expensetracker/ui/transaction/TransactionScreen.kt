@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,10 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -33,7 +36,9 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,6 +55,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun TransactionScreen(
     viewModel: TransactionViewModel,
+    canNavigateBack: Boolean = false,
     onBackClick: () -> Unit = {},
     onTransactionClick: (Long) -> Unit
 ) {
@@ -96,15 +102,31 @@ fun TransactionScreen(
                             end = 16.dp
                         )
                 ) {
-                    // Left-aligned header with dynamic scale on scroll
-                    Text(
-                        text = "Transactions",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontSize = (22 - 3 * scrollFraction).sp
-                        ),
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    // Left-aligned header with dynamic scale on scroll and optional back navigation
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (canNavigateBack) {
+                            IconButton(
+                                onClick = onBackClick,
+                                modifier = Modifier.testTag("transaction_back_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                    contentDescription = "Back"
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Transactions",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontSize = (22 - 3 * scrollFraction).sp
+                            ),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height((10 - 4 * scrollFraction).dp))
 

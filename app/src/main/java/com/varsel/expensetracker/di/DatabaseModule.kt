@@ -27,55 +27,12 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
-    private const val PREFS_NAME =
-        "encrypted_db_secure_prefs"
-
-    private const val PASSPHRASE_KEY =
-        "db_passphrase_key"
-
     @Provides
     @Singleton
     fun provideDatabasePassphrase(
         @ApplicationContext context: Context
     ): ByteArray {
-
-        val prefs =
-            context.getSharedPreferences(
-                PREFS_NAME,
-                Context.MODE_PRIVATE
-            )
-
-        var keyString =
-            prefs.getString(
-                PASSPHRASE_KEY,
-                null
-            )
-
-        if (keyString == null) {
-
-            val randomBytes =
-                ByteArray(32)
-
-            SecureRandom()
-                .nextBytes(randomBytes)
-
-            keyString =
-                randomBytes.joinToString("") {
-                    "%02x".format(it)
-                }
-
-            prefs.edit()
-                .putString(
-                    PASSPHRASE_KEY,
-                    keyString
-                )
-                .apply()
-        }
-
-        return keyString
-            .toByteArray(
-                StandardCharsets.UTF_8
-            )
+        return com.varsel.expensetracker.security.SecurePassphraseManager.getOrGeneratePassphrase(context)
     }
 
     @Provides

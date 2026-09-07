@@ -79,21 +79,18 @@ fun NavGraph(
 
         composable(AppDestination.Transactions.route) {
 
-TransactionScreen(
-    viewModel = hiltViewModel(),
-
-    onBackClick = {
-        navController.popBackStack()
-    },
-
-    onTransactionClick = { transactionId ->
-
-        navController.navigate(
-            "transaction_detail/$transactionId"
-        )
-
-    }
-)
+            TransactionScreen(
+                viewModel = hiltViewModel(),
+                canNavigateBack = navController.previousBackStackEntry != null,
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onTransactionClick = { transactionId ->
+                    navController.navigate(
+                        "transaction_detail/$transactionId"
+                    )
+                }
+            )
         }
 
 composable(

@@ -85,6 +85,8 @@ class ImportViewModel @Inject constructor(
     val uiState: StateFlow<ImportUiState> =
         _uiState.asStateFlow()
 
+    private var pendingStatementResult: StatementImportResult? = null
+
     // --------------------------------------------------
     // Developer diagnostics
     // --------------------------------------------------
@@ -227,15 +229,9 @@ class ImportViewModel @Inject constructor(
                     return@launch
                 }
 
-                // --------------------------------------------------
-                // Save statement snapshot
-                //
-                // This represents the bank statement itself,
-                // independent of which transactions the user
-                // eventually selects for saving.
-                // --------------------------------------------------
-
-                saveStatementSnapshot(result)
+                // Hold the parsed result in memory; statement snapshot will only
+                // be committed to the database once the user confirms and saves.
+                pendingStatementResult = result
 
                 // --------------------------------------------------
                 // Build UI summary
@@ -447,15 +443,20 @@ class ImportViewModel @Inject constructor(
                     return@launch
                 }
 
-                selectedTransactions.forEach {
-
-                    transactionRepository
-                        .insertTransaction(
-                            it.transaction
-                        )
+                // 1. Commit the statement snapshot now that user has confirmed
+                pendingStatementResult?.let { snapshotResult ->
+                    saveStatementSnapshot(snapshotResult)
                 }
 
-                // Automatically reconcile and link transfers across accounts
+                // 2. Perform atomic batch insert of selected transactions
+                transactionRepository.insertTransactions(
+                    selectedTransactions.map { it.transaction }
+                )
+
+                // 3. Clear pending result
+                pendingStatementResult = null
+
+                // 4. Automatically reconcile and link transfers across accounts
                 autoTransferReconciliationEngine.reconcileTransfers()
 
                 _uiState.value =
@@ -520,7 +521,7 @@ class ImportViewModel @Inject constructor(
     // --------------------------------------------------
 
     fun resetState() {
-
+        pendingStatementResult = null
         _uiState.value =
             ImportUiState.Idle
     }
