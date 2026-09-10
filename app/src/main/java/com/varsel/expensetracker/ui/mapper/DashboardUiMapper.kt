@@ -543,7 +543,9 @@ private fun calculateEffectiveExpense(
 
                     if (
                         it.type ==
-                        TransactionType.INCOME
+                        TransactionType.INCOME ||
+                        it.type ==
+                        TransactionType.CREDIT
                     ) {
                         it.amount
                     } else {
@@ -585,7 +587,7 @@ private fun calculateEffectiveExpense(
 
         if (snapshot == null || snapshot.endingBalance == null) {
             return transactions.sumOf {
-                if (it.type == TransactionType.INCOME) {
+                if (it.type == TransactionType.INCOME || it.type == TransactionType.CREDIT) {
                     it.amount
                 } else {
                     -it.amount
@@ -602,7 +604,7 @@ private fun calculateEffectiveExpense(
                 it.dateTimestamp > statementEnd
             }
             .forEach { transaction ->
-                balance += if (transaction.type == TransactionType.INCOME) {
+                balance += if (transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT) {
                     transaction.amount
                 } else {
                     -transaction.amount

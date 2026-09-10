@@ -32,6 +32,7 @@ val AVAILABLE_NAV_SHORTCUTS = listOf(
     NavShortcutOption("budgets", "Budgets", Icons.Outlined.PieChart, "Monthly spending caps, progress and trends"),
     NavShortcutOption("reports", "Reports", Icons.Outlined.Assessment, "Analytics, charts and category breakdowns"),
     NavShortcutOption("loans", "Loans", Icons.Outlined.AccountBalance, "Active loans, liabilities and EMI schedules"),
+    NavShortcutOption("calendar_heatmap", "Heatmap", Icons.Outlined.CalendarMonth, "Daily spending intensity & zero-spend calendar"),
     NavShortcutOption("more", "More", Icons.Outlined.MoreHoriz, "All financial tools, import statement & settings")
 )
 

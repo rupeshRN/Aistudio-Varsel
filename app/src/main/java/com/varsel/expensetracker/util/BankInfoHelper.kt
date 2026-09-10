@@ -44,6 +44,8 @@ object BankInfoHelper {
             upper.contains("DBS") -> "DBS"
             upper.contains("HSBC") -> "HSBC"
             upper.contains("CITI") -> "Citi"
+            upper.contains("CASH") -> "Cash"
+            upper.contains("WALLET") -> "Wallet"
             clean.isNotBlank() -> clean
             else -> "Bank"
         }

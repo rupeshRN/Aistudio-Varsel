@@ -31,6 +31,7 @@ fun MoreScreen(
     onBudgetsClick: () -> Unit = {},
     onReportsClick: () -> Unit = {},
     onTransactionsClick: () -> Unit = {},
+    onHeatmapClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onGeneralSettingsClick: () -> Unit = {},
     viewModel: GeneralSettingsViewModel = hiltViewModel()
@@ -77,6 +78,9 @@ fun MoreScreen(
             if (!pinnedTabs.contains("transactions")) {
                 list.add(Triple("transactions", "Transactions Ledger", Icons.Outlined.ListAlt))
             }
+            if (!pinnedTabs.contains("calendar_heatmap")) {
+                list.add(Triple("calendar_heatmap", "Calendar Heatmap", Icons.Outlined.CalendarMonth))
+            }
             list
         }
 
@@ -98,6 +102,7 @@ fun MoreScreen(
                         "loans" -> "Track loans, liabilities, EMI schedules and prepayment savings"
                         "reports" -> "Cash flow analytics, category distribution charts and trend graphs"
                         "transactions" -> "Complete log of all income, expense and account transfers"
+                        "calendar_heatmap" -> "Daily spending intensity, calendar patterns & zero-spend streaks"
                         else -> "Tap to open"
                     },
                     icon = icon,
@@ -106,12 +111,14 @@ fun MoreScreen(
                         "budgets" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
                         "loans" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                         "reports" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
+                        "calendar_heatmap" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                         else -> MaterialTheme.colorScheme.surfaceContainerHigh
                     },
                     iconTint = when (route) {
                         "budgets" -> MaterialTheme.colorScheme.tertiary
                         "loans" -> MaterialTheme.colorScheme.primary
                         "reports" -> MaterialTheme.colorScheme.secondary
+                        "calendar_heatmap" -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.primary
                     },
                     onClick = {
@@ -120,6 +127,7 @@ fun MoreScreen(
                             "loans" -> onLoansClick()
                             "reports" -> onReportsClick()
                             "transactions" -> onTransactionsClick()
+                            "calendar_heatmap" -> onHeatmapClick()
                         }
                     }
                 )

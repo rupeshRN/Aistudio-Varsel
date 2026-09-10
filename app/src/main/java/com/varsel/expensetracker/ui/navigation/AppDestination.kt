@@ -3,6 +3,7 @@ package com.varsel.expensetracker.ui.navigation
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.Assessment
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ListAlt
@@ -54,6 +55,12 @@ sealed class AppDestination(
         Icons.Outlined.AccountBalance
     )
 
+    data object CalendarHeatmap : AppDestination(
+        "calendar_heatmap",
+        "Heatmap",
+        Icons.Outlined.CalendarMonth
+    )
+
     data object More : AppDestination(
         "more",
         "More",
@@ -68,6 +75,7 @@ sealed class AppDestination(
             Budgets,
             Reports,
             Loans,
+            CalendarHeatmap,
             More
         )
 

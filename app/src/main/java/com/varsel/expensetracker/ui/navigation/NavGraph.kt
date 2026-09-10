@@ -26,6 +26,7 @@ import com.varsel.expensetracker.ui.category.CategoryScreen
 import com.varsel.expensetracker.ui.dashboard.DashboardScreen
 import com.varsel.expensetracker.ui.developer.DeveloperSettingsScreen
 import com.varsel.expensetracker.ui.financialevent.FinancialEventScreen
+import com.varsel.expensetracker.ui.heatmap.CalendarHeatmapScreen
 import com.varsel.expensetracker.ui.import_statement.ImportScreen
 import com.varsel.expensetracker.ui.loan.LoansScreen
 import com.varsel.expensetracker.ui.loan.add_edit.AddEditLoanScreen
@@ -245,6 +246,17 @@ composable(AppDestination.Reports.route) {
     )
 }
 
+        composable(AppDestination.CalendarHeatmap.route) {
+            CalendarHeatmapScreen(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onTransactionClick = { transactionId ->
+                    navController.navigate("transaction_detail/$transactionId")
+                }
+            )
+        }
+
         composable(AppDestination.More.route) {
 
             MoreScreen(
@@ -262,6 +274,9 @@ composable(AppDestination.Reports.route) {
                 },
                 onTransactionsClick = {
                     navController.navigate(AppDestination.Transactions.route)
+                },
+                onHeatmapClick = {
+                    navController.navigate(AppDestination.CalendarHeatmap.route)
                 },
                 onSettingsClick = {
                     navController.navigate("settings")

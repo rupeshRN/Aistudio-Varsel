@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -425,6 +426,27 @@ fun BankLogoBadge(
                         color = Color(0xFFED1C24),
                         fontSize = (size.value * 0.24f).sp,
                         fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+
+        // Cash Wallet / Physical Cash
+        normalized.contains("CASH") || normalized.contains("WALLET") -> {
+            Surface(
+                modifier = modifier.size(size),
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF1B5E20)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Payments,
+                        contentDescription = "Cash Wallet",
+                        tint = Color(0xFFA5D6A7),
+                        modifier = Modifier.size(size * 0.6f)
                     )
                 }
             }
