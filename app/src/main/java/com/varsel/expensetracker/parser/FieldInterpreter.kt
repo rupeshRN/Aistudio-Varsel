@@ -8,7 +8,7 @@ class FieldInterpreter @Inject constructor() {
         Regex("^[A-Z]{4}0[A-Z0-9]{6}$")
 
     private val maskedAccountRegex =
-        Regex("^X{3,}\\d*$", RegexOption.IGNORE_CASE)
+        Regex("^[A-Za-z0-9]*[Xx*]{2,}[A-Za-z0-9]*$", RegexOption.IGNORE_CASE)
 
     private val upiRegex =
         Regex(".+@.+", RegexOption.IGNORE_CASE)
@@ -172,8 +172,12 @@ for (i in remaining.indices.reversed()) {
         if (text.matches(Regex("^[^A-Za-z0-9]+$")))
             return true
 
-        // XXXXXX
-        if (text.matches(Regex("^X+$", RegexOption.IGNORE_CASE)))
+        // XXXXXX or masked accounts/cards
+        if (text.matches(Regex("^X+$", RegexOption.IGNORE_CASE)) || text.contains("XX", ignoreCase = true) || text.contains("**"))
+            return true
+
+        // Card ending or account ending artifacts
+        if (Regex("""(?i)^(?:for\s+)?(?:card|account|ac)?\s*ending\s*\d+$""").matches(text))
             return true
 
         return false

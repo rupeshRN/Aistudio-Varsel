@@ -13,9 +13,23 @@ class DescriptionCleaner @Inject constructor() {
             " "
         )
 
-        // Remove masked account/reference numbers
+        // Remove masked account/card numbers (case-insensitive, with leading digits)
         text = text.replace(
-            Regex("X{3,}\\d*"),
+            Regex("\\b[A-Za-z0-9]*[Xx*]{2,}[A-Za-z0-9]*\\b"),
+            " "
+        )
+
+        // Remove card ending / account ending phrases
+        text = text.replace(
+            Regex("""\(?\s*(?:for\s+)?card\s+ending\s+\d+\s*\)?""", RegexOption.IGNORE_CASE),
+            " "
+        )
+        text = text.replace(
+            Regex("""\(?\s*(?:for\s+)?ac(?:count)?\s+ending\s+\d+\s*\)?""", RegexOption.IGNORE_CASE),
+            " "
+        )
+        text = text.replace(
+            Regex("""\bending\s+\d+\b""", RegexOption.IGNORE_CASE),
             " "
         )
 

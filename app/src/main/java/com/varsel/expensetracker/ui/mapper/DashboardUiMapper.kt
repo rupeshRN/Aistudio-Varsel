@@ -21,7 +21,8 @@ class DashboardUiMapper @Inject constructor(
 
     fun map(
         transactions: List<Transaction>,
-        snapshots: List<StatementSnapshotEntity>
+        snapshots: List<StatementSnapshotEntity>,
+        period: String = "All Time"
     ): DashboardUiState {
 
         //--------------------------------------------------
@@ -67,7 +68,7 @@ class DashboardUiMapper @Inject constructor(
         val prevMonthStart = calendarAtStartOfMonth(prevYear, prevMonth)
 
         //--------------------------------------------------
-        // Current / Active month transactions
+        // Current / Active month transactions (for insights)
         //--------------------------------------------------
 
         val currentMonthTransactions =
@@ -87,7 +88,101 @@ class DashboardUiMapper @Inject constructor(
             }
 
         //--------------------------------------------------
-        // Current month financial metrics
+        // Selected Period transactions for Net Worth Card
+        // Supported periods: All Time, This Year, Last 6 Months, Last 3 Months, This Month
+        //--------------------------------------------------
+
+        val normalizedPeriod = period.trim().lowercase()
+        val targetTransactions: List<Transaction>
+        val previousPeriodTransactions: List<Transaction>
+        val periodDisplayName: String
+
+        when {
+            normalizedPeriod.contains("all") -> {
+                targetTransactions = transactions
+                previousPeriodTransactions = emptyList()
+                periodDisplayName = "All Time"
+            }
+            normalizedPeriod.contains("year") -> {
+                val startOfYear = calendarAtStartOfMonth(anchorYear, Calendar.JANUARY)
+                val startOfNextYear = calendarAtStartOfMonth(anchorYear + 1, Calendar.JANUARY)
+                val startOfPrevYear = calendarAtStartOfMonth(anchorYear - 1, Calendar.JANUARY)
+
+                targetTransactions = transactions.filter {
+                    it.dateTimestamp >= startOfYear &&
+                        (if (anchorYear == currentYear) true else it.dateTimestamp < startOfNextYear)
+                }
+                previousPeriodTransactions = transactions.filter {
+                    it.dateTimestamp >= startOfPrevYear && it.dateTimestamp < startOfYear
+                }
+                periodDisplayName = "This Year"
+            }
+            normalizedPeriod.contains("6") -> {
+                val cal6 = Calendar.getInstance().apply {
+                    clear()
+                    set(Calendar.YEAR, anchorYear)
+                    set(Calendar.MONTH, anchorMonth)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    add(Calendar.MONTH, -5)
+                }
+                val startOf6Months = cal6.timeInMillis
+                cal6.add(Calendar.MONTH, -6)
+                val startOfPrev6Months = cal6.timeInMillis
+
+                targetTransactions = transactions.filter {
+                    it.dateTimestamp >= startOf6Months &&
+                        (if (anchorYear == currentYear && anchorMonth == currentMonth) true else it.dateTimestamp < nextMonthStart)
+                }
+                previousPeriodTransactions = transactions.filter {
+                    it.dateTimestamp >= startOfPrev6Months && it.dateTimestamp < startOf6Months
+                }
+                periodDisplayName = "Last 6 Months"
+            }
+            normalizedPeriod.contains("3") -> {
+                val cal3 = Calendar.getInstance().apply {
+                    clear()
+                    set(Calendar.YEAR, anchorYear)
+                    set(Calendar.MONTH, anchorMonth)
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    add(Calendar.MONTH, -2)
+                }
+                val startOf3Months = cal3.timeInMillis
+                cal3.add(Calendar.MONTH, -3)
+                val startOfPrev3Months = cal3.timeInMillis
+
+                targetTransactions = transactions.filter {
+                    it.dateTimestamp >= startOf3Months &&
+                        (if (anchorYear == currentYear && anchorMonth == currentMonth) true else it.dateTimestamp < nextMonthStart)
+                }
+                previousPeriodTransactions = transactions.filter {
+                    it.dateTimestamp >= startOfPrev3Months && it.dateTimestamp < startOf3Months
+                }
+                periodDisplayName = "Last 3 Months"
+            }
+            else -> {
+                targetTransactions = currentMonthTransactions
+                previousPeriodTransactions = previousMonthTransactions
+                periodDisplayName = "This Month"
+            }
+        }
+
+        val targetIncome = calculateActualIncome(targetTransactions)
+        val targetExpense = calculateEffectiveExpense(targetTransactions)
+        val prevIncome = calculateActualIncome(previousPeriodTransactions)
+        val prevExpense = calculateEffectiveExpense(previousPeriodTransactions)
+
+        val targetIncomeChange = if (previousPeriodTransactions.isNotEmpty()) {
+            calculatePercentageChange(previous = prevIncome, current = targetIncome)
+        } else null
+
+        val targetExpenseChange = if (previousPeriodTransactions.isNotEmpty()) {
+            calculatePercentageChange(previous = prevExpense, current = targetExpense)
+        } else null
+
+        val targetSavings = targetIncome - targetExpense
+
+        //--------------------------------------------------
+        // Current month metrics for insights
         //--------------------------------------------------
 
         val currentMonthIncome =
@@ -100,28 +195,9 @@ class DashboardUiMapper @Inject constructor(
                 currentMonthTransactions
             )
 
-        //--------------------------------------------------
-        // Previous month financial metrics
-        //--------------------------------------------------
-
-        val previousMonthIncome =
-            calculateActualIncome(
-                previousMonthTransactions
-            )
-
         val previousMonthExpense =
             calculateEffectiveExpense(
                 previousMonthTransactions
-            )
-
-        //--------------------------------------------------
-        // Month-over-month percentage
-        //--------------------------------------------------
-
-        val incomeChangePercent =
-            calculatePercentageChange(
-                previous = previousMonthIncome,
-                current = currentMonthIncome
             )
 
         val expenseChangePercent =
@@ -129,14 +205,6 @@ class DashboardUiMapper @Inject constructor(
                 previous = previousMonthExpense,
                 current = currentMonthExpense
             )
-
-        //--------------------------------------------------
-        // Current month savings
-        //--------------------------------------------------
-
-        val savings =
-            currentMonthIncome -
-                currentMonthExpense
 
         //--------------------------------------------------
         // Account balances
@@ -174,28 +242,31 @@ class DashboardUiMapper @Inject constructor(
                         totalBalance,
 
                     totalIncome =
-                        currentMonthIncome,
+                        targetIncome,
 
                     totalExpense =
-                        currentMonthExpense,
+                        targetExpense,
 
                     savings =
-                        savings,
+                        targetSavings,
 
                     previousMonthIncome =
-                        previousMonthIncome,
+                        prevIncome,
 
                     previousMonthExpense =
-                        previousMonthExpense,
+                        prevExpense,
 
                     incomeChangePercent =
-                        incomeChangePercent,
+                        targetIncomeChange,
 
                     expenseChangePercent =
-                        expenseChangePercent,
+                        targetExpenseChange,
 
                     accounts =
-                        accountBalances
+                        accountBalances,
+
+                    periodLabel =
+                        periodDisplayName
                 ),
 
             recentTransactions =

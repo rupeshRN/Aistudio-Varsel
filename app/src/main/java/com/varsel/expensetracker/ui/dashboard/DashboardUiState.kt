@@ -44,5 +44,7 @@ data class DashboardUiState(
 
     val isBalanceHidden: Boolean = false,
 
+    val showNetWorthBreakdown: Boolean = true,
+
     val isLoading: Boolean = true
 )

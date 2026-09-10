@@ -5,113 +5,112 @@ import javax.inject.Inject
 class DisplayDescriptionBuilder @Inject constructor() {
 
     fun build(
-    fields: TransactionFields,
-    fallback: String
-): String {
+        fields: TransactionFields,
+        fallback: String
+    ): String {
 
-    val merchant =
-        fields.merchant
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
+        val merchant =
+            fields.merchant
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
 
-    val purpose =
-        fields.purpose
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
+        val purpose =
+            fields.purpose
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+
+        //----------------------------------------------------
+        // Prefer a meaningful purpose
+        //----------------------------------------------------
+
+        if (purpose != null) {
+            val cleanedPurpose =
+                purpose
+                    .replace(Regex("\\.+$"), "")
+                    .trim()
+
+            if (!isGenericPurpose(cleanedPurpose)) {
+                val formatted = cleanedPurpose
+                    .replaceFirstChar {
+                        if (it.isLowerCase())
+                            it.titlecase()
+                        else
+                            it.toString()
+                    }
+                return cleanArtifacts(formatted)
+            }
+        }
+
+        //----------------------------------------------------
+        // Otherwise use merchant
+        //----------------------------------------------------
+
+        if (merchant != null) {
+            return cleanArtifacts(merchant)
+        }
+
+        //----------------------------------------------------
+        // Otherwise use purpose (generic)
+        //----------------------------------------------------
+
+        if (purpose != null) {
+            return cleanArtifacts(purpose)
+        }
+
+        //----------------------------------------------------
+        // Fallback
+        //----------------------------------------------------
+
+        return cleanArtifacts(fallback)
+    }
+
+    private fun cleanArtifacts(str: String): String {
+        return str
+            .replace(Regex("""\(?\s*(?:for\s+)?card\s+ending\s+\d+\s*\)?""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\(?\s*(?:for\s+)?ac(?:count)?\s+ending\s+\d+\s*\)?""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\b[A-Za-z0-9]*[Xx*]{2,}[A-Za-z0-9]*\b"""), "")
+            .replace(Regex("""\s+"""), " ")
+            .trim()
+    }
 
     //----------------------------------------------------
-    // Prefer a meaningful purpose
-    //----------------------------------------------------
 
-if (purpose != null) {
-
-    val cleanedPurpose =
-        purpose
-            .replace(Regex("\\.+$"), "")
+    private fun isGenericPurpose(
+        purpose: String
+    ): Boolean {
+        val text = purpose
+            .lowercase()
             .trim()
 
-    if (!isGenericPurpose(cleanedPurpose)) {
+        val genericPhrases = listOf(
+            "upi",
+            "payment",
+            "pay",
+            "transfer",
+            "fund transfer",
+            "pay for intent",
+            "payment from phonepe",
+            "pay to bharatpe",
+            "pay to bharatpe merc",
+            "gpay",
+            "payment on cred",
+            "paid via cred",
+            "monthly autopay",
+            "monthly autopay.",
+            "autopay",
+            "intent"
+        )
 
-        return cleanedPurpose
-            .replaceFirstChar {
-
-                if (it.isLowerCase())
-                    it.titlecase()
-                else
-                    it.toString()
-            }
+        return genericPhrases.any {
+            text.startsWith(it)
+        }
     }
-}
-
-    //----------------------------------------------------
-    // Otherwise use merchant
-    //----------------------------------------------------
-
-    if (merchant != null) {
-        return merchant
-    }
-
-    //----------------------------------------------------
-    // Otherwise use purpose (generic)
-    //----------------------------------------------------
-
-    if (purpose != null) {
-        return purpose
-    }
-
-    //----------------------------------------------------
-    // Fallback
-    //----------------------------------------------------
-
-    return fallback
-    }
-
-    //----------------------------------------------------
-
-private fun isGenericPurpose(
-    purpose: String
-): Boolean {
-
-    val text = purpose
-        .lowercase()
-        .trim()
-
-    val genericPhrases = listOf(
-
-        "upi",
-        "payment",
-        "pay",
-        "transfer",
-        "fund transfer",
-
-        "pay for intent",
-        "payment from phonepe",
-        "pay to bharatpe",
-        "pay to bharatpe merc",
-        "gpay",
-        "payment on cred",
-        "paid via cred",
-
-        "monthly autopay",
-        "monthly autopay.",
-        "autopay",
-        "intent"
-
-    )
-
-    return genericPhrases.any {
-
-        text.startsWith(it)
-
-    }
-}
 
     //----------------------------------------------------
 
     private fun looksLikePersonName(
         merchant: String
     ): Boolean {
-
         val words =
             merchant.split("\\s+".toRegex())
 
@@ -122,7 +121,6 @@ private fun isGenericPurpose(
             return false
 
         return words.all {
-
             it.length >= 2 &&
             it.all(Char::isLetter)
         }

@@ -2,17 +2,22 @@ package com.varsel.expensetracker.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.varsel.expensetracker.data.local.dao.CategoryDao
+import com.varsel.expensetracker.data.local.entity.CategoryEntity
 import com.varsel.expensetracker.data.preference.AppearanceRepository
 import com.varsel.expensetracker.data.preference.GeneralPreferencesRepository
 import com.varsel.expensetracker.data.preference.HomeSection
 import com.varsel.expensetracker.domain.engine.AutoTransferReconciliationEngine
 import com.varsel.expensetracker.domain.model.Transaction
+import com.varsel.expensetracker.domain.model.TransactionType
 import com.varsel.expensetracker.domain.repository.BudgetRepository
 import com.varsel.expensetracker.domain.repository.LoanRepository
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
+import com.varsel.expensetracker.domain.usecase.AddManualTransactionUseCase
 import com.varsel.expensetracker.ui.budget.BudgetCalculator
 import com.varsel.expensetracker.ui.mapper.DashboardUiMapper
+import com.varsel.expensetracker.ui.transaction.model.AccountOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +40,9 @@ class DashboardViewModel @Inject constructor(
     private val dashboardUiMapper: DashboardUiMapper,
     private val autoTransferReconciliationEngine: AutoTransferReconciliationEngine,
     private val appearanceRepository: AppearanceRepository,
-    private val generalPreferencesRepository: GeneralPreferencesRepository
+    private val generalPreferencesRepository: GeneralPreferencesRepository,
+    private val addManualTransactionUseCase: AddManualTransactionUseCase,
+    private val categoryDao: CategoryDao
 ) : ViewModel() {
 
     private val _uiState =
@@ -43,6 +50,42 @@ class DashboardViewModel @Inject constructor(
 
     val uiState: StateFlow<DashboardUiState> =
         _uiState.asStateFlow()
+
+    val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val availableAccounts: StateFlow<List<AccountOption>> = statementSnapshotRepository.observeAllSnapshots()
+        .map { snapshots ->
+            val cashOption = AccountOption(
+                accountId = null,
+                accountLast4 = null,
+                bankName = "Cash",
+                displayName = "Cash / General"
+            )
+            val bankAccounts = snapshots.mapNotNull { snap ->
+                val id = snap.accountId ?: return@mapNotNull null
+                val last4 = snap.accountLast4 ?: "••••"
+                val name = snap.bankName ?: "Bank Account"
+                AccountOption(
+                    accountId = id,
+                    accountLast4 = last4,
+                    bankName = name,
+                    displayName = "$name (•••• $last4)"
+                )
+            }.distinctBy { it.accountId }
+            listOf(cashOption) + bankAccounts
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            listOf(
+                AccountOption(
+                    accountId = null,
+                    accountLast4 = null,
+                    bankName = "Cash",
+                    displayName = "Cash / General"
+                )
+            )
+        )
 
     val activeHomeSections: StateFlow<List<String>> = generalPreferencesRepository.generalConfig
         .map { it.activeHomeSections }
@@ -77,7 +120,8 @@ class DashboardViewModel @Inject constructor(
                 val baseDashboard =
                     dashboardUiMapper.map(
                         transactions = transactions,
-                        snapshots = snapshots
+                        snapshots = snapshots,
+                        period = generalConfig.netWorthWidgetPeriod
                     )
 
                 val insights = if (appearanceConfig.actionableInsights) {
@@ -174,7 +218,8 @@ class DashboardViewModel @Inject constructor(
                         totalBudgetSpent = totalBudgetSpent,
                         totalGoalTarget = totalGoalTarget,
                         totalGoalSaved = totalGoalSaved,
-                        isBalanceHidden = current.isBalanceHidden
+                        isBalanceHidden = current.isBalanceHidden,
+                        showNetWorthBreakdown = generalConfig.showNetWorthBreakdown
                     )
                 }
             }.collect {}
@@ -200,11 +245,83 @@ class DashboardViewModel @Inject constructor(
     fun updateTransaction(
         transaction: Transaction
     ) {
-
         viewModelScope.launch(Dispatchers.IO) {
-
             transactionRepository
                 .updateTransaction(transaction)
+        }
+    }
+
+    fun addTransaction(
+        amount: Double,
+        type: TransactionType,
+        description: String,
+        category: String,
+        dateTimestamp: Long,
+        referenceNumber: String?,
+        accountId: String? = null,
+        accountLast4: String? = null,
+        bankName: String? = null,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val result = addManualTransactionUseCase.addTransaction(
+                amount = amount,
+                type = type,
+                description = description,
+                category = category,
+                dateTimestamp = dateTimestamp,
+                referenceNumber = referenceNumber,
+                accountId = accountId,
+                accountLast4 = accountLast4,
+                bankName = bankName
+            )
+            onComplete?.invoke(result.isSuccess)
+        }
+    }
+
+    fun addTransfer(
+        amount: Double,
+        description: String,
+        dateTimestamp: Long,
+        fromAccountId: String?,
+        fromAccountLast4: String?,
+        fromBankName: String?,
+        toAccountId: String?,
+        toAccountLast4: String?,
+        toBankName: String?,
+        referenceNumber: String?,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val result = addManualTransactionUseCase.addTransfer(
+                amount = amount,
+                description = description,
+                dateTimestamp = dateTimestamp,
+                fromAccountId = fromAccountId,
+                fromAccountLast4 = fromAccountLast4,
+                fromBankName = fromBankName,
+                toAccountId = toAccountId,
+                toAccountLast4 = toAccountLast4,
+                toBankName = toBankName,
+                referenceNumber = referenceNumber
+            )
+            onComplete?.invoke(result.isSuccess)
+        }
+    }
+
+    fun createCategory(name: String, isIncome: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val trimmed = name.trim()
+            if (trimmed.isBlank()) return@launch
+            val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(trimmed, isIncome)
+            val colorHex = if (isIncome) "#4CAF50" else "#E91E63"
+            val entity = CategoryEntity(
+                name = trimmed,
+                type = if (isIncome) "INCOME" else "EXPENSE",
+                iconName = iconKey,
+                colorHex = colorHex
+            )
+            categoryDao.insertCategory(entity)
         }
     }
 }

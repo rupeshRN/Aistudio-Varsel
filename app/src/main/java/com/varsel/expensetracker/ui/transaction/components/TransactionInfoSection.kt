@@ -31,7 +31,7 @@ fun TransactionInfoSection(
     val formattedDate = dateFormat.format(Date(transaction.dateTimestamp))
 
     val reference = transaction.referenceNumber?.takeIf { it.isNotBlank() } ?: "Not available"
-    val source = if (transaction.referenceNumber.isNullOrBlank()) "Manual Entry" else "Bank Statement Import"
+    val source = if (transaction.isImported) "Bank Statement Import" else "Manual Entry"
 
     Card(
         modifier = modifier.fillMaxWidth(),

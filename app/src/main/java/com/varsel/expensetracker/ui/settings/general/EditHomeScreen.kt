@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.data.preference.GeneralConfig
 import com.varsel.expensetracker.data.preference.HomeSection
 import com.varsel.expensetracker.ui.dashboard.HomeWidgetItemsSelectionDialog
 
@@ -175,8 +176,10 @@ fun EditHomeScreen(
                                 val section = HomeSection.findById(sectionId)
                                 if (section != null) {
                                     val isDraggingThis = draggingSectionId == section.id
+                                    val subtitle = getSectionSubtitle(section, generalConfig)
                                     ActiveSectionRow(
                                         section = section,
+                                        subtitle = subtitle,
                                         isDragging = isDraggingThis,
                                         dragOffsetY = if (isDraggingThis) dragOffsetY else 0f,
                                         showDivider = index < activeSections.lastIndex,
@@ -238,8 +241,10 @@ fun EditHomeScreen(
                             inactiveSections.forEachIndexed { index, sectionId ->
                                 val section = HomeSection.findById(sectionId)
                                 if (section != null) {
+                                    val subtitle = getSectionSubtitle(section, generalConfig)
                                     AvailableSectionRow(
                                         section = section,
+                                        subtitle = subtitle,
                                         showDivider = index < inactiveSections.lastIndex,
                                         onAdd = {
                                             viewModel.addHomeSection(sectionId)
@@ -367,9 +372,50 @@ fun EditHomeScreen(
     }
 }
 
+private fun getSectionSubtitle(
+    section: HomeSection,
+    generalConfig: GeneralConfig
+): String? {
+    return when (section) {
+        HomeSection.NET_WORTH -> {
+            val breakdown = if (generalConfig.showNetWorthBreakdown) " • Breakdown on" else ""
+            "${generalConfig.netWorthWidgetPeriod}$breakdown"
+        }
+        HomeSection.TRANSACTIONS -> {
+            val filterLabel = when (generalConfig.homeTransactionsFilter) {
+                "INCOME" -> "Income"
+                "EXPENSE" -> "Expense"
+                "ALL_EXCEPT_TRANSFERS" -> "Excl. Transfers"
+                else -> "All"
+            }
+            "${generalConfig.homeTransactionsCount} items • $filterLabel"
+        }
+        HomeSection.BUDGETS -> {
+            if (generalConfig.homeBudgetsSelection == "ALL" || generalConfig.homeBudgetsSelection.isBlank()) "All Budgets"
+            else "${generalConfig.homeBudgetsSelection.split(",").size} selected"
+        }
+        HomeSection.GOALS -> {
+            if (generalConfig.homeGoalsSelection == "ALL" || generalConfig.homeGoalsSelection.isBlank()) "All Goals"
+            else "${generalConfig.homeGoalsSelection.split(",").size} selected"
+        }
+        HomeSection.ACCOUNTS_LIST -> {
+            if (generalConfig.pinnedAccounts.isEmpty()) "All Accounts"
+            else "${generalConfig.pinnedAccounts.size} pinned"
+        }
+        HomeSection.BANNER -> {
+            "Greeting: ${if (generalConfig.homeBannerShowGreeting) "On" else "Off"}"
+        }
+        HomeSection.LOANS -> {
+            if (generalConfig.homeLoansFilter == "ACTIVE") "Active Only" else "All Loans"
+        }
+        else -> null
+    }
+}
+
 @Composable
 private fun ActiveSectionRow(
     section: HomeSection,
+    subtitle: String? = null,
     isDragging: Boolean,
     dragOffsetY: Float,
     showDivider: Boolean,
@@ -408,13 +454,21 @@ private fun ActiveSectionRow(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            Text(
-                text = section.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = section.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             // More / Customize options
             IconButton(
@@ -492,6 +546,7 @@ private fun ActiveSectionRow(
 @Composable
 private fun AvailableSectionRow(
     section: HomeSection,
+    subtitle: String? = null,
     showDivider: Boolean,
     onAdd: () -> Unit,
     onCustomizationClick: () -> Unit
@@ -513,13 +568,21 @@ private fun AvailableSectionRow(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            Text(
-                text = section.displayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = section.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
 
             // More / Info
             IconButton(

@@ -181,7 +181,7 @@ val customEndDate: LocalDate = LocalDate.now(),
                 }
 
                 return account?.displayName
-                    ?: "1 Account"
+                    ?: if (selectedAccountIds.first() == ReportsAccount.CASH_ID) "Cash" else "1 Account"
             }
 
             return "${selectedAccountIds.size} Accounts"
@@ -357,14 +357,26 @@ data class ReportsAccount(
     /**
      * Last four digits for safe display.
      */
-    val accountLast4: String?
+    val accountLast4: String?,
+
+    /**
+     * Bank name if available.
+     */
+    val bankName: String? = null
 ) {
 
+    companion object {
+        const val CASH_ID = "ACCOUNT_CASH"
+    }
+
     val displayName: String
-        get() = accountLast4
-            ?.takeIf { it.isNotBlank() }
-            ?.let { "Account ••••$it" }
-            ?: "Account"
+        get() = when {
+            accountId == CASH_ID -> "Cash"
+            !bankName.isNullOrBlank() && !accountLast4.isNullOrBlank() -> "$bankName (•••• $accountLast4)"
+            !bankName.isNullOrBlank() -> bankName
+            !accountLast4.isNullOrBlank() -> "Account ••••$accountLast4"
+            else -> "Account"
+        }
 }
 
 /**

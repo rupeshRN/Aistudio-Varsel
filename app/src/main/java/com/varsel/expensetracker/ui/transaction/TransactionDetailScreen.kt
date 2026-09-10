@@ -69,6 +69,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.varsel.expensetracker.ui.transaction.components.BottomActionBar
 import com.varsel.expensetracker.ui.transaction.components.CategorySection
 import com.varsel.expensetracker.ui.transaction.components.DescriptionSection
+import com.varsel.expensetracker.ui.transaction.components.ManualTransactionEditCard
 import com.varsel.expensetracker.ui.transaction.components.TransactionInfoSection
 import com.varsel.expensetracker.ui.transaction.components.TransactionLinkSection
 import com.varsel.expensetracker.ui.transaction.components.TransferLinkSection
@@ -147,10 +148,18 @@ fun TransactionDetailScreen(
                         }
                     },
                     onSaveClick = {
-                        rememberSmartRule = false
-                        viewModel.setApplyToSimilar(false)
-                        viewModel.prepareSaveSmartRuleDialog()
-                        showSaveConfirmDialog = true
+                        if (isImported) {
+                            rememberSmartRule = false
+                            viewModel.setApplyToSimilar(false)
+                            viewModel.prepareSaveSmartRuleDialog()
+                            showSaveConfirmDialog = true
+                        } else {
+                            viewModel.saveChanges(
+                                createSmartRule = false,
+                                applyToSimilar = false,
+                                updateDescriptionForSimilar = false
+                            )
+                        }
                     },
                     saveEnabled = state.hasChanges && !state.isSaving,
                     isImported = isImported
@@ -238,9 +247,35 @@ fun TransactionDetailScreen(
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
+                                } else {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
+                                    ) {
+                                        Text(
+                                            text = "Manual Entry",
+                                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
+
+                    // Editable details for manual transactions
+                    if (!transaction.isImported) {
+                        ManualTransactionEditCard(
+                            amount = state.editableAmount,
+                            onAmountChanged = viewModel::updateAmount,
+                            type = state.selectedType,
+                            onTypeChanged = viewModel::updateType,
+                            dateTimestamp = state.selectedDateTimestamp,
+                            onDateChanged = viewModel::updateDateTimestamp,
+                            referenceNumber = state.editableReferenceNumber,
+                            onReferenceNumberChanged = viewModel::updateReferenceNumber
+                        )
                     }
 
                     // Description

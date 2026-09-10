@@ -22,20 +22,25 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -43,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.ui.transaction.components.AddTransactionBottomSheet
+import com.varsel.expensetracker.ui.transaction.components.ManualEntryMode
 import com.varsel.expensetracker.ui.transaction.components.MonthSelector
 import com.varsel.expensetracker.ui.transaction.components.MonthlySummaryCard
 import com.varsel.expensetracker.ui.transaction.components.TransactionFilterBar
@@ -60,8 +67,11 @@ fun TransactionScreen(
     onTransactionClick: (Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val availableAccounts by viewModel.availableAccounts.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    var showAddTransactionSheet by remember { mutableStateOf(false) }
 
     val showScrollToTop by remember {
         derivedStateOf {
@@ -145,23 +155,40 @@ fun TransactionScreen(
             }
         },
         floatingActionButton = {
-            AnimatedVisibility(
-                visible = showScrollToTop,
-                enter = fadeIn() + scaleIn(),
-                exit = fadeOut() + scaleOut()
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                AnimatedVisibility(
+                    visible = showScrollToTop,
+                    enter = fadeIn() + scaleIn(),
+                    exit = fadeOut() + scaleOut()
+                ) {
+                    SmallFloatingActionButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(0)
+                            }
+                        },
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Scroll to top"
+                        )
+                    }
+                }
+
                 FloatingActionButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            listState.animateScrollToItem(0)
-                        }
-                    },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    onClick = { showAddTransactionSheet = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.testTag("add_transaction_fab")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Scroll to top"
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Add Entry"
                     )
                 }
             }
@@ -214,6 +241,45 @@ fun TransactionScreen(
                 }
             )
         }
+    }
+
+    if (showAddTransactionSheet) {
+        AddTransactionBottomSheet(
+            onDismiss = { showAddTransactionSheet = false },
+            categories = categories,
+            availableAccounts = availableAccounts,
+            initialMode = ManualEntryMode.EXPENSE,
+            onSaveTransaction = { amount, type, desc, cat, date, ref, accId, last4, bank ->
+                viewModel.addTransaction(
+                    amount = amount,
+                    type = type,
+                    description = desc,
+                    category = cat,
+                    dateTimestamp = date,
+                    referenceNumber = ref,
+                    accountId = accId,
+                    accountLast4 = last4,
+                    bankName = bank
+                )
+            },
+            onSaveTransfer = { amount, desc, date, fromId, fromLast4, fromBank, toId, toLast4, toBank, ref ->
+                viewModel.addTransfer(
+                    amount = amount,
+                    description = desc,
+                    dateTimestamp = date,
+                    fromAccountId = fromId,
+                    fromAccountLast4 = fromLast4,
+                    fromBankName = fromBank,
+                    toAccountId = toId,
+                    toAccountLast4 = toLast4,
+                    toBankName = toBank,
+                    referenceNumber = ref
+                )
+            },
+            onCreateCategory = { name, isIncome ->
+                viewModel.createCategory(name, isIncome)
+            }
+        )
     }
 }
 

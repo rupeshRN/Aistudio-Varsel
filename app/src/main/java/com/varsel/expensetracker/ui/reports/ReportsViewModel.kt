@@ -856,26 +856,34 @@ val financialEvents =
             return transactions
         }
 
-        return transactions.filter { transaction ->
+        val hasCashSelected = ReportsAccount.CASH_ID in selectedAccountIds
 
-            transaction.accountId != null &&
-                transaction.accountId in
-                selectedAccountIds
+        return transactions.filter { transaction ->
+            val isCashTx = transaction.accountId.isNullOrBlank() ||
+                transaction.accountId == ReportsAccount.CASH_ID ||
+                transaction.bankName?.equals("Cash", ignoreCase = true) == true
+
+            if (isCashTx) {
+                hasCashSelected
+            } else {
+                transaction.accountId != null &&
+                    transaction.accountId in selectedAccountIds
+            }
         }
     }
 
     /**
      * Builds the account list from the complete transaction
-     * history.
+     * history. Cash is always included so users can isolate cash transactions.
      */
     private fun buildAccounts(
         transactions: List<Transaction>
     ): List<ReportsAccount> {
 
-        return transactions
+        val bankAccounts = transactions
             .asSequence()
             .filter {
-                !it.accountId.isNullOrBlank()
+                !it.accountId.isNullOrBlank() && it.accountId != ReportsAccount.CASH_ID
             }
             .groupBy {
                 it.accountId!!
@@ -889,14 +897,31 @@ val financialEvents =
                         }
                         .firstOrNull()
 
+                val bankName =
+                    accountTransactions
+                        .mapNotNull {
+                            it.bankName
+                        }
+                        .firstOrNull()
+
                 ReportsAccount(
                     accountId = accountId,
-                    accountLast4 = last4
+                    accountLast4 = last4,
+                    bankName = bankName
                 )
             }
             .sortedBy {
-                it.accountLast4 ?: ""
+                it.accountLast4 ?: it.bankName ?: ""
             }
+            .toList()
+
+        val cashAccount = ReportsAccount(
+            accountId = ReportsAccount.CASH_ID,
+            accountLast4 = null,
+            bankName = "Cash"
+        )
+
+        return listOf(cashAccount) + bankAccounts
     }
 
     // ------------------------------------------------------------------------

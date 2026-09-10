@@ -27,6 +27,8 @@ import com.varsel.expensetracker.ui.dashboard.components.GreetingHeader
 import com.varsel.expensetracker.ui.dashboard.components.InsightsCard
 import com.varsel.expensetracker.ui.dashboard.components.QuickActionBar
 import com.varsel.expensetracker.ui.model.TransactionUiModel
+import com.varsel.expensetracker.ui.transaction.components.AddTransactionBottomSheet
+import com.varsel.expensetracker.ui.transaction.components.ManualEntryMode
 
 private sealed class FeatureDialogState {
     object None : FeatureDialogState()
@@ -51,7 +53,12 @@ fun DashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activeSections by viewModel.activeHomeSections.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val availableAccounts by viewModel.availableAccounts.collectAsStateWithLifecycle()
+
     var featureDialog by remember { mutableStateOf<FeatureDialogState>(FeatureDialogState.None) }
+    var showAddTransactionSheet by remember { mutableStateOf(false) }
+    var manualEntryMode by remember { mutableStateOf(ManualEntryMode.EXPENSE) }
 
     val statementPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -92,6 +99,7 @@ fun DashboardScreen(
                                 BalanceCard(
                                     summary = uiState.balanceSummary,
                                     isBalanceHidden = uiState.isBalanceHidden,
+                                    showBreakdown = uiState.showNetWorthBreakdown,
                                     onToggleVisibility = { viewModel.toggleBalanceVisibility() }
                                 )
                             }
@@ -104,18 +112,12 @@ fun DashboardScreen(
                                         statementPickerLauncher.launch(arrayOf("application/pdf", "image/*"))
                                     },
                                     onAddTransactionClick = {
-                                        featureDialog = FeatureDialogState.UnderDevelopment(
-                                            title = "Manual Entry In Development",
-                                            message = "Varsel is designed to automatically ingest, categorize, and reconcile transactions directly from your bank statements with zero manual input.\n\nManual expense and income creation is planned for users who prefer manual bookkeeping.",
-                                            icon = Icons.Outlined.Construction
-                                        )
+                                        manualEntryMode = ManualEntryMode.EXPENSE
+                                        showAddTransactionSheet = true
                                     },
                                     onTransferClick = {
-                                        featureDialog = FeatureDialogState.UnderDevelopment(
-                                            title = "Account Transfer",
-                                            message = "Transfer transactions are automatically identified and linked between your accounts during Statement Import.\n\nDirect manual transfer entry is currently under development.",
-                                            icon = Icons.Outlined.SwapHoriz
-                                        )
+                                        manualEntryMode = ManualEntryMode.TRANSFER
+                                        showAddTransactionSheet = true
                                     },
                                     onAnalyticsClick = onNavigateToAnalytics
                                 )
@@ -230,6 +232,45 @@ fun DashboardScreen(
                 )
             }
             FeatureDialogState.None -> Unit
+        }
+
+        if (showAddTransactionSheet) {
+            AddTransactionBottomSheet(
+                onDismiss = { showAddTransactionSheet = false },
+                categories = categories,
+                availableAccounts = availableAccounts,
+                initialMode = manualEntryMode,
+                onSaveTransaction = { amount, type, desc, cat, date, ref, accId, last4, bank ->
+                    viewModel.addTransaction(
+                        amount = amount,
+                        type = type,
+                        description = desc,
+                        category = cat,
+                        dateTimestamp = date,
+                        referenceNumber = ref,
+                        accountId = accId,
+                        accountLast4 = last4,
+                        bankName = bank
+                    )
+                },
+                onSaveTransfer = { amount, desc, date, fromId, fromLast4, fromBank, toId, toLast4, toBank, ref ->
+                    viewModel.addTransfer(
+                        amount = amount,
+                        description = desc,
+                        dateTimestamp = date,
+                        fromAccountId = fromId,
+                        fromAccountLast4 = fromLast4,
+                        fromBankName = fromBank,
+                        toAccountId = toId,
+                        toAccountLast4 = toLast4,
+                        toBankName = toBank,
+                        referenceNumber = ref
+                    )
+                },
+                onCreateCategory = { name, isIncome ->
+                    viewModel.createCategory(name, isIncome)
+                }
+            )
         }
     }
 }

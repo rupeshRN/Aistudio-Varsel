@@ -67,11 +67,21 @@ class TransactionDetailViewModel @Inject constructor(
             val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
             val categories = loadCategories(isIncome)
 
+            val initialAmountStr = if (transaction.amount % 1.0 == 0.0) {
+                transaction.amount.toLong().toString()
+            } else {
+                String.format(java.util.Locale.US, "%.2f", transaction.amount)
+            }
+
             _uiState.value = TransactionDetailUiState.Loaded(
                 transaction = transaction,
                 editableDescription = transaction.description,
                 selectedCategory = transaction.category,
                 selectedRole = transaction.role,
+                editableAmount = initialAmountStr,
+                selectedType = transaction.type,
+                selectedDateTimestamp = transaction.dateTimestamp,
+                editableReferenceNumber = transaction.referenceNumber.orEmpty(),
                 hasChanges = false,
                 isSaving = false,
                 categories = categories,
@@ -490,37 +500,66 @@ class TransactionDetailViewModel @Inject constructor(
     }
 
     //--------------------------------------------------
-    // Description, Category, Role
+    // Description, Category, Role & Manual Fields
     //--------------------------------------------------
+
+    private fun computeHasChanges(state: TransactionDetailUiState.Loaded): Boolean {
+        val orig = state.transaction
+        val baseChanged = state.editableDescription != orig.description ||
+            state.selectedCategory != orig.category ||
+            state.selectedRole != orig.role
+        if (baseChanged) return true
+
+        if (!orig.isImported) {
+            val amountVal = state.editableAmount.toDoubleOrNull()
+            if (amountVal != null && amountVal != orig.amount) return true
+            if (state.selectedType != orig.type) return true
+            if (state.selectedDateTimestamp != orig.dateTimestamp) return true
+            if (state.editableReferenceNumber != orig.referenceNumber.orEmpty()) return true
+        }
+        return false
+    }
 
     fun updateDescription(description: String) {
         val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
-        _uiState.value = current.copy(
-            editableDescription = description,
-            hasChanges = description != current.transaction.description ||
-                current.selectedCategory != current.transaction.category ||
-                current.selectedRole != current.transaction.role
-        )
+        val updated = current.copy(editableDescription = description)
+        _uiState.value = updated.copy(hasChanges = computeHasChanges(updated))
     }
 
     fun updateCategory(category: String) {
         val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
-        _uiState.value = current.copy(
-            selectedCategory = category,
-            hasChanges = category != current.transaction.category ||
-                current.editableDescription != current.transaction.description ||
-                current.selectedRole != current.transaction.role
-        )
+        val updated = current.copy(selectedCategory = category)
+        _uiState.value = updated.copy(hasChanges = computeHasChanges(updated))
     }
 
     fun updateRole(role: TransactionRole) {
         val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
-        _uiState.value = current.copy(
-            selectedRole = role,
-            hasChanges = role != current.transaction.role ||
-                current.editableDescription != current.transaction.description ||
-                current.selectedCategory != current.transaction.category
-        )
+        val updated = current.copy(selectedRole = role)
+        _uiState.value = updated.copy(hasChanges = computeHasChanges(updated))
+    }
+
+    fun updateAmount(amount: String) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        val updated = current.copy(editableAmount = amount)
+        _uiState.value = updated.copy(hasChanges = computeHasChanges(updated))
+    }
+
+    fun updateType(type: TransactionType) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        val updated = current.copy(selectedType = type)
+        _uiState.value = updated.copy(hasChanges = computeHasChanges(updated))
+    }
+
+    fun updateDateTimestamp(timestamp: Long) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        val updated = current.copy(selectedDateTimestamp = timestamp)
+        _uiState.value = updated.copy(hasChanges = computeHasChanges(updated))
+    }
+
+    fun updateReferenceNumber(ref: String) {
+        val current = _uiState.value as? TransactionDetailUiState.Loaded ?: return
+        val updated = current.copy(editableReferenceNumber = ref)
+        _uiState.value = updated.copy(hasChanges = computeHasChanges(updated))
     }
 
     //--------------------------------------------------
@@ -699,8 +738,21 @@ class TransactionDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isSaving = true)
 
+            val finalAmount = if (!current.transaction.isImported) {
+                current.editableAmount.toDoubleOrNull()?.takeIf { it > 0.0 } ?: current.transaction.amount
+            } else {
+                current.transaction.amount
+            }
+            val finalType = if (!current.transaction.isImported) current.selectedType else current.transaction.type
+            val finalTimestamp = if (!current.transaction.isImported) current.selectedDateTimestamp else current.transaction.dateTimestamp
+            val finalReference = if (!current.transaction.isImported) current.editableReferenceNumber.takeIf { it.isNotBlank() } else current.transaction.referenceNumber
+
             val updatedTransaction = current.transaction.copy(
-                description = current.editableDescription,
+                amount = finalAmount,
+                type = finalType,
+                dateTimestamp = finalTimestamp,
+                referenceNumber = finalReference,
+                description = current.editableDescription.ifBlank { current.transaction.description },
                 category = current.selectedCategory,
                 role = current.selectedRole
             )

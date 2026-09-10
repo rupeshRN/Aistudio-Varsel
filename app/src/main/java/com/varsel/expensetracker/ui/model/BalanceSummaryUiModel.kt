@@ -54,7 +54,9 @@ data class BalanceSummaryUiModel(
      */
     val expenseChangePercent: Double? = null,
 
-    val accounts: List<AccountBalanceUiModel> = emptyList()
+    val accounts: List<AccountBalanceUiModel> = emptyList(),
+
+    val periodLabel: String = "This Month"
 )
 
 data class AccountBalanceUiModel(

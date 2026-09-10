@@ -3,6 +3,7 @@ package com.varsel.expensetracker.ui.transaction
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
 import com.varsel.expensetracker.domain.model.TransactionRole
+import com.varsel.expensetracker.domain.model.TransactionType
 
 enum class PastTimeframe(val label: String) {
     ALL_TIME("All Past Transactions"),
@@ -47,6 +48,14 @@ sealed interface TransactionDetailUiState {
         val selectedCategory: String,
 
         val selectedRole: TransactionRole,
+
+        val editableAmount: String = "",
+
+        val selectedType: TransactionType = transaction.type,
+
+        val selectedDateTimestamp: Long = transaction.dateTimestamp,
+
+        val editableReferenceNumber: String = "",
 
         val hasChanges: Boolean,
 
