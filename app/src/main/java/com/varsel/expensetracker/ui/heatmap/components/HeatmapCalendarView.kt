@@ -3,7 +3,6 @@ package com.varsel.expensetracker.ui.heatmap.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -162,6 +161,9 @@ fun HeatmapCalendarView(
     }
 }
 
+private val Color.isDarkThemeSurface: Boolean
+    get() = (0.299f * red + 0.587f * green + 0.114f * blue) < 0.5f
+
 @Composable
 private fun CalendarDayCell(
     entry: DayHeatmapEntry,
@@ -170,13 +172,13 @@ private fun CalendarDayCell(
     onDateClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.surface.isDarkThemeSurface
     val hasExpense = entry.totalExpense > 0.0
     val hasIncome = entry.totalIncome > 0.0
     val netSum = entry.totalIncome - entry.totalExpense
 
     // Cell Background:
-    // Unselected: Neutral card background (no full color fill)
+    // Unselected: Neutral card background (theme surface)
     // Selected: Full color filled (Green if net positive/income, Red if net negative/expense)
     val cellColor = if (isSelected) {
         when {
@@ -190,13 +192,13 @@ private fun CalendarDayCell(
         if (!entry.isCurrentMonth) {
             Color.Transparent
         } else {
-            if (isDark) Color(0xFF1E2124) else Color(0xFFF7F9FB)
+            MaterialTheme.colorScheme.surface
         }
     }
 
     val dayNumColor = when {
         isSelected -> Color.White
-        !entry.isCurrentMonth -> if (isDark) Color(0xFF4A4E52) else Color(0xFFB0B4BA)
+        !entry.isCurrentMonth -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
         entry.isToday -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurface
     }
@@ -207,7 +209,7 @@ private fun CalendarDayCell(
         netSum > 0.0 -> if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
         netSum < 0.0 -> if (isDark) Color(0xFFEF9A9A) else Color(0xFFC62828)
         hasIncome || hasExpense -> MaterialTheme.colorScheme.onSurfaceVariant
-        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
     }
 
     val cumulativeAmountText = when {
@@ -256,7 +258,7 @@ private fun CalendarDayCell(
         border = when {
             isSelected -> BorderStroke(2.dp, if (isDark) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onPrimaryContainer)
             entry.isToday -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-            entry.isCurrentMonth -> BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            entry.isCurrentMonth -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
             else -> null
         }
     ) {
@@ -335,7 +337,7 @@ private fun HeatmapLegend(
     maxThreshold: Double,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.surface.isDarkThemeSurface
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -430,20 +432,20 @@ private fun getHeatmapCellColor(
         HeatmapMetric.INCOME -> {
             when (intensity) {
                 0 -> if (isDark) Color(0xFF25282A) else Color(0xFFF1F3F4)
-                1 -> if (isDark) Color(0xFF1B3B22) else Color(0xFFC8E6C9)
-                2 -> if (isDark) Color(0xFF2E6930) else Color(0xFF81C784)
-                3 -> if (isDark) Color(0xFF388E3C) else Color(0xFF4CAF50)
-                4 -> if (isDark) Color(0xFF43A047) else Color(0xFF2E7D32)
+                1 -> if (isDark) Color(0xFF2E6930) else Color(0xFF66BB6A)
+                2 -> if (isDark) Color(0xFF388E3C) else Color(0xFF43A047)
+                3 -> if (isDark) Color(0xFF43A047) else Color(0xFF2E7D32)
+                4 -> if (isDark) Color(0xFF66BB6A) else Color(0xFF1B5E20)
                 else -> Color.Transparent
             }
         }
         HeatmapMetric.EXPENSE -> {
             when (intensity) {
                 0 -> if (isDark) Color(0xFF25282A) else Color(0xFFF1F3F4)
-                1 -> if (isDark) Color(0xFF4A2518) else Color(0xFFFFE0B2)
-                2 -> if (isDark) Color(0xFF7C361E) else Color(0xFFFFB74D)
-                3 -> if (isDark) Color(0xFFB03A2E) else Color(0xFFFF7043)
-                4 -> if (isDark) Color(0xFFE53935) else Color(0xFFE53935)
+                1 -> if (isDark) Color(0xFF8D3B1B) else Color(0xFFFF7043)
+                2 -> if (isDark) Color(0xFFB03A2E) else Color(0xFFF4511E)
+                3 -> if (isDark) Color(0xFFE53935) else Color(0xFFE53935)
+                4 -> if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
                 else -> Color.Transparent
             }
         }

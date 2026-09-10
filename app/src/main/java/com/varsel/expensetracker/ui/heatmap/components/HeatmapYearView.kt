@@ -2,8 +2,8 @@ package com.varsel.expensetracker.ui.heatmap.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +27,9 @@ import com.varsel.expensetracker.util.CurrencyFormatter
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val Color.isDarkThemeSurface: Boolean
+    get() = (0.299f * red + 0.587f * green + 0.114f * blue) < 0.5f
 
 @Composable
 fun HeatmapYearView(
@@ -188,7 +191,7 @@ private fun MiniMonthCard(
             val totalMiniCells = firstDayOffset + monthOverview.days.size
 
             val rows = (0 until totalMiniCells).chunked(7)
-            val isDark = isSystemInDarkTheme()
+            val isDark = MaterialTheme.colorScheme.surface.isDarkThemeSurface
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -205,17 +208,25 @@ private fun MiniMonthCard(
                                 val dayIndex = cellIndex - firstDayOffset
                                 val dayEntry = monthOverview.days.getOrNull(dayIndex)
                                 val intensity = dayEntry?.intensityLevel ?: 0
+                                val miniColor = getMiniCellColor(
+                                    intensity = intensity,
+                                    metric = metric,
+                                    isDark = isDark
+                                )
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .aspectRatio(1f)
                                         .clip(RoundedCornerShape(3.dp))
-                                        .background(
-                                            getMiniCellColor(
-                                                intensity = intensity,
-                                                metric = metric,
-                                                isDark = isDark
-                                            )
+                                        .background(miniColor)
+                                        .then(
+                                            if (intensity == 0 && !isDark) {
+                                                Modifier.border(
+                                                    0.5.dp,
+                                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                                    RoundedCornerShape(3.dp)
+                                                )
+                                            } else Modifier
                                         )
                                 )
                             } else {
