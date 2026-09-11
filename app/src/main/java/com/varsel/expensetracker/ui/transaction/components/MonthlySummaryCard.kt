@@ -1,7 +1,6 @@
 package com.varsel.expensetracker.ui.transaction.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.varsel.expensetracker.ui.theme.isDark
 
 @Composable
 fun MonthlySummaryCard(
@@ -37,7 +37,7 @@ fun MonthlySummaryCard(
     expense: Double,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
     val netSavings = income - expense
 
     val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)

@@ -1,18 +1,18 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import com.varsel.expensetracker.ui.theme.isDark
 
 @Composable
 fun AmountText(
     amount: String,
     isIncome: Boolean
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
     val color = if (isIncome) {
         if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
     } else {

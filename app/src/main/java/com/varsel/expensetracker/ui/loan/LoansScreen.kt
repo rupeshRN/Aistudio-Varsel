@@ -70,11 +70,6 @@ fun LoansScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(onClick = onAddLoanClick) {
-                        Icon(imageVector = Icons.Outlined.Add, contentDescription = "Add Loan")
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )

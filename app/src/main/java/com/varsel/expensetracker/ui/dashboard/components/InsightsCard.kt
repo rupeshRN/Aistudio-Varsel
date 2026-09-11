@@ -3,8 +3,8 @@ package com.varsel.expensetracker.ui.dashboard.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import com.varsel.expensetracker.ui.theme.isDark
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -108,7 +108,7 @@ private fun ActionableInsightTile(
     insight: FinancialInsight,
     onClick: () -> Unit
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
 
     val (accentColor, bgColor, borderColor, actionTag) = when (insight.type) {
         InsightType.POSITIVE -> {

@@ -1,6 +1,5 @@
 package com.varsel.expensetracker.ui.components
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.design.AppDimensions
 import com.varsel.expensetracker.ui.model.TransactionUiModel
+import com.varsel.expensetracker.ui.theme.isDark
 
 @Composable
 fun TransactionCard(
@@ -25,7 +25,7 @@ fun TransactionCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
     val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
     val expenseColor = if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
     val transferColor = if (isDark) Color(0xFFD1C4E9) else Color(0xFF5E35B1)

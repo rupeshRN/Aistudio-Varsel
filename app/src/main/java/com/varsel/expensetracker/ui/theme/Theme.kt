@@ -172,3 +172,7 @@ fun VarselExpenseTrackerTheme(
         content = content
     )
 }
+
+val androidx.compose.material3.ColorScheme.isDark: Boolean
+    get() = (0.299f * surface.red + 0.587f * surface.green + 0.114f * surface.blue) < 0.5f
+

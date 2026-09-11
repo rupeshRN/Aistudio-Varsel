@@ -1,7 +1,6 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -19,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.ui.model.BalanceSummaryUiModel
+import com.varsel.expensetracker.ui.theme.isDark
 import kotlin.math.abs
 
 @Composable
@@ -29,7 +29,7 @@ fun BalanceCard(
     onToggleVisibility: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
 
     // Hero Balance Card with Rich Tonal Depth Gradient
     val heroGradient = Brush.linearGradient(
@@ -185,7 +185,7 @@ private fun IncomeExpensePill(
     isBalanceHidden: Boolean,
     changePercent: Double?
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
 
     // High Contrast Semantic Green & Red Palettes matching Transaction Detail
     val primaryColor = if (isIncome) {

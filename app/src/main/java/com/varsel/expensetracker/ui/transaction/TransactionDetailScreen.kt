@@ -187,7 +187,7 @@ fun TransactionDetailScreen(
                     val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
                     val isTransfer = state.selectedRole == TransactionRole.TRANSFER_IN || state.selectedRole == TransactionRole.TRANSFER_OUT
 
-                    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+                    val isDark = (0.299f * MaterialTheme.colorScheme.surface.red + 0.587f * MaterialTheme.colorScheme.surface.green + 0.114f * MaterialTheme.colorScheme.surface.blue) < 0.5f
                     val headerColor = when {
                         isTransfer -> if (isDark) Color(0xFFD1C4E9) else Color(0xFF5E35B1)
                         isIncome -> if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)

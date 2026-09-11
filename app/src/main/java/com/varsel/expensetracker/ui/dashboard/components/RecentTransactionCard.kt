@@ -1,7 +1,6 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.category.CategoryIconCatalog
 import com.varsel.expensetracker.ui.design.CategoryPalette
 import com.varsel.expensetracker.ui.model.TransactionUiModel
+import com.varsel.expensetracker.ui.theme.isDark
 
 private data class TransactionIconStyle(
     val icon: ImageVector,
@@ -35,7 +35,7 @@ fun RecentTransactionCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
     val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
     val expenseColor = if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
     val transferColor = if (isDark) Color(0xFFD1C4E9) else Color(0xFF5E35B1)

@@ -5,7 +5,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -29,6 +28,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.category.CategoryMetadata
 import com.varsel.expensetracker.ui.components.BankLogoBadge
+import com.varsel.expensetracker.ui.theme.isDark
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -70,8 +71,9 @@ fun AddEntryBottomSheet(
     ) -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
     val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // State
     var selectedType by remember { mutableStateOf(initialType) }
@@ -121,10 +123,17 @@ fun AddEntryBottomSheet(
     var actualCashBalanceText by remember { mutableStateOf("") }
 
     val amount = amountText.toDoubleOrNull() ?: 0.0
+    val isAmountEntered = amountText.isNotBlank()
     val isValidAmount = amount > 0.0
+    val isTransfer = selectedType == ManualEntryType.TRANSFER
+    val isSameTransferAccount = isTransfer && fromAccount.id == toAccount.id
+    val canSave = isValidAmount && !isSameTransferAccount
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            keyboardController?.hide()
+            onDismiss()
+        },
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         dragHandle = { BottomSheetDefaults.DragHandle() },
@@ -168,7 +177,11 @@ fun AddEntryBottomSheet(
                 }
 
                 IconButton(
-                    onClick = onDismiss,
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        onDismiss()
+                    },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
@@ -210,7 +223,11 @@ fun AddEntryBottomSheet(
                         "%.2f".format(Locale.US, updated)
                     }
                 },
-                onClear = { amountText = "" }
+                onClear = { amountText = "" },
+                onDone = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                }
             )
 
             // Account Selector
@@ -252,6 +269,10 @@ fun AddEntryBottomSheet(
                                 onAdjustCashBalance(actual, selectedAccount.balance, selectedDateMillis)
                                 onDismiss()
                             }
+                        },
+                        onDone = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
                         }
                     )
                 }
@@ -272,77 +293,136 @@ fun AddEntryBottomSheet(
                     noteText = noteText,
                     onNoteChange = { noteText = it },
                     selectedDateMillis = selectedDateMillis,
-                    onDateClick = { showDatePicker = true }
+                    onDateClick = { showDatePicker = true },
+                    onDone = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
                 )
             }
 
-            // Primary CTA Button
+            // Primary CTA Button & Validation Feedback
             if (!showCashReconciliation) {
-                val buttonText = when (selectedType) {
-                    ManualEntryType.EXPENSE -> if (isValidAmount) "Record Expense (₹${formatAmountPreview(amount)})" else "Enter Amount"
-                    ManualEntryType.INCOME -> if (isValidAmount) "Record Income (₹${formatAmountPreview(amount)})" else "Enter Amount"
-                    ManualEntryType.TRANSFER -> if (isValidAmount) "Confirm Transfer (₹${formatAmountPreview(amount)})" else "Enter Amount"
+                val buttonText = when {
+                    !isAmountEntered -> "Enter Amount"
+                    !isValidAmount -> "Invalid Amount"
+                    isSameTransferAccount -> "Select Different Accounts"
+                    selectedType == ManualEntryType.EXPENSE -> "Record Expense (₹${formatAmountPreview(amount)})"
+                    selectedType == ManualEntryType.INCOME -> "Record Income (₹${formatAmountPreview(amount)})"
+                    selectedType == ManualEntryType.TRANSFER -> "Confirm Transfer (₹${formatAmountPreview(amount)})"
+                    else -> "Save Entry"
                 }
 
-                val buttonColor = when (selectedType) {
-                    ManualEntryType.EXPENSE -> MaterialTheme.colorScheme.primary
-                    ManualEntryType.INCOME -> Color(0xFF2E7D32)
-                    ManualEntryType.TRANSFER -> MaterialTheme.colorScheme.secondary
+                val buttonColor = when {
+                    !canSave -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    selectedType == ManualEntryType.EXPENSE -> MaterialTheme.colorScheme.primary
+                    selectedType == ManualEntryType.INCOME -> if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
+                    selectedType == ManualEntryType.TRANSFER -> MaterialTheme.colorScheme.secondary
+                    else -> MaterialTheme.colorScheme.primary
                 }
 
-                Button(
-                    onClick = {
-                        if (isValidAmount) {
-                            when (selectedType) {
-                                ManualEntryType.EXPENSE, ManualEntryType.INCOME -> {
-                                    onSaveExpenseOrIncome(
-                                        selectedType,
-                                        amount,
-                                        selectedCategory,
-                                        noteText.trim(),
-                                        selectedDateMillis,
-                                        selectedAccount
-                                    )
-                                }
-                                ManualEntryType.TRANSFER -> {
-                                    onSaveTransfer(
-                                        amount,
-                                        fromAccount,
-                                        toAccount,
-                                        noteText.trim(),
-                                        selectedDateMillis
-                                    )
-                                }
-                            }
-                            onDismiss()
-                        }
-                    },
-                    enabled = isValidAmount,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = buttonColor,
-                        contentColor = Color.White
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp)
-                        .testTag("save_entry_button")
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = when (selectedType) {
-                            ManualEntryType.EXPENSE -> Icons.Outlined.ArrowDownward
-                            ManualEntryType.INCOME -> Icons.Outlined.ArrowUpward
-                            ManualEntryType.TRANSFER -> Icons.Outlined.SwapHoriz
+                    // Inline Validation Helper / Warning Banner
+                    AnimatedVisibility(
+                        visible = !canSave,
+                        enter = fadeIn() + expandVertically(),
+                        exit = fadeOut() + shrinkVertically()
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (!isAmountEntered) {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                            } else {
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (!isAmountEntered) Icons.Outlined.Info else Icons.Outlined.WarningAmber,
+                                    contentDescription = null,
+                                    tint = if (!isAmountEntered) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = when {
+                                        !isAmountEntered -> "Enter transaction amount above to enable saving"
+                                        !isValidAmount -> "Amount must be greater than ₹0.00"
+                                        isSameTransferAccount -> "Source and destination accounts must be different"
+                                        else -> ""
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (!isAmountEntered) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            if (canSave) {
+                                when (selectedType) {
+                                    ManualEntryType.EXPENSE, ManualEntryType.INCOME -> {
+                                        onSaveExpenseOrIncome(
+                                            selectedType,
+                                            amount,
+                                            selectedCategory,
+                                            noteText.trim(),
+                                            selectedDateMillis,
+                                            selectedAccount
+                                        )
+                                    }
+                                    ManualEntryType.TRANSFER -> {
+                                        onSaveTransfer(
+                                            amount,
+                                            fromAccount,
+                                            toAccount,
+                                            noteText.trim(),
+                                            selectedDateMillis
+                                        )
+                                    }
+                                }
+                                onDismiss()
+                            }
                         },
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = buttonText,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                        enabled = canSave,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = buttonColor,
+                            contentColor = if (canSave) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                            disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .testTag("save_entry_button")
+                    ) {
+                        Icon(
+                            imageVector = when (selectedType) {
+                                ManualEntryType.EXPENSE -> Icons.Outlined.ArrowDownward
+                                ManualEntryType.INCOME -> Icons.Outlined.ArrowUpward
+                                ManualEntryType.TRANSFER -> Icons.Outlined.SwapHoriz
+                            },
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = buttonText,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
@@ -398,16 +478,17 @@ private fun SingleChoiceSegmentedRow(
         ) {
             ManualEntryType.values().forEach { type ->
                 val isSelected = selectedType == type
+                val isDark = MaterialTheme.colorScheme.isDark
                 val containerColor = when {
                     !isSelected -> Color.Transparent
                     type == ManualEntryType.EXPENSE -> MaterialTheme.colorScheme.errorContainer
-                    type == ManualEntryType.INCOME -> Color(0xFFC8E6C9)
+                    type == ManualEntryType.INCOME -> if (isDark) Color(0xFF1B5E20).copy(alpha = 0.5f) else Color(0xFFC8E6C9)
                     else -> MaterialTheme.colorScheme.primaryContainer
                 }
                 val contentColor = when {
                     !isSelected -> MaterialTheme.colorScheme.onSurfaceVariant
                     type == ManualEntryType.EXPENSE -> MaterialTheme.colorScheme.onErrorContainer
-                    type == ManualEntryType.INCOME -> Color(0xFF1B5E20)
+                    type == ManualEntryType.INCOME -> if (isDark) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
                     else -> MaterialTheme.colorScheme.onPrimaryContainer
                 }
 
@@ -454,9 +535,10 @@ private fun HeroAmountCard(
     onAmountChange: (String) -> Unit,
     selectedType: ManualEntryType,
     onAddIncrement: (Double) -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    onDone: () -> Unit = {}
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
     val containerColor = if (isDark) {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
     } else {
@@ -523,6 +605,9 @@ private fun HeroAmountCard(
                         keyboardType = KeyboardType.Decimal,
                         imeAction = ImeAction.Done
                     ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { onDone() }
+                    ),
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
@@ -548,6 +633,16 @@ private fun HeroAmountCard(
                         )
                     }
                 }
+            }
+
+            val currentVal = amountText.toDoubleOrNull()
+            if (amountText.isNotEmpty() && (currentVal == null || currentVal <= 0.0)) {
+                Text(
+                    text = "Amount must be greater than ₹0",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Medium
+                )
             }
 
             // Quick Increment Chips
@@ -881,12 +976,19 @@ private fun CashReconciliationCard(
     currentCashBalance: Double,
     actualBalanceText: String,
     onActualBalanceChange: (String) -> Unit,
-    onApplyAdjustment: () -> Unit
+    onApplyAdjustment: () -> Unit,
+    onDone: () -> Unit = {}
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+    val cardBg = if (isDark) Color(0xFF1B5E20).copy(alpha = 0.2f) else Color(0xFF2E7D32).copy(alpha = 0.08f)
+    val cardBorder = if (isDark) Color(0xFF81C784).copy(alpha = 0.35f) else Color(0xFF2E7D32).copy(alpha = 0.3f)
+    val accentGreen = if (isDark) Color(0xFF81C784) else Color(0xFF2E7D32)
+    val titleGreen = if (isDark) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
+
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF2E7D32).copy(alpha = 0.08f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2E7D32).copy(alpha = 0.3f)),
+        color = cardBg,
+        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorder),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -907,20 +1009,20 @@ private fun CashReconciliationCard(
                     Icon(
                         imageVector = Icons.Outlined.Tune,
                         contentDescription = null,
-                        tint = Color(0xFF2E7D32),
+                        tint = accentGreen,
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
                         text = "Counted your cash? Adjust Wallet Balance",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1B5E20)
+                        color = titleGreen
                     )
                 }
                 Icon(
                     imageVector = if (isExpanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                     contentDescription = null,
-                    tint = Color(0xFF2E7D32),
+                    tint = accentGreen,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -941,7 +1043,13 @@ private fun CashReconciliationCard(
                         onValueChange = onActualBalanceChange,
                         label = { Text("Physical Cash in Hand (₹)") },
                         placeholder = { Text("e.g. 850") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { onDone() }
+                        ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -954,13 +1062,13 @@ private fun CashReconciliationCard(
                             text = "Adjustment: $diffText (from current ₹${formatAmountPreview(currentCashBalance)} to ₹${formatAmountPreview(actual)})",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
-                            color = if (diff >= 0) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error
+                            color = if (diff >= 0) accentGreen else MaterialTheme.colorScheme.error
                         )
 
                         Button(
                             onClick = onApplyAdjustment,
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                            colors = ButtonDefaults.buttonColors(containerColor = accentGreen),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Reconcile Cash Balance to ₹${formatAmountPreview(actual)}")
@@ -1051,7 +1159,8 @@ private fun NoteAndDateSection(
     noteText: String,
     onNoteChange: (String) -> Unit,
     selectedDateMillis: Long,
-    onDateClick: () -> Unit
+    onDateClick: () -> Unit,
+    onDone: () -> Unit = {}
 ) {
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     val isToday = remember(selectedDateMillis) {
@@ -1078,6 +1187,12 @@ private fun NoteAndDateSection(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
+            keyboardOptions = KeyboardOptions(
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(
+                onDone = { onDone() }
+            ),
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier.fillMaxWidth()

@@ -1,7 +1,6 @@
 package com.varsel.expensetracker.ui.reports.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.varsel.expensetracker.ui.theme.isDark
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
@@ -41,7 +41,7 @@ fun NetCashFlowCard(
     netCashFlow: Double,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = MaterialTheme.colorScheme.isDark
 
     // High Contrast Semantic Green & Red Palettes matching Dashboard & Transactions
     val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
