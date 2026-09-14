@@ -715,7 +715,9 @@ private fun calculateEffectiveExpense(
                         emoji = emoji,
                         title = "${topCategory.key} is top expense",
                         description = "Accounts for $percentage% ($formattedAmount) of your spending this month.",
-                        type = InsightType.NEUTRAL
+                        type = InsightType.NEUTRAL,
+                        metricHighlight = formattedAmount,
+                        actionLabel = "Review Category"
                     )
                 )
             }
@@ -732,7 +734,9 @@ private fun calculateEffectiveExpense(
                         emoji = "📉",
                         title = "Spending is down",
                         description = "You spent $formattedDiff less than this time last month (↓ $pctVal%).",
-                        type = InsightType.POSITIVE
+                        type = InsightType.POSITIVE,
+                        metricHighlight = "↓ $pctVal%",
+                        actionLabel = "View Trend"
                     )
                 )
             } else if (expenseChangePercent > 10) {
@@ -742,7 +746,9 @@ private fun calculateEffectiveExpense(
                         emoji = "📈",
                         title = "Spending has increased",
                         description = "You're spending $pctVal% ($formattedDiff) more compared to last month.",
-                        type = InsightType.ATTENTION
+                        type = InsightType.ATTENTION,
+                        metricHighlight = "↑ $pctVal%",
+                        actionLabel = "Analyze Spike"
                     )
                 )
             }
@@ -759,7 +765,9 @@ private fun calculateEffectiveExpense(
                         emoji = "💰",
                         title = "Net Savings: $savingsRate%",
                         description = "$formattedSavings net surplus saved from this month's income.",
-                        type = InsightType.POSITIVE
+                        type = InsightType.POSITIVE,
+                        metricHighlight = "$savingsRate% Saved",
+                        actionLabel = "View Surplus"
                     )
                 )
             } else {
@@ -769,7 +777,9 @@ private fun calculateEffectiveExpense(
                         emoji = "⚠️",
                         title = "Deficit this month",
                         description = "Expenses exceeded total income by $formattedDeficit this month.",
-                        type = InsightType.ATTENTION
+                        type = InsightType.ATTENTION,
+                        metricHighlight = "-$formattedDeficit",
+                        actionLabel = "Review Expenses"
                     )
                 )
             }
@@ -781,7 +791,9 @@ private fun calculateEffectiveExpense(
                     emoji = "💡",
                     title = "Automated Insights",
                     description = "Import your monthly bank statements to view instant spending analytics and savings rates.",
-                    type = InsightType.NEUTRAL
+                    type = InsightType.NEUTRAL,
+                    metricHighlight = "Quick Start",
+                    actionLabel = "Import Statements"
                 )
             )
         }

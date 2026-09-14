@@ -10,5 +10,7 @@ data class FinancialInsight(
     val emoji: String,
     val title: String,
     val description: String,
-    val type: InsightType = InsightType.NEUTRAL
+    val type: InsightType = InsightType.NEUTRAL,
+    val metricHighlight: String? = null,
+    val actionLabel: String? = null
 )

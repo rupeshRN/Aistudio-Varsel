@@ -141,6 +141,7 @@ fun RecentTransactionCard(
             }
             val prefix = when {
                 transaction.isIncome -> "+"
+                transaction.isTransfer -> ""
                 else -> "-"
             }
             Text(

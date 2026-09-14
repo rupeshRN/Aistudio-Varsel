@@ -1,16 +1,21 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.model.TransactionUiModel
+import com.varsel.expensetracker.ui.theme.isDark
 
 @Composable
 fun DashboardRecentSection(
@@ -19,38 +24,72 @@ fun DashboardRecentSection(
     onTransactionClick: (TransactionUiModel) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+    val cardBg = if (isDark) Color(0xFF0F172A).copy(alpha = 0.65f) else Color(0xFFFFFFFF)
+    val cardBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFE2E8F0)
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = "Recent Transactions",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.ReceiptLong,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Recent Activity",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
 
             if (transactions.isNotEmpty()) {
-                TextButton(
-                    onClick = onViewAll,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9),
+                    border = BorderStroke(
+                        1.dp,
+                        if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFCBD5E1)
+                    ),
+                    onClick = onViewAll
                 ) {
-                    Text(
-                        text = "View All",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "View All",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
         }
@@ -58,8 +97,9 @@ fun DashboardRecentSection(
         if (transactions.isEmpty()) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+                shape = RoundedCornerShape(20.dp),
+                color = cardBg,
+                border = BorderStroke(1.dp, cardBorder)
             ) {
                 Column(
                     modifier = Modifier
@@ -88,12 +128,10 @@ fun DashboardRecentSection(
         } else {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.20f)
-                )
+                shape = RoundedCornerShape(20.dp),
+                color = cardBg,
+                shadowElevation = if (isDark) 0.dp else 2.dp,
+                border = BorderStroke(1.dp, cardBorder)
             ) {
                 Column(
                     modifier = Modifier
@@ -109,8 +147,8 @@ fun DashboardRecentSection(
                         if (index < transactions.take(5).lastIndex) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(horizontal = 14.dp),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f),
-                                thickness = 0.8.dp
+                                color = if (isDark) Color(0xFF334155).copy(alpha = 0.35f) else Color(0xFFE2E8F0),
+                                thickness = 0.6.dp
                             )
                         }
                     }
@@ -119,3 +157,4 @@ fun DashboardRecentSection(
         }
     }
 }
+

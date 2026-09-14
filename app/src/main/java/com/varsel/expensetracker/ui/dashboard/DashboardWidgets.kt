@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.varsel.expensetracker.ui.theme.isDark
 import com.varsel.expensetracker.ui.budget.model.BudgetUiModel
 import com.varsel.expensetracker.ui.components.BankLogoBadge
 import com.varsel.expensetracker.ui.model.AccountBalanceUiModel
@@ -41,6 +42,7 @@ fun DashboardBudgetsWidget(
     onSelectBudgets: (String) -> Unit,
     onNavigateToBudgets: () -> Unit
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
     var showSelectionDialog by remember { mutableStateOf(false) }
 
     if (showSelectionDialog) {
@@ -53,10 +55,14 @@ fun DashboardBudgetsWidget(
         )
     }
 
+    val cardBg = if (isDark) Color(0xFF0F172A).copy(alpha = 0.65f) else Color(0xFFFFFFFF)
+    val cardBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFE2E8F0)
+
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        color = cardBg,
+        border = BorderStroke(1.dp, cardBorder),
+        shadowElevation = if (isDark) 0.dp else 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
@@ -64,8 +70,8 @@ fun DashboardBudgetsWidget(
             .testTag("dashboard_budgets_widget")
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header
             Row(
@@ -79,7 +85,7 @@ fun DashboardBudgetsWidget(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
                         modifier = Modifier.size(30.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -93,21 +99,26 @@ fun DashboardBudgetsWidget(
                     }
                     Text(
                         text = "Monthly Budgets",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     if (allBudgets.isNotEmpty()) {
                         val countText = if (currentSelection == "ALL" || currentSelection.isBlank() || visibleBudgets.size == allBudgets.size) {
-                            "(${allBudgets.size})"
+                            "${allBudgets.size}"
                         } else {
-                            "(${visibleBudgets.size}/${allBudgets.size})"
+                            "${visibleBudgets.size}/${allBudgets.size}"
                         }
-                        Text(
-                            text = countText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Text(
+                                text = countText,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
 
@@ -131,7 +142,7 @@ fun DashboardBudgetsWidget(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
                         contentDescription = "View Budgets",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                 }
             }
@@ -152,91 +163,108 @@ fun DashboardBudgetsWidget(
                     Text("Create Budget")
                 }
             } else {
-                // Concise Budget items
+                // Concise 2-Line Budget items
                 visibleBudgets.forEachIndexed { index, budgetItem ->
                     val isOver = budgetItem.isOverBudget
                     val spentRatio = budgetItem.spentRatio.coerceIn(0f, 1f)
                     val progressColor = when {
                         isOver -> Color(0xFFE53935)
-                        spentRatio >= 0.85f -> Color(0xFFFFA000)
+                        spentRatio >= 0.85f -> Color(0xFFF59E0B)
                         else -> MaterialTheme.colorScheme.primary
                     }
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        // Line 1: Name + days left on left, Spent / Total + % tag on right
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = budgetItem.budget.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
                                 modifier = Modifier.weight(1f, fill = false)
-                            )
+                            ) {
+                                Text(
+                                    text = budgetItem.budget.name,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = "• ${budgetItem.daysRemaining}d left",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                                )
+                            }
+
                             Spacer(modifier = Modifier.width(8.dp))
+
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text(
                                     text = "${formatMoney(budgetItem.amountSpent)} / ${formatMoney(budgetItem.budget.amount)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(
-                                    text = "${budgetItem.percentSpent}%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isOver) Color(0xFFD32F2F) else progressColor
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = (if (isOver) Color(0xFFEF4444) else progressColor).copy(alpha = 0.14f)
+                                ) {
+                                    Text(
+                                        text = "${budgetItem.percentSpent}%",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        ),
+                                        color = if (isOver) Color(0xFFEF4444) else progressColor,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
                             }
                         }
 
-                        LinearProgressIndicator(
-                            progress = { spentRatio },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(5.dp)
-                                .clip(RoundedCornerShape(3.dp)),
-                            color = progressColor,
-                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                        )
-
+                        // Line 2: Progress track on left, remaining amount on right
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
+                            LinearProgressIndicator(
+                                progress = { spentRatio },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = progressColor,
+                                trackColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+                            )
+
                             val remainingText = if (isOver) {
-                                "₹%,.0f over limit".format(budgetItem.overBudgetAmount)
+                                "₹%,.0f over".format(budgetItem.overBudgetAmount)
                             } else {
                                 "₹%,.0f left".format(budgetItem.amountLeft)
                             }
                             Text(
                                 text = remainingText,
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = if (isOver) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (isOver) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "${budgetItem.daysRemaining} days left",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = if (isOver) Color(0xFFEF4444) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
                     if (index < visibleBudgets.lastIndex) {
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            color = if (isDark) Color(0xFF334155).copy(alpha = 0.35f) else Color(0xFFE2E8F0),
                             thickness = 0.5.dp,
-                            modifier = Modifier.padding(vertical = 2.dp)
+                            modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
                 }
@@ -251,13 +279,15 @@ fun DashboardAccountsWidget(
     isBalanceHidden: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .testTag("dashboard_accounts_widget"),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Section Header - Unboxed, clean styling without duplicate eye button
+        // Section Header - Clean Fintech styling
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -265,48 +295,69 @@ fun DashboardAccountsWidget(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.CreditCard,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                val sectionTitle = if (snapshots.isEmpty()) {
-                    "Linked Accounts"
-                } else {
-                    "Linked Accounts (${snapshots.size})"
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.CreditCard,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
                 }
                 Text(
-                    text = sectionTitle,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    text = "Linked Accounts",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                if (snapshots.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Text(
+                            text = "${snapshots.size}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
             }
         }
 
         if (snapshots.isEmpty()) {
-            // Clean, unboxed minimal placeholder without card background
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp, horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = if (isDark) Color(0xFF0F172A).copy(alpha = 0.5f) else Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, if (isDark) Color(0xFF334155).copy(alpha = 0.4f) else Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AccountBalanceWallet,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(24.dp)
-                )
-                Text(
-                    text = "Import bank statements to view your account balances.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "Import bank statements to view your account balances.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         } else {
             val pagerState = rememberPagerState(initialPage = 0, pageCount = { snapshots.size })
@@ -321,58 +372,82 @@ fun DashboardAccountsWidget(
                     pageSpacing = 12.dp
                 ) { page ->
                     val account = snapshots[page]
+                    val displayName = if (account.bankShortName.isNotBlank() && account.bankShortName != "Bank") {
+                        account.bankShortName
+                    } else if (account.bankName.isNotBlank() && account.bankName != "Bank Account") {
+                        com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(account.bankName)
+                    } else {
+                        "Bank Account"
+                    }
+
+                    // Compact 2-Line Fintech Account Card
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isDark) Color(0xFF0F172A) else Color(0xFFFFFFFF),
+                        border = BorderStroke(
+                            1.dp,
+                            if (isDark) Color(0xFF334155).copy(alpha = 0.6f) else Color(0xFFE2E8F0)
+                        ),
+                        shadowElevation = if (isDark) 0.dp else 1.5.dp,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             BankLogoBadge(
                                 bankName = account.bankName,
-                                size = 42.dp
+                                size = 36.dp
                             )
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                val displayName = if (account.bankShortName.isNotBlank() && account.bankShortName != "Bank") {
-                                    account.bankShortName
-                                } else if (account.bankName.isNotBlank() && account.bankName != "Bank Account") {
-                                    com.varsel.expensetracker.util.BankInfoHelper.getBankShortName(account.bankName)
-                                } else {
-                                    "Bank Account"
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                // Line 1: Bank Name on left, Balance on right
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = displayName,
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (isBalanceHidden) "₹ •••••" else formatMoney(account.balance),
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            letterSpacing = (-0.3).sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
                                 }
-                                Text(
-                                    text = displayName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = account.accountDisplayName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
 
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = if (isBalanceHidden) "₹ •••••" else formatMoney(account.balance),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Available",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
+                                // Line 2: Account Display Name on left, "Available Balance" on right
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = account.accountDisplayName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = "Available Balance",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+                                    )
+                                }
                             }
                         }
                     }
@@ -382,7 +457,7 @@ fun DashboardAccountsWidget(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 2.dp),
+                            .padding(top = 4.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -392,11 +467,11 @@ fun DashboardAccountsWidget(
                                 modifier = Modifier
                                     .padding(horizontal = 3.dp)
                                     .height(5.dp)
-                                    .width(if (isSelected) 18.dp else 5.dp)
+                                    .width(if (isSelected) 20.dp else 5.dp)
                                     .clip(RoundedCornerShape(3.dp))
                                     .background(
                                         if (isSelected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                        else (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
                                     )
                             )
                         }
@@ -407,6 +482,7 @@ fun DashboardAccountsWidget(
     }
 }
 
+
 @Composable
 fun DashboardGoalsWidget(
     visibleGoals: List<BudgetUiModel>,
@@ -415,6 +491,7 @@ fun DashboardGoalsWidget(
     onSelectGoals: (String) -> Unit,
     onNavigateToGoals: () -> Unit
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
     var showSelectionDialog by remember { mutableStateOf(false) }
 
     if (showSelectionDialog) {
@@ -427,10 +504,14 @@ fun DashboardGoalsWidget(
         )
     }
 
+    val cardBg = if (isDark) Color(0xFF0F172A).copy(alpha = 0.65f) else Color(0xFFFFFFFF)
+    val cardBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFE2E8F0)
+
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        color = cardBg,
+        border = BorderStroke(1.dp, cardBorder),
+        shadowElevation = if (isDark) 0.dp else 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
@@ -438,8 +519,8 @@ fun DashboardGoalsWidget(
             .testTag("dashboard_goals_widget")
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -466,21 +547,26 @@ fun DashboardGoalsWidget(
                     }
                     Text(
                         text = "Savings Goals",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     if (allGoals.isNotEmpty()) {
                         val countText = if (currentSelection == "ALL" || currentSelection.isBlank() || visibleGoals.size == allGoals.size) {
-                            "(${allGoals.size})"
+                            "${allGoals.size}"
                         } else {
-                            "(${visibleGoals.size}/${allGoals.size})"
+                            "${visibleGoals.size}/${allGoals.size}"
                         }
-                        Text(
-                            text = countText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Text(
+                                text = countText,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
 
@@ -504,7 +590,7 @@ fun DashboardGoalsWidget(
                         imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
                         contentDescription = "View Goals",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                 }
             }
@@ -531,8 +617,9 @@ fun DashboardGoalsWidget(
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        // Line 1: Goal name on left, Target vs Saved + % pill on right
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -540,8 +627,7 @@ fun DashboardGoalsWidget(
                         ) {
                             Text(
                                 text = goal.budget.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 maxLines = 1,
                                 modifier = Modifier.weight(1f, fill = false)
@@ -553,57 +639,60 @@ fun DashboardGoalsWidget(
                             ) {
                                 Text(
                                     text = "${formatMoney(goal.amountSpent)} / ${formatMoney(goal.budget.amount)}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                Text(
-                                    text = "${goal.percentSpent}%",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
-                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = (if (isCompleted) Color(0xFF10B981) else MaterialTheme.colorScheme.primary).copy(alpha = 0.14f)
+                                ) {
+                                    Text(
+                                        text = "${goal.percentSpent}%",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        ),
+                                        color = if (isCompleted) Color(0xFF10B981) else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
                             }
                         }
 
-                        LinearProgressIndicator(
-                            progress = { ratio },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(5.dp)
-                                .clip(RoundedCornerShape(3.dp)),
-                            color = Color(0xFF4CAF50),
-                            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                        )
-
+                        // Line 2: Progress track on left, remaining target on right
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
+                            LinearProgressIndicator(
+                                progress = { ratio },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = if (isCompleted) Color(0xFF10B981) else MaterialTheme.colorScheme.primary,
+                                trackColor = if (isDark) Color(0xFF1E293B) else Color(0xFFE2E8F0)
+                            )
+
                             if (isCompleted) {
                                 Text(
-                                    text = "Goal reached! 🎉",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
+                                    text = "Reached! 🎉",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF10B981)
                                 )
                             } else {
                                 Text(
                                     text = "₹%,.0f to go".format(goal.amountLeft.coerceAtLeast(0.0)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color(0xFF2E7D32)
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Text(
-                                text = "${goal.percentSpent}% saved",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                            )
                         }
                     }
                     if (index < visibleGoals.lastIndex) {
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                            color = if (isDark) Color(0xFF334155).copy(alpha = 0.35f) else Color(0xFFE2E8F0),
                             thickness = 0.5.dp,
                             modifier = Modifier.padding(vertical = 2.dp)
                         )

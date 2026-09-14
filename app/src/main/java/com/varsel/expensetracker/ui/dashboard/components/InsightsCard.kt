@@ -1,16 +1,16 @@
 package com.varsel.expensetracker.ui.dashboard.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import com.varsel.expensetracker.ui.theme.isDark
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.ui.model.FinancialInsight
 import com.varsel.expensetracker.ui.model.InsightType
+import com.varsel.expensetracker.ui.theme.isDark
 
 @Composable
 fun InsightsCard(
@@ -32,11 +33,14 @@ fun InsightsCard(
 ) {
     if (insights.isEmpty()) return
 
+    val isDark = MaterialTheme.colorScheme.isDark
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { insights.size })
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Section Header
+        // Section Header with Insight Counter & Smart Badge
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -63,42 +67,50 @@ fun InsightsCard(
 
                 Text(
                     text = "Actionable Insights",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            ) {
-                Text(
-                    text = "${insights.size} updates",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
+            if (insights.size > 1) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    repeat(insights.size) { index ->
+                        val isSelected = pagerState.currentPage == index
+                        Box(
+                            modifier = Modifier
+                                .height(5.dp)
+                                .width(if (isSelected) 16.dp else 5.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary
+                                    else (if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1))
+                                )
+                        )
+                    }
+                }
             }
         }
 
-        // Actionable Insight Cards
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            insights.forEach { insight ->
-                ActionableInsightTile(
-                    insight = insight,
-                    onClick = {
-                        when (insight.type) {
-                            InsightType.POSITIVE -> onNavigateToAnalytics()
-                            InsightType.ATTENTION -> onNavigateToTransactions()
-                            InsightType.NEUTRAL -> onNavigateToAnalytics()
-                        }
+        // Swipeable Actionable Bento Card Deck
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth(),
+            pageSpacing = 10.dp
+        ) { page ->
+            val insight = insights[page]
+            ActionableInsightTile(
+                insight = insight,
+                onActionClick = {
+                    when (insight.type) {
+                        InsightType.POSITIVE -> onNavigateToAnalytics()
+                        InsightType.ATTENTION -> onNavigateToTransactions()
+                        InsightType.NEUTRAL -> onNavigateToAnalytics()
                     }
-                )
-            }
+                }
+            )
         }
     }
 }
@@ -106,106 +118,143 @@ fun InsightsCard(
 @Composable
 private fun ActionableInsightTile(
     insight: FinancialInsight,
-    onClick: () -> Unit
+    onActionClick: () -> Unit
 ) {
     val isDark = MaterialTheme.colorScheme.isDark
 
     val (accentColor, bgColor, borderColor, actionTag) = when (insight.type) {
         InsightType.POSITIVE -> {
-            val primary = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
-            val bg = if (isDark) Color(0xFF1B5E20).copy(alpha = 0.18f) else Color(0xFFE8F5E9).copy(alpha = 0.65f)
-            val border = if (isDark) Color(0xFF66BB6A).copy(alpha = 0.25f) else Color(0xFF2E7D32).copy(alpha = 0.20f)
-            Quad(primary, bg, border, "Good Momentum")
+            val primary = if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A)
+            val bg = if (isDark) Color(0xFF0F291E).copy(alpha = 0.75f) else Color(0xFFF0FDF4)
+            val border = if (isDark) Color(0xFF166534).copy(alpha = 0.60f) else Color(0xFFBBF7D0)
+            Quad(primary, bg, border, "Momentum")
         }
         InsightType.ATTENTION -> {
-            val primary = if (isDark) Color(0xFFEF5350) else Color(0xFFC62828)
-            val bg = if (isDark) Color(0xFFB71C1C).copy(alpha = 0.16f) else Color(0xFFFFEBEE).copy(alpha = 0.65f)
-            val border = if (isDark) Color(0xFFEF5350).copy(alpha = 0.25f) else Color(0xFFC62828).copy(alpha = 0.20f)
-            Quad(primary, bg, border, "Needs Attention")
+            val primary = if (isDark) Color(0xFFF87171) else Color(0xFFDC2626)
+            val bg = if (isDark) Color(0xFF2C1518).copy(alpha = 0.75f) else Color(0xFFFEF2F2)
+            val border = if (isDark) Color(0xFF991B1B).copy(alpha = 0.60f) else Color(0xFFFECACA)
+            Quad(primary, bg, border, "Action Needed")
         }
         InsightType.NEUTRAL -> {
             val primary = MaterialTheme.colorScheme.primary
-            val bg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
-            val border = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)
-            Quad(primary, bg, border, "Category Analysis")
+            val bg = if (isDark) Color(0xFF0F172A).copy(alpha = 0.75f) else Color(0xFFF8FAFC)
+            val border = if (isDark) Color(0xFF334155).copy(alpha = 0.60f) else Color(0xFFE2E8F0)
+            Quad(primary, bg, border, "Overview")
         }
     }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onActionClick),
+        shape = RoundedCornerShape(18.dp),
         color = bgColor,
-        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = if (isDark) 0.dp else 1.5.dp
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Distinct rounded Emoji Pill
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = accentColor.copy(alpha = 0.12f),
-                modifier = Modifier.size(38.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = insight.emoji,
-                        fontSize = 18.sp
-                    )
-                }
-            }
-
-            // Insight Narrative Content
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+            // Top Row: Emoji + Title + Metric Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = accentColor.copy(alpha = 0.14f),
+                        modifier = Modifier.size(34.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = insight.emoji,
+                                fontSize = 17.sp
+                            )
+                        }
+                    }
+
                     Text(
                         text = insight.title,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
                     )
+                }
 
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = accentColor.copy(alpha = 0.15f)
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Highlight Metric Tag or Status Tag
+                val tagText = insight.metricHighlight ?: actionTag
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = accentColor.copy(alpha = 0.14f)
+                ) {
+                    Text(
+                        text = tagText,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        ),
+                        color = accentColor,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp)
+                    )
+                }
+            }
+
+            // Middle Description
+            Text(
+                text = insight.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp,
+                maxLines = 2
+            )
+
+            // Bottom 1-Tap Action Pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val buttonText = insight.actionLabel ?: "View Details"
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = accentColor.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.25f)),
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onActionClick)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text(
-                            text = actionTag,
-                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            fontWeight = FontWeight.SemiBold,
-                            color = accentColor,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            text = buttonText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp
+                            ),
+                            color = accentColor
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                            contentDescription = null,
+                            tint = accentColor,
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }
-
-                Text(
-                    text = insight.description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 16.sp
-                )
             }
-
-            // Action Affordance Arrow
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = "View details",
-                tint = accentColor.copy(alpha = 0.85f),
-                modifier = Modifier.size(16.dp)
-            )
         }
     }
 }
