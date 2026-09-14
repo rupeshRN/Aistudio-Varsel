@@ -21,13 +21,10 @@ val selectedMonth: TransactionMonth? = null,
 )
 
 enum class TransactionFilter {
-
     All,
-
+    Expense,
     Income,
-
-    Expense
-
+    Transfer
 }
 
 private fun currentMonth(): String {

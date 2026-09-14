@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.ui.transaction
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -8,6 +9,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,17 +21,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SmallFloatingActionButton
@@ -43,11 +51,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.ui.theme.isDark
 import com.varsel.expensetracker.ui.transaction.components.AddTransactionBottomSheet
 import com.varsel.expensetracker.ui.transaction.components.ManualEntryMode
 import com.varsel.expensetracker.ui.transaction.components.MonthSelector
@@ -72,6 +83,8 @@ fun TransactionScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     var showAddTransactionSheet by remember { mutableStateOf(false) }
+    var isMonthMenuExpanded by remember { mutableStateOf(false) }
+    val isDark = MaterialTheme.colorScheme.isDark
 
     val showScrollToTop by remember {
         derivedStateOf {
@@ -81,76 +94,188 @@ fun TransactionScreen(
 
     val isScrolled by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 30
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24
         }
     }
 
-    val scrollFraction by animateFloatAsState(
-        targetValue = if (isScrolled) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "header_scroll_fraction"
+    // Month picker in the list is item 0; when scrolled past it, it is hidden
+    val isMonthPickerHidden by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 48
+        }
+    }
+
+    androidx.compose.runtime.LaunchedEffect(isMonthPickerHidden) {
+        if (!isMonthPickerHidden) {
+            isMonthMenuExpanded = false
+        }
+    }
+
+    val scrollElevation by animateFloatAsState(
+        targetValue = if (isScrolled) 3f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "scroll_elevation"
     )
 
     Scaffold(
         topBar = {
             Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = (3 * scrollFraction).dp,
-                shadowElevation = (2 * scrollFraction).dp,
+                color = MaterialTheme.colorScheme.background,
+                tonalElevation = scrollElevation.dp,
+                shadowElevation = (scrollElevation * 0.7f).dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(
-                            top = (16 - 6 * scrollFraction).dp,
-                            bottom = (10 - 4 * scrollFraction).dp,
-                            start = 16.dp,
-                            end = 16.dp
-                        )
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left-aligned header with dynamic scale on scroll and optional back navigation
+                    // Left section: optional back button + Title and context subtitle
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         if (canNavigateBack) {
-                            IconButton(
-                                onClick = onBackClick,
-                                modifier = Modifier.testTag("transaction_back_button")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                    contentDescription = "Back"
+                            Surface(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { onBackClick() }
+                                    .testTag("transaction_back_button"),
+                                shape = RoundedCornerShape(14.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                border = BorderStroke(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                                 )
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
-                        Text(
-                            text = "Transactions",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontSize = (22 - 3 * scrollFraction).sp
-                            ),
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Transactions",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = (-0.3).sp
+                                ),
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+
+                            Text(
+                                text = "${uiState.selectedMonth?.displayName ?: "All Time"} • ${uiState.transactions.size} records",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height((10 - 4 * scrollFraction).dp))
+                    // Right tactile action: Month Jumper Dropdown (shown only when scrollable month picker is scrolled out of view)
+                    AnimatedVisibility(
+                        visible = isMonthPickerHidden,
+                        enter = fadeIn(spring(stiffness = Spring.StiffnessMediumLow)) + scaleIn(initialScale = 0.85f),
+                        exit = fadeOut(spring(stiffness = Spring.StiffnessMediumLow)) + scaleOut(targetScale = 0.85f)
+                    ) {
+                        Box {
+                            Surface(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .clickable { isMonthMenuExpanded = true }
+                                    .testTag("month_jumper_button"),
+                                shape = RoundedCornerShape(14.dp),
+                                color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.6f) else Color(0xFFF1F5F9),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isMonthMenuExpanded) MaterialTheme.colorScheme.primary else if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFE2E8F0)
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.CalendarMonth,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = uiState.selectedMonth?.displayName ?: "Month",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 12.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowDropDown,
+                                        contentDescription = "Select Month",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
 
-                    // Dynamically moving Month Selector
-                    MonthSelector(
-                        months = uiState.availableMonths,
-                        selectedMonth = uiState.selectedMonth,
-                        onMonthSelected = { month ->
-                            viewModel.updateSelectedMonth(month)
-                            coroutineScope.launch {
-                                listState.scrollToItem(0)
+                            DropdownMenu(
+                                expanded = isMonthMenuExpanded,
+                                onDismissRequest = { isMonthMenuExpanded = false }
+                            ) {
+                                uiState.availableMonths.forEach { month ->
+                                    val isSelected = month == uiState.selectedMonth
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = month.displayName,
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                ),
+                                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Outlined.CalendarMonth,
+                                                contentDescription = null,
+                                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        },
+                                        trailingIcon = if (isSelected) {
+                                            {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        } else null,
+                                        onClick = {
+                                            isMonthMenuExpanded = false
+                                            viewModel.updateSelectedMonth(month)
+                                            coroutineScope.launch {
+                                                listState.animateScrollToItem(0)
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
-                    )
+                    }
                 }
             }
         },
@@ -170,8 +295,8 @@ fun TransactionScreen(
                                 listState.animateScrollToItem(0)
                             }
                         },
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowUp,
@@ -196,37 +321,56 @@ fun TransactionScreen(
     ) { padding ->
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .animateContentSize(),
             contentPadding = PaddingValues(
                 start = 16.dp,
                 end = 16.dp,
-                top = padding.calculateTopPadding() + 8.dp,
-                bottom = padding.calculateBottomPadding() + 80.dp
+                top = padding.calculateTopPadding() + 4.dp,
+                bottom = padding.calculateBottomPadding() + 84.dp
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
-                TransactionHeader(
-                    transactionCount = uiState.transactions.size
+            // 1. Month Switcher Pills (Horizontal scroll right above summary card)
+            item(key = "month_selector") {
+                MonthSelector(
+                    months = uiState.availableMonths,
+                    selectedMonth = uiState.selectedMonth,
+                    onMonthSelected = { month ->
+                        viewModel.updateSelectedMonth(month)
+                        coroutineScope.launch {
+                            listState.scrollToItem(0)
+                        }
+                    }
                 )
             }
 
-            item {
+            // 2. Hero Financial Summary Card (matches BalanceCard styling)
+            item(key = "monthly_summary_card") {
                 MonthlySummaryCard(
                     monthTitle = uiState.selectedMonth?.displayName ?: "",
                     income = uiState.monthlyIncome,
-                    expense = uiState.monthlyExpense
+                    expense = uiState.monthlyExpense,
+                    onCreditClick = {
+                        viewModel.updateFilter(TransactionFilter.Income)
+                    },
+                    onDebitClick = {
+                        viewModel.updateFilter(TransactionFilter.Expense)
+                    }
                 )
             }
 
-            item {
+            // 3. Search Bar
+            item(key = "search_bar") {
                 TransactionSearchBar(
                     query = uiState.searchQuery,
                     onQueryChange = viewModel::updateSearchQuery
                 )
             }
 
-            item {
+            // 4. Filter Chips Bar (All, Expenses, Income, Transfers)
+            item(key = "filter_bar") {
                 TransactionFilterBar(
                     filters = TransactionFilter.entries,
                     selectedFilter = uiState.selectedFilter,
@@ -234,11 +378,25 @@ fun TransactionScreen(
                 )
             }
 
+            // 5. Section Header for Activity Records (Placed directly above the list)
+            item(key = "transaction_header") {
+                TransactionHeader(
+                    transactionCount = uiState.transactions.size
+                )
+            }
+
+            // 6. Unified Grouped Transaction Ledger
             transactionList(
                 transactions = uiState.transactions,
                 onTransactionClick = { transaction ->
                     onTransactionClick(transaction.id)
-                }
+                },
+                onResetFilter = if (uiState.searchQuery.isNotEmpty() || uiState.selectedFilter != TransactionFilter.All) {
+                    {
+                        viewModel.updateSearchQuery("")
+                        viewModel.updateFilter(TransactionFilter.All)
+                    }
+                } else null
             )
         }
     }
@@ -282,4 +440,3 @@ fun TransactionScreen(
         )
     }
 }
-

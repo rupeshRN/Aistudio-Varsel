@@ -241,60 +241,34 @@ class TransactionViewModel @Inject constructor(
 
         }
 
-    val finalTransactions =
-        when (state.selectedFilter) {
-
-            TransactionFilter.All ->
-
-                searchTransactions
-
-            TransactionFilter.Income ->
-
-                searchTransactions.filter {
-
-                    it.type ==
-                            TransactionType.INCOME
-
-                }
-
-            TransactionFilter.Expense ->
-
-                searchTransactions.filter {
-
-                    it.type ==
-                            TransactionType.EXPENSE
-
-                }
-
-        }
-
-    val income =
-        finalTransactions
-            .filter {
-
-                it.type ==
-                        TransactionType.INCOME
-
-            }
-            .sumOf {
-
-                it.amount
-
+        val finalTransactions =
+            when (state.selectedFilter) {
+                TransactionFilter.All ->
+                    searchTransactions
+                TransactionFilter.Expense ->
+                    searchTransactions.filter {
+                        it.type == TransactionType.EXPENSE && !it.isTransfer
+                    }
+                TransactionFilter.Income ->
+                    searchTransactions.filter {
+                        it.type == TransactionType.INCOME && !it.isTransfer
+                    }
+                TransactionFilter.Transfer ->
+                    searchTransactions.filter {
+                        it.isTransfer
+                    }
             }
 
-    val expense =
-        finalTransactions
-            .filter {
+        val monthNonTransfers = monthTransactions.filter { !it.isTransfer }
+        val income =
+            monthNonTransfers
+                .filter { it.type == TransactionType.INCOME }
+                .sumOf { it.amount }
 
-                it.type ==
-                        TransactionType.EXPENSE
-
-            }
-            .sumOf {
-
-                it.amount
-
-            }
+        val expense =
+            monthNonTransfers
+                .filter { it.type == TransactionType.EXPENSE }
+                .sumOf { it.amount }
 
     _uiState.update {
 
