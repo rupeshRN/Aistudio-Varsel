@@ -42,10 +42,6 @@ fun TransactionFilterBar(
 ) {
     val isDark = MaterialTheme.colorScheme.isDark
 
-    val incomeColor = if (isDark) Color(0xFF66BB6A) else Color(0xFF2E7D32)
-    val expenseColor = if (isDark) Color(0xFFFF5252) else Color(0xFFC62828)
-    val transferColor = if (isDark) Color(0xFFD1C4E9) else Color(0xFF5E35B1)
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -56,52 +52,56 @@ fun TransactionFilterBar(
         filters.forEach { filter ->
             val isSelected = filter == selectedFilter
 
-            val (label, icon, activeColor) = when (filter) {
-                TransactionFilter.All -> Triple(
-                    "All",
-                    Icons.Outlined.FormatListBulleted,
-                    MaterialTheme.colorScheme.primary
+            val (label, icon, selectedBg, selectedBorder, selectedContent) = when (filter) {
+                TransactionFilter.All -> FilterPillColors(
+                    label = "All",
+                    icon = Icons.Outlined.FormatListBulleted,
+                    bg = if (isDark) Color(0xFF312E81).copy(alpha = 0.55f) else Color(0xFFEEF2FF),
+                    border = if (isDark) Color(0xFF6366F1) else Color(0xFFA5B4FC),
+                    content = if (isDark) Color(0xFFA5B4FC) else Color(0xFF4338CA)
                 )
-                TransactionFilter.Expense -> Triple(
-                    "Expenses",
-                    Icons.Outlined.ArrowUpward,
-                    expenseColor
+                TransactionFilter.Expense -> FilterPillColors(
+                    label = "Expenses",
+                    icon = Icons.Outlined.ArrowUpward,
+                    bg = if (isDark) Color(0xFF450A0A).copy(alpha = 0.65f) else Color(0xFFFEE2E2),
+                    border = if (isDark) Color(0xFFEF4444) else Color(0xFFFCA5A5),
+                    content = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C)
                 )
-                TransactionFilter.Income -> Triple(
-                    "Income",
-                    Icons.Outlined.ArrowDownward,
-                    incomeColor
+                TransactionFilter.Income -> FilterPillColors(
+                    label = "Income",
+                    icon = Icons.Outlined.ArrowDownward,
+                    bg = if (isDark) Color(0xFF052E16).copy(alpha = 0.65f) else Color(0xFFDCFCE7),
+                    border = if (isDark) Color(0xFF22C55E) else Color(0xFF86EFAC),
+                    content = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D)
                 )
-                TransactionFilter.Transfer -> Triple(
-                    "Transfers",
-                    Icons.Outlined.SwapHoriz,
-                    transferColor
+                TransactionFilter.Transfer -> FilterPillColors(
+                    label = "Transfers",
+                    icon = Icons.Outlined.SwapHoriz,
+                    bg = if (isDark) Color(0xFF2E1065).copy(alpha = 0.65f) else Color(0xFFF3E8FF),
+                    border = if (isDark) Color(0xFFA855F7) else Color(0xFFD8B4FE),
+                    content = if (isDark) Color(0xFFD8B4FE) else Color(0xFF6D28D9)
                 )
             }
 
+            val unselectedBg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.6f) else Color(0xFFFFFFFF)
+            val unselectedBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.6f) else Color(0xFFE2E8F0)
+            val unselectedContent = if (isDark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFF64748B)
+
             val containerColor by animateColorAsState(
-                targetValue = if (isSelected) {
-                    activeColor.copy(alpha = if (isDark) 0.22f else 0.14f)
-                } else {
-                    if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFFFFFFF)
-                },
-                animationSpec = tween(150),
+                targetValue = if (isSelected) selectedBg else unselectedBg,
+                animationSpec = tween(180),
                 label = "filter_container"
             )
 
-            val borderColor = if (isSelected) {
-                activeColor.copy(alpha = 0.65f)
-            } else {
-                if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFE2E8F0)
-            }
+            val borderColor by animateColorAsState(
+                targetValue = if (isSelected) selectedBorder else unselectedBorder,
+                animationSpec = tween(180),
+                label = "filter_border"
+            )
 
             val contentColor by animateColorAsState(
-                targetValue = if (isSelected) {
-                    if (isDark) activeColor else activeColor
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                animationSpec = tween(150),
+                targetValue = if (isSelected) selectedContent else unselectedContent,
+                animationSpec = tween(180),
                 label = "filter_content_color"
             )
 
@@ -112,10 +112,10 @@ fun TransactionFilterBar(
                 shape = RoundedCornerShape(12.dp),
                 color = containerColor,
                 border = BorderStroke(1.dp, borderColor),
-                shadowElevation = if (isSelected && !isDark) 1.dp else 0.dp
+                shadowElevation = 0.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -129,7 +129,8 @@ fun TransactionFilterBar(
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelMedium.copy(
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            letterSpacing = 0.2.sp
                         ),
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         color = contentColor
@@ -139,4 +140,12 @@ fun TransactionFilterBar(
         }
     }
 }
+
+private data class FilterPillColors(
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val bg: Color,
+    val border: Color,
+    val content: Color
+)
 
