@@ -478,9 +478,13 @@ composable(AppDestination.Reports.route) {
             navController.popBackStack()
         },
         onNavigateToTransactions = {
+            navController.popBackStack("import_statement", inclusive = true)
             navController.navigate(AppDestination.Transactions.route) {
-                popUpTo(AppDestination.Home.route)
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
                 launchSingleTop = true
+                restoreState = true
             }
         }
     )

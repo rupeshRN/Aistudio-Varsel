@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -50,22 +51,25 @@ class RecurringViewModel @Inject constructor(
     private val zoneId = ZoneId.systemDefault()
 
     val availableAccounts: StateFlow<List<AccountOption>> = statementSnapshotRepository.observeAllSnapshots()
-        .combine(MutableStateFlow(Unit)) { snapshots, _ ->
+        .map { snapshots ->
             val cashOption = AccountOption(
                 accountId = null,
                 accountLast4 = null,
                 bankName = "Cash",
                 displayName = "Cash Wallet"
             )
-            val snapshotOptions = snapshots.map {
-                val last4 = it.accountLast4 ?: "Unknown"
-                val bank = it.bankName ?: "Account"
+            val snapshotOptions = snapshots.mapNotNull { snap ->
+                val last4 = snap.accountLast4 ?: "Unknown"
+                val bank = snap.bankName ?: "Account"
+                val id = snap.accountId?.takeIf { it.isNotBlank() } ?: "${snap.bankName}_${snap.accountLast4}"
                 AccountOption(
-                    accountId = it.accountId,
-                    accountLast4 = it.accountLast4,
-                    bankName = it.bankName,
+                    accountId = snap.accountId ?: id,
+                    accountLast4 = snap.accountLast4,
+                    bankName = snap.bankName,
                     displayName = "$bank (•••• $last4)"
                 )
+            }.distinctBy {
+                it.accountId?.takeIf { id -> id.isNotBlank() } ?: "${it.bankName}_${it.accountLast4}"
             }
             listOf(cashOption) + snapshotOptions
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

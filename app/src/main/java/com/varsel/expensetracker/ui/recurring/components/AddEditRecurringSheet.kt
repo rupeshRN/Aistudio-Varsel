@@ -150,11 +150,24 @@ fun AddEditRecurringSheet(
         )
     }
 
-    // Default to first account or fallback cash
-    var selectedAccount by remember(item, availableAccounts) {
+    // Deduplicate accounts defensively by unique account identifier
+    val dedupedAccounts = remember(availableAccounts) {
+        val unique = availableAccounts.distinctBy {
+            it.accountId?.takeIf { id -> id.isNotBlank() } ?: "${it.bankName}_${it.accountLast4}_${it.displayName}"
+        }
+        unique.ifEmpty {
+            listOf(AccountOption(null, null, "Cash", "Cash Wallet"))
+        }
+    }
+
+    // Default to matching account or first account or fallback cash
+    var selectedAccount by remember(item, dedupedAccounts) {
         mutableStateOf(
-            availableAccounts.firstOrNull { it.accountId == item?.accountId }
-                ?: availableAccounts.firstOrNull()
+            dedupedAccounts.firstOrNull { acc ->
+                (item?.accountId != null && acc.accountId == item.accountId) ||
+                (!item?.accountLast4.isNullOrBlank() && acc.accountLast4 == item.accountLast4 && acc.bankName == item.bankName)
+            }
+                ?: dedupedAccounts.firstOrNull()
                 ?: AccountOption(null, null, "Cash", "Cash Wallet")
         )
     }
@@ -522,9 +535,7 @@ fun AddEditRecurringSheet(
             // Account / Source Picker (Matching AddEntryBottomSheet AccountPickerSection)
             AccountPickerRow(
                 selectedAccount = selectedAccount,
-                accounts = availableAccounts.ifEmpty {
-                    listOf(AccountOption(null, null, "Cash", "Cash Wallet"))
-                },
+                accounts = dedupedAccounts,
                 onAccountSelected = { selectedAccount = it }
             )
 
