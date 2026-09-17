@@ -21,8 +21,9 @@ data class RecurringItemEntity(
     val title: String,
     val notes: String? = null,
     val amount: Double,
+    val isVariableAmount: Boolean = false,
     val type: String, // EXPENSE, INCOME, SUBSCRIPTION
-    val frequency: String, // DAILY, WEEKLY, MONTHLY, YEARLY
+    val frequency: String, // DAILY, WEEKLY, MONTHLY, QUARTERLY, SEMI_ANNUALLY, YEARLY
     val startDateTimestamp: Long,
     val nextOccurrenceTimestamp: Long,
     val endDateTimestamp: Long? = null,
@@ -41,6 +42,7 @@ data class RecurringItemEntity(
             title = title,
             notes = notes,
             amount = amount,
+            isVariableAmount = isVariableAmount,
             type = try { RecurringType.valueOf(type) } catch (e: Exception) { RecurringType.EXPENSE },
             frequency = try { RecurringFrequency.valueOf(frequency) } catch (e: Exception) { RecurringFrequency.MONTHLY },
             startDateTimestamp = startDateTimestamp,
@@ -64,6 +66,7 @@ data class RecurringItemEntity(
                 title = item.title,
                 notes = item.notes,
                 amount = item.amount,
+                isVariableAmount = item.isVariableAmount,
                 type = item.type.name,
                 frequency = item.frequency.name,
                 startDateTimestamp = item.startDateTimestamp,

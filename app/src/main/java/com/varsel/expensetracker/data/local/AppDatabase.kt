@@ -42,7 +42,7 @@ import javax.inject.Provider
         BudgetEntity::class,
         RecurringItemEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -571,6 +571,21 @@ val MIGRATION_8_9 =
                     database.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_items_nextOccurrenceTimestamp ON recurring_items(nextOccurrenceTimestamp)")
                     database.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_items_isActive ON recurring_items(isActive)")
                     database.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_items_type ON recurring_items(type)")
+                }
+            }
+
+        val MIGRATION_19_20 =
+            object : Migration(19, 20) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    // Add recurringItemId to transactions table with index
+                    database.execSQL("ALTER TABLE transactions ADD COLUMN recurringItemId INTEGER")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_recurringItemId ON transactions(recurringItemId)")
+
+                    // Add isVariableAmount to recurring_items table
+                    database.execSQL("ALTER TABLE recurring_items ADD COLUMN isVariableAmount INTEGER NOT NULL DEFAULT 0")
                 }
             }
     }

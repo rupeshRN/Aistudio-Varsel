@@ -11,7 +11,9 @@ class SelectableTransaction(
 
     selected: Boolean = true,
 
-    val isDuplicate: Boolean = false
+    val isDuplicate: Boolean = false,
+
+    val matchedRecurringItem: com.varsel.expensetracker.domain.engine.RecurringMatchResult? = null
 
 ) {
 

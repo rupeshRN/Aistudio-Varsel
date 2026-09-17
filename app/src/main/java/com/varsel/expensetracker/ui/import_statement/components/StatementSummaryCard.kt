@@ -243,6 +243,21 @@ Row(
 
             }
 
+            if (summary.recurringMatchedCount > 0) {
+                Spacer(Modifier.height(12.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    StatisticCard(
+                        title = "Recurring Matched",
+                        value = "${summary.recurringMatchedCount} detected",
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
             Spacer(Modifier.height(24.dp))
 
             Divider()

@@ -222,8 +222,9 @@ fun DashboardRecurringWidget(
                                     )
                                 }
 
+                                val amountPrefix = if (isIncome) "+" else if (item.isVariableAmount) "~" else ""
                                 Text(
-                                    text = if (isIncome) "+${CurrencyFormatter.formatWhole(item.amount)}" else CurrencyFormatter.formatWhole(item.amount),
+                                    text = "$amountPrefix${CurrencyFormatter.formatWhole(item.amount)}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isIncome) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface

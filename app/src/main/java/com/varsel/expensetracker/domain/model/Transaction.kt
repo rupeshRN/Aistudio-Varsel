@@ -34,6 +34,14 @@ data class Transaction(
     val accountLast4: String? = null,
 
     /**
+     * Optional link to a RecurringItem (subscription or recurring expense/income).
+     *
+     * Enables automatic occurrence advancement and avoids duplicate ledger entries
+     * when reconciling imported bank statements against recurring schedules.
+     */
+     val recurringItemId: Long? = null,
+
+    /**
      * Logical Financial Event link.
      *
      * Used for:

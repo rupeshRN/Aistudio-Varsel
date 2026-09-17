@@ -9,7 +9,9 @@ import com.varsel.expensetracker.developer.DeveloperRepository
 import com.varsel.expensetracker.developer.ParserDiagnostics
 import com.varsel.expensetracker.developer.ParserDiagnosticsManager
 import com.varsel.expensetracker.domain.engine.AutoTransferReconciliationEngine
+import com.varsel.expensetracker.domain.engine.RecurringMatcherEngine
 import com.varsel.expensetracker.domain.model.TransactionType
+import com.varsel.expensetracker.domain.repository.RecurringRepository
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.parser.StatementImportResult
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -72,6 +75,10 @@ class ImportViewModel @Inject constructor(
     private val developerRepository: DeveloperRepository,
 
     private val autoTransferReconciliationEngine: AutoTransferReconciliationEngine,
+
+    private val recurringRepository: RecurringRepository,
+
+    private val recurringMatcherEngine: RecurringMatcherEngine,
 
     @ApplicationContext private val context: Context
 
@@ -331,9 +338,20 @@ class ImportViewModel @Inject constructor(
                     )
 
                 // --------------------------------------------------
+                // Recurring & Subscription Auto-Matching
+                // --------------------------------------------------
+
+                val activeRecurringItems = try {
+                    recurringRepository.getActiveRecurringItems().first()
+                } catch (e: Exception) {
+                    emptyList()
+                }
+
+                // --------------------------------------------------
                 // Build preview transactions
                 // --------------------------------------------------
 
+                var recurringMatchedCount = 0
                 val selectableTransactions =
                     result.transactions.map { transaction ->
 
@@ -345,18 +363,40 @@ class ImportViewModel @Inject constructor(
                                 }
                                 ?: false
 
+                        val matchResult = if (!isDuplicate && activeRecurringItems.isNotEmpty()) {
+                            recurringMatcherEngine.findBestMatch(transaction, activeRecurringItems)
+                        } else {
+                            null
+                        }
+
+                        if (matchResult != null) {
+                            recurringMatchedCount++
+                        }
+
+                        // Attach the matched recurringItemId to the transaction if matched
+                        val enrichedTransaction = if (matchResult != null) {
+                            transaction.copy(recurringItemId = matchResult.recurringItem.id)
+                        } else {
+                            transaction
+                        }
+
                         SelectableTransaction(
-                            transaction = transaction,
+                            transaction = enrichedTransaction,
                             selected = !isDuplicate,
-                            isDuplicate = isDuplicate
+                            isDuplicate = isDuplicate,
+                            matchedRecurringItem = matchResult
                         )
                     }
+
+                val finalSummary = summary.copy(
+                    recurringMatchedCount = recurringMatchedCount
+                )
 
                 _uiState.value =
                     ImportUiState.ParsedTransactions(
 
                         summary =
-                            summary,
+                            finalSummary,
 
                         parsedTransactions =
                             selectableTransactions
@@ -453,10 +493,25 @@ class ImportViewModel @Inject constructor(
                     selectedTransactions.map { it.transaction }
                 )
 
-                // 3. Clear pending result
+                // 3. Advance occurrence on matched recurring items so user won't get prompted again for the same cycle
+                val matchedItems = selectedTransactions.mapNotNull { sel ->
+                    sel.matchedRecurringItem?.let { match ->
+                        match.recurringItem to sel.transaction.dateTimestamp
+                    }
+                }
+                for ((item, txDateTimestamp) in matchedItems) {
+                    try {
+                        val advancedItem = recurringMatcherEngine.advanceOccurrenceAfterMatch(item, txDateTimestamp)
+                        recurringRepository.updateRecurringItem(advancedItem)
+                    } catch (e: Exception) {
+                        // Keep going if individual item update fails
+                    }
+                }
+
+                // 4. Clear pending result
                 pendingStatementResult = null
 
-                // 4. Automatically reconcile and link transfers across accounts
+                // 5. Automatically reconcile and link transfers across accounts
                 autoTransferReconciliationEngine.reconcileTransfers()
 
                 _uiState.value =

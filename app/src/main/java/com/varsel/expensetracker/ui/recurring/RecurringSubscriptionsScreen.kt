@@ -201,7 +201,11 @@ fun RecurringSubscriptionsScreen(
                         items = uiState.filteredItems,
                         key = { it.item.id }
                     ) { uiModel ->
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .animateItem()
+                                .padding(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
                             RecurringItemCard(
                                 uiModel = uiModel,
                                 onToggleActive = { active -> viewModel.toggleActive(uiModel.item.id, active) },

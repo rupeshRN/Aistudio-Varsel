@@ -10,6 +10,8 @@ enum class RecurringFrequency(val displayName: String) {
     DAILY("Daily"),
     WEEKLY("Weekly"),
     MONTHLY("Monthly"),
+    QUARTERLY("Quarterly"),
+    SEMI_ANNUALLY("Semi-Annually"),
     YEARLY("Yearly")
 }
 
@@ -18,6 +20,7 @@ data class RecurringItem(
     val title: String,
     val notes: String? = null,
     val amount: Double,
+    val isVariableAmount: Boolean = false,
     val type: RecurringType = RecurringType.EXPENSE,
     val frequency: RecurringFrequency = RecurringFrequency.MONTHLY,
     val startDateTimestamp: Long,

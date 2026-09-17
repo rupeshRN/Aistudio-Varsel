@@ -141,6 +141,8 @@ class RecurringViewModel @Inject constructor(
                 RecurringFrequency.DAILY -> 30.4
                 RecurringFrequency.WEEKLY -> 4.33
                 RecurringFrequency.MONTHLY -> 1.0
+                RecurringFrequency.QUARTERLY -> 1.0 / 3.0
+                RecurringFrequency.SEMI_ANNUALLY -> 1.0 / 6.0
                 RecurringFrequency.YEARLY -> 1.0 / 12.0
             }
             val monthlyAmount = item.amount * monthlyMultiplier

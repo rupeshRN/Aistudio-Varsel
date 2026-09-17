@@ -589,6 +589,9 @@ fun TransactionEntity.toDomain():
         transferLinkId =
             transferLinkId,
 
+        recurringItemId =
+            recurringItemId,
+
         role =
             try {
 
@@ -657,6 +660,9 @@ fun Transaction.toEntity():
 
         accountLast4 =
             accountLast4,
+
+        recurringItemId =
+            recurringItemId,
 
         transactionLinkId =
             transactionLinkId,

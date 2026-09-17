@@ -66,6 +66,11 @@ data class ImportSummary(
     val reconciliationPassed: Boolean,
 
     /**
+     * Number of transactions matched to active recurring/subscription items.
+     */
+    val recurringMatchedCount: Int = 0,
+
+    /**
      * Detailed status label for reconciliation.
      */
     val reconciliationStatusText: String = "Opening + Credits − Debits = Closing"

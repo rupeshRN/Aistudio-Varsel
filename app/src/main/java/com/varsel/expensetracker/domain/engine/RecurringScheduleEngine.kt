@@ -43,6 +43,18 @@ class RecurringScheduleEngine @Inject constructor() {
                 val adjustedDay = targetDayOfMonth.coerceAtMost(maxDayInNextMonth)
                 nextMonth.withDayOfMonth(adjustedDay)
             }
+            RecurringFrequency.QUARTERLY -> {
+                val nextQuarter = currentLocalDate.plusMonths(3)
+                val maxDay = nextQuarter.lengthOfMonth()
+                val adjustedDay = targetDayOfMonth.coerceAtMost(maxDay)
+                nextQuarter.withDayOfMonth(adjustedDay)
+            }
+            RecurringFrequency.SEMI_ANNUALLY -> {
+                val nextHalf = currentLocalDate.plusMonths(6)
+                val maxDay = nextHalf.lengthOfMonth()
+                val adjustedDay = targetDayOfMonth.coerceAtMost(maxDay)
+                nextHalf.withDayOfMonth(adjustedDay)
+            }
             RecurringFrequency.YEARLY -> {
                 val nextYear = currentLocalDate.plusYears(1)
                 val maxDayInMonth = nextYear.lengthOfMonth()
@@ -107,6 +119,8 @@ class RecurringScheduleEngine @Inject constructor() {
             RecurringFrequency.DAILY -> "Every day"
             RecurringFrequency.WEEKLY -> "Every ${date.dayOfWeek.name.lowercase().replaceFirstChar { it.uppercase() }}"
             RecurringFrequency.MONTHLY -> "Monthly on ${getOrdinal(date.dayOfMonth)}"
+            RecurringFrequency.QUARTERLY -> "Every 3 months on ${getOrdinal(date.dayOfMonth)}"
+            RecurringFrequency.SEMI_ANNUALLY -> "Every 6 months on ${getOrdinal(date.dayOfMonth)}"
             RecurringFrequency.YEARLY -> "Yearly on ${date.month.name.lowercase().replaceFirstChar { it.uppercase() }} ${date.dayOfMonth}"
         }
     }

@@ -11,7 +11,8 @@ import com.varsel.expensetracker.domain.model.TransactionRole
         Index(value = ["amount"]),
         Index(value = ["transferLinkId"]),
         Index(value = ["dateTimestamp"]),
-        Index(value = ["referenceNumber"])
+        Index(value = ["referenceNumber"]),
+        Index(value = ["recurringItemId"])
     ]
 )
 data class TransactionEntity(
@@ -46,6 +47,11 @@ data class TransactionEntity(
      * Last four digits of the account number.
      */
     val accountLast4: String? = null,
+
+    /**
+     * Optional link to a RecurringItem.
+     */
+    val recurringItemId: Long? = null,
 
     /**
      * Financial Event relationship.

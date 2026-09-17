@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.category.CategoryIconCatalog
 import com.varsel.expensetracker.domain.model.recurring.RecurringType
 import com.varsel.expensetracker.ui.recurring.model.RecurringItemUiModel
@@ -172,6 +173,20 @@ fun RecurringItemCard(
                                 )
                             }
                         }
+                        if (item.isVariableAmount) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                            ) {
+                                Text(
+                                    text = "VARIABLE",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                     }
 
                     if (!item.notes.isNullOrBlank()) {
@@ -186,8 +201,9 @@ fun RecurringItemCard(
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
+                    val amountPrefix = if (isIncome) "+" else if (item.isVariableAmount) "~" else ""
                     Text(
-                        text = if (isIncome) "+${uiModel.formattedAmount}" else uiModel.formattedAmount,
+                        text = "$amountPrefix${uiModel.formattedAmount}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = if (item.isActive) amountColor else amountColor.copy(alpha = 0.5f)

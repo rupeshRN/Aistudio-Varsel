@@ -54,6 +54,7 @@ class ProcessRecurringTransactionUseCase @Inject constructor(
             referenceNumber = "REC-${item.id}-${occurrenceTimestamp}",
             accountId = item.accountId,
             accountLast4 = item.accountLast4,
+            recurringItemId = item.id,
             bankName = item.bankName,
             role = TransactionRole.NORMAL
         )
