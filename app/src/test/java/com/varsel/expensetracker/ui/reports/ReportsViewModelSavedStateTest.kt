@@ -35,6 +35,8 @@ class ReportsViewModelSavedStateTest {
         override suspend fun getLinkedTransferTransactions(transferLinkId: String): List<Transaction> = emptyList()
         override suspend fun updateTransactions(transactions: List<Transaction>) {}
         override suspend fun findSimilarTransactions(excludeId: Long, pattern: String, isIncome: Boolean, sinceTimestamp: Long): List<Transaction> = emptyList()
+        override suspend fun getTransactionsByRecurringItemId(recurringItemId: Long): List<Transaction> = emptyList()
+        override suspend fun hasTransactionWithReference(referenceNumber: String): Boolean = false
     }
 
     private class FakeTransactionLinkGroupRepository : TransactionLinkGroupRepository {

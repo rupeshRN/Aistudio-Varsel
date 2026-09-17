@@ -69,6 +69,12 @@ class ManualTransactionEntryTest {
 
         override suspend fun findSimilarTransactions(excludeId: Long, pattern: String, isIncome: Boolean, sinceTimestamp: Long): List<Transaction> =
             emptyList()
+
+        override suspend fun getTransactionsByRecurringItemId(recurringItemId: Long): List<Transaction> =
+            transactions.filter { it.recurringItemId == recurringItemId }
+
+        override suspend fun hasTransactionWithReference(referenceNumber: String): Boolean =
+            transactions.any { it.referenceNumber == referenceNumber }
     }
 
     private lateinit var repository: FakeTransactionRepository

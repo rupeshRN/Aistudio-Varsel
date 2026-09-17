@@ -39,6 +39,8 @@ class AutoTransferReconciliationEngineTest {
         override suspend fun getRecentUnlinkedTransactions(limit: Int): List<TransactionEntity> = emptyList()
         override suspend fun getRecentUnlinkedTransactionsSince(minDateTimestamp: Long, limit: Int): List<TransactionEntity> = emptyList()
         override suspend fun getAllUnlinkedTransactions(): List<TransactionEntity> = emptyList()
+        override suspend fun getTransactionsByRecurringItemId(recurringItemId: Long): List<TransactionEntity> = emptyList()
+        override suspend fun countTransactionsByReferenceNumber(referenceNumber: String): Int = 0
     }
 
     private class FakeStatementSnapshotDao : StatementSnapshotDao {
