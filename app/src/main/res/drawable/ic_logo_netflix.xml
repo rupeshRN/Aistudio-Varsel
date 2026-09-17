@@ -1,0 +1,30 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Dark Background Tile -->
+    <path
+        android:fillColor="#141414"
+        android:pathData="M10,0 L38,0 A10,10 0,0 1 48,10 L48,38 A10,10 0,0 1 38,48 L10,48 A10,10 0,0 1 0,38 L0,10 A10,10 0,0 1 10,0 Z" />
+
+    <!-- Netflix Left Vertical Leg (Dark Red) -->
+    <path
+        android:fillColor="#B81D24"
+        android:pathData="M14,8 L20,8 L20,40 L14,40 Z" />
+
+    <!-- Netflix Right Vertical Leg (Dark Red) -->
+    <path
+        android:fillColor="#B81D24"
+        android:pathData="M28,8 L34,8 L34,40 L28,40 Z" />
+
+    <!-- Netflix Diagonal Ribbon with Shadow/Depth (Vibrant Red) -->
+    <path
+        android:fillColor="#E50914"
+        android:pathData="M14,8 L20.5,8 L34,40 L27.5,40 Z" />
+
+    <!-- Bottom subtle curved arc characteristic of Netflix N base -->
+    <path
+        android:fillColor="#141414"
+        android:pathData="M14,40 Q24,38 34,40 L34,44 L14,44 Z" />
+</vector>

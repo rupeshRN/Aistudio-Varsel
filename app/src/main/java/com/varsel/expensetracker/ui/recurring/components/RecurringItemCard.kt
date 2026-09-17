@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -65,6 +66,7 @@ fun RecurringItemCard(
     onSkipOccurrence: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onCatchUp: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -118,31 +120,13 @@ fun RecurringItemCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Category Icon
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(
-                            try {
-                                Color(android.graphics.Color.parseColor(uiModel.categoryColorHex)).copy(alpha = 0.15f)
-                            } catch (e: Exception) {
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = CategoryIconCatalog.iconFor(item.category),
-                        contentDescription = item.category,
-                        tint = try {
-                            Color(android.graphics.Color.parseColor(uiModel.categoryColorHex))
-                        } catch (e: Exception) {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                // Brand Logo or Category Icon
+                SubscriptionBrandBadge(
+                    title = item.title,
+                    category = item.category,
+                    categoryColorHex = uiModel.categoryColorHex,
+                    size = 44.dp
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
@@ -333,9 +317,31 @@ fun RecurringItemCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    if (item.isActive && uiModel.daysUntilNext < -14 && onCatchUp != null) {
+                        OutlinedButton(
+                            onClick = onCatchUp,
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text(
+                                text = "Catch Up",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
                     if (item.isActive) {
                         FilledTonalButton(
-                            onClick = { showRecordConfirmDialog = true },
+                            onClick = {
+                                if (item.isVariableAmount) {
+                                    onRecordOccurrence()
+                                } else {
+                                    showRecordConfirmDialog = true
+                                }
+                            },
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                             modifier = Modifier.height(34.dp)
@@ -347,7 +353,7 @@ fun RecurringItemCard(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Record",
+                                text = if (item.isVariableAmount) "Enter & Record" else "Record",
                                 style = MaterialTheme.typography.labelMedium
                             )
                         }

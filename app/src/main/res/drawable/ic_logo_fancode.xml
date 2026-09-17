@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- FanCode Athletic Crimson Red Tile -->
+    <path
+        android:fillColor="#E51E25"
+        android:pathData="M10,0 L38,0 A10,10 0,0 1 48,10 L48,38 A10,10 0,0 1 38,48 L10,48 A10,10 0,0 1 0,38 L0,10 A10,10 0,0 1 10,0 Z" />
+
+    <!-- Stylized White "FC" FanCode Athletic Monogram -->
+    <!-- 'F' -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10,13 L23,13 L23,17 L15,17 L15,21.5 L21.5,21.5 L21.5,25.5 L15,25.5 L15,35 L10,35 Z" />
+
+    <!-- 'C' (Athletic angular C with signature cut) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M25,18 L33,13 L38,16 L38,20.5 L34,18 L29.5,21 L29.5,27 L34,30 L38,27.5 L38,32 L33,35 L25,30 Z" />
+
+    <!-- Bottom dynamic sport accent line -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10,38 L38,38 L38,40 L10,40 Z" />
+</vector>

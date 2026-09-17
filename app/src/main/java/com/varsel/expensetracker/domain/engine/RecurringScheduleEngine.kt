@@ -134,4 +134,71 @@ class RecurringScheduleEngine @Inject constructor() {
             else -> "${day}th"
         }
     }
+
+    /**
+     * Calculates the exact number of occurrences of an item in a specific calendar month and year,
+     * taking into account startDateTimestamp, endDateTimestamp, and the item's schedule.
+     */
+    fun countOccurrencesInMonth(item: RecurringItem, year: Int, month: Int): Int {
+        if (!item.isActive) return 0
+        val monthStart = LocalDate.of(year, month, 1)
+        val monthEnd = monthStart.plusMonths(1).minusDays(1)
+        val monthStartMillis = monthStart.atStartOfDay(zoneId).toInstant().toEpochMilli()
+        val monthEndMillis = monthEnd.atTime(23, 59, 59).atZone(zoneId).toInstant().toEpochMilli()
+
+        if (item.startDateTimestamp > monthEndMillis) return 0
+        if (item.endDateTimestamp != null && item.endDateTimestamp < monthStartMillis) return 0
+
+        // Step through occurrences from start date
+        var count = 0
+        var current = item.startDateTimestamp
+        val maxIterations = 600
+        var iteration = 0
+
+        while (current <= monthEndMillis && iteration < maxIterations) {
+            iteration++
+            if (item.endDateTimestamp != null && current > item.endDateTimestamp) {
+                break
+            }
+            if (current >= monthStartMillis && current <= monthEndMillis) {
+                count++
+            }
+            val next = calculateNextOccurrence(current, item.frequency, item.startDateTimestamp)
+            if (next <= current) break // Safety check against non-advancing loops
+            current = next
+        }
+
+        return count
+    }
+
+    /**
+     * Finds all missed occurrences up to referenceTimestamp (defaults to today's date).
+     * Returns a list of timestamps representing each past occurrence that was not yet processed.
+     */
+    fun getMissedOccurrences(
+        item: RecurringItem,
+        referenceTimestamp: Long = System.currentTimeMillis()
+    ): List<Long> {
+        if (!item.isActive) return emptyList()
+        val missed = mutableListOf<Long>()
+        val today = Instant.ofEpochMilli(referenceTimestamp).atZone(zoneId).toLocalDate()
+        var current = item.nextOccurrenceTimestamp
+        var currentDate = Instant.ofEpochMilli(current).atZone(zoneId).toLocalDate()
+
+        var iterations = 0
+        val maxIterations = 120 // Protect against runaway loops
+
+        // While scheduled date is strictly before today
+        while (currentDate.isBefore(today) && iterations < maxIterations) {
+            iterations++
+            if (item.endDateTimestamp != null && current > item.endDateTimestamp) break
+            missed.add(current)
+            val next = calculateNextOccurrence(current, item.frequency, item.startDateTimestamp)
+            if (next <= current) break
+            current = next
+            currentDate = Instant.ofEpochMilli(current).atZone(zoneId).toLocalDate()
+        }
+
+        return missed
+    }
 }

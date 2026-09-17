@@ -533,6 +533,14 @@ class TransactionRepositoryImpl @Inject constructor(
             }
         }.map { it.toDomain() }
     }
+
+    override suspend fun getTransactionsByRecurringItemId(recurringItemId: Long): List<Transaction> {
+        return transactionDao.getTransactionsByRecurringItemId(recurringItemId).map { it.toDomain() }
+    }
+
+    override suspend fun hasTransactionWithReference(referenceNumber: String): Boolean {
+        return transactionDao.countTransactionsByReferenceNumber(referenceNumber) > 0
+    }
 }
 
 //======================================================

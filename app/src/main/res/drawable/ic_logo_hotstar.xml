@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Deep Midnight Blue Tile -->
+    <path
+        android:fillColor="#091533"
+        android:pathData="M10,0 L38,0 A10,10 0,0 1 48,10 L48,38 A10,10 0,0 1 38,48 L10,48 A10,10 0,0 1 0,38 L0,10 A10,10 0,0 1 10,0 Z" />
+
+    <!-- Hotstar Golden Diamond Multi-Point Star -->
+    <!-- Center / Main Vertical & Horizontal Cross Diamond -->
+    <path
+        android:fillColor="#FFD200"
+        android:pathData="M24,7 L26.8,19.2 L39,22 L26.8,24.8 L24,37 L21.2,24.8 L9,22 L21.2,19.2 Z" />
+
+    <!-- Secondary diagonal rays (Warm Amber Gold) -->
+    <path
+        android:fillColor="#FFA000"
+        android:pathData="M24,17 L29.5,14.5 L27,20 L31.5,25.5 L26,24 L23.5,29.5 L22,24 L16.5,25.5 L21,20 L18.5,14.5 Z" />
+
+    <!-- Bright White Central Flare Star Core -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,14 L25.4,20.6 L32,22 L25.4,23.4 L24,30 L22.6,23.4 L16,22 L22.6,20.6 Z" />
+</vector>

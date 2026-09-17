@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Deep Onyx Background Tile -->
+    <path
+        android:fillColor="#111317"
+        android:pathData="M10,0 L38,0 A10,10 0,0 1 48,10 L48,38 A10,10 0,0 1 38,48 L10,48 A10,10 0,0 1 0,38 L0,10 A10,10 0,0 1 10,0 Z" />
+
+    <!-- Sony LIV Characteristic Colorful Curved Bars -->
+    <!-- Top-left magenta / hot pink arc -->
+    <path
+        android:fillColor="#E91E63"
+        android:pathData="M12,12 C16,7 23,7 27,11 L23,15 C20,12 16,12 13.5,14.5 Z" />
+
+    <!-- Top-right cyan / bright blue arc -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M27,11 C31,14 34,19 33,25 L28,24 C28.5,19.5 26.5,16 23,15 Z" />
+
+    <!-- Bottom-right golden yellow arc -->
+    <path
+        android:fillColor="#FFD600"
+        android:pathData="M33,25 C33,31 29,36 23,37 L23,32 C26.5,31.5 28.5,28.5 28,24 Z" />
+
+    <!-- Bottom-left purple / violet arc -->
+    <path
+        android:fillColor="#9C27B0"
+        android:pathData="M23,37 C17,37 12,32 11,25 L16,24 C16.5,28 19.5,31.5 23,32 Z" />
+
+    <!-- Center Sony LIV 'LIV' Typography -->
+    <!-- 'L' -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M16,20 L18.5,20 L18.5,26.5 L22.5,26.5 L22.5,28.5 L16,28.5 Z" />
+    <!-- 'I' -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,20 L26.5,20 L26.5,28.5 L24,28.5 Z" />
+    <!-- 'V' -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M27.5,20 L30,20 L32,26 L34,20 L36.5,20 L33.2,28.5 L30.8,28.5 Z" />
+</vector>

@@ -107,6 +107,10 @@ interface TransactionRepository {
         isIncome: Boolean,
         sinceTimestamp: Long
     ): List<Transaction>
+
+    suspend fun getTransactionsByRecurringItemId(recurringItemId: Long): List<Transaction>
+
+    suspend fun hasTransactionWithReference(referenceNumber: String): Boolean
 }
 
 /**

@@ -21,8 +21,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Analytics
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.Loop
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -52,8 +57,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.varsel.expensetracker.ui.recurring.components.AddEditRecurringSheet
+import com.varsel.expensetracker.ui.recurring.components.OverdueCatchUpDialog
 import com.varsel.expensetracker.ui.recurring.components.RecurringItemCard
 import com.varsel.expensetracker.ui.recurring.components.RecurringSummaryCard
+import com.varsel.expensetracker.ui.recurring.components.SubscriptionInsightsSheet
+import com.varsel.expensetracker.ui.recurring.components.SubscriptionReviewSheet
+import com.varsel.expensetracker.ui.recurring.components.VariableAmountDialog
 import com.varsel.expensetracker.ui.recurring.model.RecurringFilterTab
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -93,6 +102,40 @@ fun RecurringSubscriptionsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.openInsightsSheet() }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Analytics,
+                            contentDescription = "Subscription Insights"
+                        )
+                    }
+                    IconButton(onClick = { viewModel.openReviewSheet() }) {
+                        val reviewCount = uiState.reviewItems.size
+                        if (reviewCount > 0) {
+                            BadgedBox(
+                                badge = {
+                                    Badge {
+                                        Text("$reviewCount")
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Checklist,
+                                    contentDescription = "Review Subscriptions"
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.Checklist,
+                                contentDescription = "Review Subscriptions"
+                            )
+                        }
+                    }
+                    IconButton(onClick = { viewModel.refresh() }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh recurring items"
+                        )
+                    }
                     IconButton(onClick = { viewModel.openAddSheet() }) {
                         Icon(
                             imageVector = Icons.Default.Add,
@@ -135,7 +178,11 @@ fun RecurringSubscriptionsScreen(
                 // Summary Card
                 item {
                     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        RecurringSummaryCard(summary = uiState.summary)
+                        RecurringSummaryCard(
+                            summary = uiState.summary,
+                            selectedPeriod = uiState.selectedPeriod,
+                            onPeriodSelected = { viewModel.setSummaryPeriod(it) }
+                        )
                     }
                 }
 
@@ -212,7 +259,8 @@ fun RecurringSubscriptionsScreen(
                                 onRecordOccurrence = { viewModel.processOccurrence(uiModel.item) },
                                 onSkipOccurrence = { viewModel.skipOccurrence(uiModel.item) },
                                 onEdit = { viewModel.openEditSheet(uiModel.item) },
-                                onDelete = { viewModel.deleteRecurringItem(uiModel.item.id) }
+                                onDelete = { viewModel.deleteRecurringItem(uiModel.item.id) },
+                                onCatchUp = { viewModel.openCatchUpSheet(uiModel.item) }
                             )
                         }
                     }
@@ -228,6 +276,54 @@ fun RecurringSubscriptionsScreen(
             availableCategories = uiState.availableCategories,
             onDismiss = { viewModel.closeAddEditSheet() },
             onSave = { item -> viewModel.saveRecurringItem(item) }
+        )
+    }
+
+    if (uiState.isInsightsSheetOpen) {
+        SubscriptionInsightsSheet(
+            insights = uiState.insights,
+            onDismiss = { viewModel.closeInsightsSheet() },
+            onOpenReview = {
+                viewModel.closeInsightsSheet()
+                viewModel.openReviewSheet()
+            }
+        )
+    }
+
+    if (uiState.isReviewSheetOpen) {
+        SubscriptionReviewSheet(
+            reviewItems = uiState.reviewItems,
+            onDismiss = { viewModel.closeReviewSheet() },
+            onCatchUpItem = { item ->
+                viewModel.closeReviewSheet()
+                viewModel.openCatchUpSheet(item)
+            },
+            onEditItem = { item ->
+                viewModel.closeReviewSheet()
+                viewModel.openEditSheet(item)
+            },
+            onConfirmPriceHike = { item, newAmt -> viewModel.confirmPriceHike(item, newAmt) }
+        )
+    }
+
+    uiState.variableAmountItem?.let { varItem ->
+        VariableAmountDialog(
+            item = varItem,
+            pastPayments = uiState.variableItemPastPayments,
+            onDismiss = { viewModel.closeVariableAmountSheet() },
+            onConfirm = { actualAmount, updateBaseline ->
+                viewModel.recordVariableOccurrence(varItem, actualAmount, updateBaseline)
+            }
+        )
+    }
+
+    uiState.catchUpItem?.let { catchItem ->
+        OverdueCatchUpDialog(
+            item = catchItem,
+            missedDates = uiState.catchUpMissedDates,
+            onDismiss = { viewModel.closeCatchUpSheet() },
+            onFastForward = { viewModel.fastForwardSchedule(catchItem) },
+            onRecordSelected = { dates -> viewModel.recordCatchUpOccurrences(catchItem, dates) }
         )
     }
 }

@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Dark Tile Background -->
+    <path
+        android:fillColor="#121212"
+        android:pathData="M10,0 L38,0 A10,10 0,0 1 48,10 L48,38 A10,10 0,0 1 38,48 L10,48 A10,10 0,0 1 0,38 L0,10 A10,10 0,0 1 10,0 Z" />
+
+    <!-- Vibrant Spotify Green Circle Core -->
+    <path
+        android:fillColor="#1DB954"
+        android:pathData="M24,5 A19,19 0,1 1 23.99,5 Z" />
+
+    <!-- 3 Official Spotify Sound Waves in Deep Black -->
+    <!-- Top (Largest) Arc -->
+    <path
+        android:fillColor="#121212"
+        android:pathData="M14.5,18.8 C20.2,16.5 28.5,16.2 33.6,19.3 C34.5,19.8 34.8,21 34.2,21.9 C33.7,22.8 32.5,23.1 31.6,22.5 C27.2,19.9 20,20.1 15,22.1 C14,22.5 12.9,21.9 12.5,20.9 C12.2,19.9 13.5,19.2 14.5,18.8 Z" />
+
+    <!-- Middle Arc -->
+    <path
+        android:fillColor="#121212"
+        android:pathData="M15.4,24.2 C20.3,22.2 27.2,22 31.6,24.6 C32.4,25.1 32.7,26.1 32.2,26.9 C31.7,27.7 30.7,28 29.9,27.5 C26.2,25.3 20.3,25.4 16,27.2 C15.1,27.6 14.1,27.1 13.8,26.2 C13.4,25.3 14.5,24.6 15.4,24.2 Z" />
+
+    <!-- Bottom (Smallest) Arc -->
+    <path
+        android:fillColor="#121212"
+        android:pathData="M16.8,29.5 C20.8,27.8 26.2,27.8 29.8,30 C30.5,30.4 30.7,31.4 30.3,32.1 C29.9,32.8 28.9,33 28.2,32.6 C25.3,30.8 20.8,30.8 17.3,32.3 C16.5,32.6 15.6,32.2 15.3,31.4 C15,30.6 16,29.8 16.8,29.5 Z" />
+</vector>

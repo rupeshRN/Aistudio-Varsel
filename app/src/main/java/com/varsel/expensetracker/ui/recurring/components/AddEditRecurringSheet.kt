@@ -92,6 +92,12 @@ import com.varsel.expensetracker.data.local.entity.CategoryEntity
 import com.varsel.expensetracker.domain.model.recurring.RecurringFrequency
 import com.varsel.expensetracker.domain.model.recurring.RecurringItem
 import com.varsel.expensetracker.domain.model.recurring.RecurringType
+import com.varsel.expensetracker.ui.recurring.util.SubscriptionBrandCatalog
+import com.varsel.expensetracker.ui.recurring.components.SubscriptionBrandBadge
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import com.varsel.expensetracker.ui.components.BankLogoBadge
 import com.varsel.expensetracker.ui.design.CategoryPalette
 import com.varsel.expensetracker.ui.theme.isDark
@@ -265,6 +271,53 @@ fun AddEditRecurringSheet(
             )
 
             // Title / Merchant Field
+            if (selectedType == RecurringType.SUBSCRIPTION) {
+                val scrollState = rememberScrollState()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(scrollState),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SubscriptionBrandCatalog.supportedBrands.forEach { brand ->
+                        val isSelected = title.equals(brand.brandName, ignoreCase = true)
+                        Surface(
+                            onClick = {
+                                title = brand.brandName
+                                selectedCategory = brand.defaultCategory
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                SubscriptionBrandBadge(
+                                    title = brand.brandName,
+                                    category = brand.defaultCategory,
+                                    categoryColorHex = null,
+                                    size = 20.dp,
+                                    shapeRadius = 4.dp
+                                )
+                                Text(
+                                    text = brand.brandName,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -279,15 +332,26 @@ fun AddEditRecurringSheet(
                     )
                 },
                 leadingIcon = {
-                    Icon(
-                        imageVector = when (selectedType) {
-                            RecurringType.SUBSCRIPTION -> Icons.Outlined.Subscriptions
-                            RecurringType.INCOME -> Icons.Outlined.AccountBalance
-                            RecurringType.EXPENSE -> Icons.Outlined.ReceiptLong
-                        },
-                        contentDescription = null,
-                        tint = themeColor
-                    )
+                    val brandLogo = SubscriptionBrandCatalog.getBrandLogo(title)
+                    if (brandLogo != null) {
+                        SubscriptionBrandBadge(
+                            title = title,
+                            category = selectedCategory,
+                            categoryColorHex = null,
+                            size = 26.dp,
+                            shapeRadius = 6.dp
+                        )
+                    } else {
+                        Icon(
+                            imageVector = when (selectedType) {
+                                RecurringType.SUBSCRIPTION -> Icons.Outlined.Subscriptions
+                                RecurringType.INCOME -> Icons.Outlined.AccountBalance
+                                RecurringType.EXPENSE -> Icons.Outlined.ReceiptLong
+                            },
+                            contentDescription = null,
+                            tint = themeColor
+                        )
+                    }
                 },
                 trailingIcon = {
                     if (title.isNotEmpty()) {

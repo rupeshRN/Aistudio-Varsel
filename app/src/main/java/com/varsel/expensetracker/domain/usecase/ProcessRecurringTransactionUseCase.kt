@@ -1,5 +1,7 @@
 package com.varsel.expensetracker.domain.usecase
 
+import androidx.room.withTransaction
+import com.varsel.expensetracker.data.local.AppDatabase
 import com.varsel.expensetracker.domain.engine.RecurringScheduleEngine
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionRole
@@ -13,27 +15,42 @@ import javax.inject.Singleton
 
 @Singleton
 class ProcessRecurringTransactionUseCase @Inject constructor(
+    private val appDatabase: AppDatabase,
     private val transactionRepository: TransactionRepository,
     private val recurringRepository: RecurringRepository,
     private val scheduleEngine: RecurringScheduleEngine
 ) {
 
     /**
-     * Records a transaction for the current occurrence of a recurring item,
-     * updates the recurring item's occurrence timestamp, and advances to the next period.
-     * Prevents duplicate generation if already generated for this occurrence.
+     * Records a transaction for an occurrence of a recurring item atomically.
+     * Prevents duplicate generation by:
+     * 1) Checking item.lastGeneratedTimestamp against target occurrence timestamp
+     * 2) Checking if a transaction with reference number REC-{id}-{occurrenceTimestamp} already exists
+     * 3) Running the insert and the recurring item update inside a single Room database transaction.
+     *
+     * [actualAmount]: When provided (e.g. for variable bills), overrides item.amount for this transaction.
+     * [updateBaselineAmount]: If true, updates item.amount to [actualAmount] for future occurrences.
      */
     suspend fun processOccurrence(
         item: RecurringItem,
-        recordDateTimestamp: Long = item.nextOccurrenceTimestamp
+        occurrenceTimestamp: Long = item.nextOccurrenceTimestamp,
+        recordDateTimestamp: Long = occurrenceTimestamp,
+        actualAmount: Double? = null,
+        updateBaselineAmount: Boolean = false
     ): Result<Transaction> {
-        val occurrenceTimestamp = item.nextOccurrenceTimestamp
+        val referenceNumber = "REC-${item.id}-${occurrenceTimestamp}"
 
-        // Prevent duplicate generation for same occurrence
+        // Fast in-memory guard
         if (item.lastGeneratedTimestamp != null && item.lastGeneratedTimestamp == occurrenceTimestamp) {
-            return Result.failure(IllegalStateException("Transaction for this occurrence has already been generated."))
+            return Result.failure(IllegalStateException("Transaction for this occurrence has already been recorded."))
         }
 
+        // Database-level guard against duplicate occurrence reference
+        if (transactionRepository.hasTransactionWithReference(referenceNumber)) {
+            return Result.failure(IllegalStateException("A transaction with reference $referenceNumber already exists."))
+        }
+
+        val txAmount = actualAmount ?: item.amount
         val txType = when (item.type) {
             RecurringType.EXPENSE, RecurringType.SUBSCRIPTION -> TransactionType.DEBIT
             RecurringType.INCOME -> TransactionType.CREDIT
@@ -46,12 +63,12 @@ class ProcessRecurringTransactionUseCase @Inject constructor(
         }
 
         val transaction = Transaction(
-            amount = item.amount,
+            amount = txAmount,
             type = txType,
             description = txDescription,
             category = item.category.ifBlank { "Other" },
             dateTimestamp = recordDateTimestamp,
-            referenceNumber = "REC-${item.id}-${occurrenceTimestamp}",
+            referenceNumber = referenceNumber,
             accountId = item.accountId,
             accountLast4 = item.accountLast4,
             recurringItemId = item.id,
@@ -60,27 +77,33 @@ class ProcessRecurringTransactionUseCase @Inject constructor(
         )
 
         return try {
-            transactionRepository.insertTransaction(transaction)
-            val nextTimestamp = scheduleEngine.calculateNextOccurrence(
-                currentOccurrenceTimestamp = occurrenceTimestamp,
-                frequency = item.frequency,
-                startDateTimestamp = item.startDateTimestamp
-            )
+            appDatabase.withTransaction {
+                transactionRepository.insertTransaction(transaction)
 
-            // If an end date is set and next occurrence exceeds it, deactivate item
-            val willBeActive = if (item.endDateTimestamp != null && nextTimestamp > item.endDateTimestamp) {
-                false
-            } else {
-                item.isActive
+                // Advance occurrence
+                val nextTimestamp = scheduleEngine.calculateNextOccurrence(
+                    currentOccurrenceTimestamp = occurrenceTimestamp,
+                    frequency = item.frequency,
+                    startDateTimestamp = item.startDateTimestamp
+                )
+
+                val willBeActive = if (item.endDateTimestamp != null && nextTimestamp > item.endDateTimestamp) {
+                    false
+                } else {
+                    item.isActive
+                }
+
+                val newAmount = if (updateBaselineAmount && actualAmount != null) actualAmount else item.amount
+
+                val updatedItem = item.copy(
+                    amount = newAmount,
+                    nextOccurrenceTimestamp = nextTimestamp,
+                    lastGeneratedTimestamp = occurrenceTimestamp,
+                    isActive = willBeActive,
+                    updatedAt = System.currentTimeMillis()
+                )
+                recurringRepository.updateRecurringItem(updatedItem)
             }
-
-            val updatedItem = item.copy(
-                nextOccurrenceTimestamp = nextTimestamp,
-                lastGeneratedTimestamp = occurrenceTimestamp,
-                isActive = willBeActive,
-                updatedAt = System.currentTimeMillis()
-            )
-            recurringRepository.updateRecurringItem(updatedItem)
 
             Result.success(transaction)
         } catch (e: Exception) {
@@ -113,6 +136,32 @@ class ProcessRecurringTransactionUseCase @Inject constructor(
         return try {
             recurringRepository.updateRecurringItem(updatedItem)
             Result.success(nextTimestamp)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Fast-forwards the schedule to the current/next future occurrence without recording back-dated transactions.
+     * (e.g. When user was away for 3 months and wants to ignore missed cycles or marked paid externally).
+     */
+    suspend fun fastForwardToFuture(item: RecurringItem): Result<Long> {
+        val nextFutureTimestamp = scheduleEngine.getNextFutureOccurrence(item)
+        val willBeActive = if (item.endDateTimestamp != null && nextFutureTimestamp > item.endDateTimestamp) {
+            false
+        } else {
+            item.isActive
+        }
+
+        val updatedItem = item.copy(
+            nextOccurrenceTimestamp = nextFutureTimestamp,
+            isActive = willBeActive,
+            updatedAt = System.currentTimeMillis()
+        )
+
+        return try {
+            recurringRepository.updateRecurringItem(updatedItem)
+            Result.success(nextFutureTimestamp)
         } catch (e: Exception) {
             Result.failure(e)
         }

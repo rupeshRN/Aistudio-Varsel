@@ -444,4 +444,23 @@ interface TransactionDao {
         """
     )
     suspend fun getAllUnlinkedTransactions(): List<TransactionEntity>
+
+    @Query(
+        """
+        SELECT *
+        FROM transactions
+        WHERE recurringItemId = :recurringItemId
+        ORDER BY dateTimestamp DESC
+        """
+    )
+    suspend fun getTransactionsByRecurringItemId(recurringItemId: Long): List<TransactionEntity>
+
+    @Query(
+        """
+        SELECT COUNT(*)
+        FROM transactions
+        WHERE referenceNumber = :referenceNumber
+        """
+    )
+    suspend fun countTransactionsByReferenceNumber(referenceNumber: String): Int
 }
