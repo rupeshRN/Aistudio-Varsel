@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.ListAlt
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.PieChart
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.ui.graphics.vector.ImageVector
 
 sealed class AppDestination(
@@ -61,6 +62,12 @@ sealed class AppDestination(
         Icons.Outlined.CalendarMonth
     )
 
+    data object Recurring : AppDestination(
+        "recurring",
+        "Recurring",
+        Icons.Outlined.Repeat
+    )
+
     data object More : AppDestination(
         "more",
         "More",
@@ -75,6 +82,7 @@ sealed class AppDestination(
             Budgets,
             Reports,
             Loans,
+            Recurring,
             CalendarHeatmap,
             More
         )

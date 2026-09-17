@@ -32,6 +32,7 @@ fun MoreScreen(
     onReportsClick: () -> Unit = {},
     onTransactionsClick: () -> Unit = {},
     onHeatmapClick: () -> Unit = {},
+    onRecurringClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onGeneralSettingsClick: () -> Unit = {},
     viewModel: GeneralSettingsViewModel = hiltViewModel()
@@ -69,6 +70,9 @@ fun MoreScreen(
             if (!pinnedTabs.contains("budgets")) {
                 list.add(Triple("budgets", "Budgets & Spending Limits", Icons.Outlined.PieChart))
             }
+            if (!pinnedTabs.contains("recurring")) {
+                list.add(Triple("recurring", "Recurring & Subscriptions", Icons.Outlined.Repeat))
+            }
             if (!pinnedTabs.contains("loans")) {
                 list.add(Triple("loans", "Loans & Liabilities", Icons.Outlined.AccountBalance))
             }
@@ -99,6 +103,7 @@ fun MoreScreen(
                     title = title,
                     subtitle = when (route) {
                         "budgets" -> "Set daily & monthly spending caps, track progress with Today indicators"
+                        "recurring" -> "Track recurring expenses, active subscriptions, automated schedules & bills"
                         "loans" -> "Track loans, liabilities, EMI schedules and prepayment savings"
                         "reports" -> "Cash flow analytics, category distribution charts and trend graphs"
                         "transactions" -> "Complete log of all income, expense and account transfers"
@@ -109,6 +114,7 @@ fun MoreScreen(
                     isPinned = false,
                     containerColor = when (route) {
                         "budgets" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                        "recurring" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f)
                         "loans" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                         "reports" -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                         "calendar_heatmap" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
@@ -116,6 +122,7 @@ fun MoreScreen(
                     },
                     iconTint = when (route) {
                         "budgets" -> MaterialTheme.colorScheme.tertiary
+                        "recurring" -> MaterialTheme.colorScheme.tertiary
                         "loans" -> MaterialTheme.colorScheme.primary
                         "reports" -> MaterialTheme.colorScheme.secondary
                         "calendar_heatmap" -> MaterialTheme.colorScheme.primary
@@ -124,6 +131,7 @@ fun MoreScreen(
                     onClick = {
                         when (route) {
                             "budgets" -> onBudgetsClick()
+                            "recurring" -> onRecurringClick()
                             "loans" -> onLoansClick()
                             "reports" -> onReportsClick()
                             "transactions" -> onTransactionsClick()

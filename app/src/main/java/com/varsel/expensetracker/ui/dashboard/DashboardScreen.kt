@@ -23,12 +23,15 @@ import com.varsel.expensetracker.ui.components.AppIconLoadingView
 import com.varsel.expensetracker.ui.dashboard.components.BalanceCard
 import com.varsel.expensetracker.ui.dashboard.components.DashboardLoanWidget
 import com.varsel.expensetracker.ui.dashboard.components.DashboardRecentSection
+import com.varsel.expensetracker.ui.dashboard.components.DashboardRecurringWidget
 import com.varsel.expensetracker.ui.dashboard.components.GreetingHeader
 import com.varsel.expensetracker.ui.dashboard.components.InsightsCard
 import com.varsel.expensetracker.ui.dashboard.components.QuickActionBar
 import com.varsel.expensetracker.ui.model.TransactionUiModel
 import com.varsel.expensetracker.ui.transaction.components.AddTransactionBottomSheet
 import com.varsel.expensetracker.ui.transaction.components.ManualEntryMode
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 
 private sealed class FeatureDialogState {
     object None : FeatureDialogState()
@@ -49,8 +52,10 @@ fun DashboardScreen(
     onNavigateToTransactionDetail: (Long) -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToLoans: () -> Unit = {},
-    onNavigateToBudgets: () -> Unit = {}
+    onNavigateToBudgets: () -> Unit = {},
+    onNavigateToRecurring: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val activeSections by viewModel.activeHomeSections.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -63,9 +68,20 @@ fun DashboardScreen(
     val statementPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        uri?.let { selectedUri ->
-            onNavigateToImportWithUri(selectedUri)
+    uri?.let { selectedUri ->
+
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                selectedUri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: SecurityException) {
+            // Some document providers do not support persistable permissions.
+            // Continue with the temporary URI permission.
         }
+
+        onNavigateToImportWithUri(selectedUri)
+    }
     }
 
     Box(
@@ -165,6 +181,15 @@ fun DashboardScreen(
                                     currentSelection = uiState.homeBudgetsSelection,
                                     onSelectBudgets = { viewModel.setHomeBudgetsSelection(it) },
                                     onNavigateToBudgets = onNavigateToBudgets
+                                )
+                            }
+                        }
+
+                        HomeSection.RECURRING.id -> {
+                            item(key = "recurring_widget") {
+                                DashboardRecurringWidget(
+                                    recurringItems = uiState.recurringItems,
+                                    onNavigateToRecurring = onNavigateToRecurring
                                 )
                             }
                         }

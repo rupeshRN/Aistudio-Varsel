@@ -10,6 +10,7 @@ import com.varsel.expensetracker.data.local.dao.CustomRuleDao
 import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
 import com.varsel.expensetracker.data.local.dao.LoanAccountDao
 import com.varsel.expensetracker.data.local.dao.LoanPaymentDao
+import com.varsel.expensetracker.data.local.dao.RecurringItemDao
 import com.varsel.expensetracker.data.local.dao.StatementSnapshotDao
 import com.varsel.expensetracker.data.local.dao.TransactionDao
 import com.varsel.expensetracker.data.local.dao.TransactionLinkGroupDao
@@ -19,6 +20,7 @@ import com.varsel.expensetracker.data.local.entity.CustomRuleEntity
 import com.varsel.expensetracker.data.local.entity.FinancialEventAllocationEntity
 import com.varsel.expensetracker.data.local.entity.LoanAccountEntity
 import com.varsel.expensetracker.data.local.entity.LoanPaymentEntity
+import com.varsel.expensetracker.data.local.entity.RecurringItemEntity
 import com.varsel.expensetracker.data.local.entity.StatementSnapshotEntity
 import com.varsel.expensetracker.data.local.entity.TransactionEntity
 import com.varsel.expensetracker.data.local.entity.TransactionLinkGroupEntity
@@ -37,9 +39,10 @@ import javax.inject.Provider
         FinancialEventAllocationEntity::class,
         LoanAccountEntity::class,
         LoanPaymentEntity::class,
-        BudgetEntity::class
+        BudgetEntity::class,
+        RecurringItemEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -62,6 +65,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun loanPaymentDao(): LoanPaymentDao
 
     abstract fun budgetDao(): BudgetDao
+
+    abstract fun recurringItemDao(): RecurringItemDao
 
     companion object {
 
@@ -531,6 +536,41 @@ val MIGRATION_8_9 =
                     database: SupportSQLiteDatabase
                 ) {
                     database.execSQL("ALTER TABLE loan_accounts ADD COLUMN repaymentType TEXT NOT NULL DEFAULT 'MONTHLY_EMI'")
+                }
+            }
+
+        val MIGRATION_18_19 =
+            object : Migration(18, 19) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS recurring_items (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            title TEXT NOT NULL,
+                            notes TEXT,
+                            amount REAL NOT NULL,
+                            type TEXT NOT NULL,
+                            frequency TEXT NOT NULL,
+                            startDateTimestamp INTEGER NOT NULL,
+                            nextOccurrenceTimestamp INTEGER NOT NULL,
+                            endDateTimestamp INTEGER,
+                            isActive INTEGER NOT NULL DEFAULT 1,
+                            accountId TEXT,
+                            accountLast4 TEXT,
+                            bankName TEXT,
+                            category TEXT NOT NULL DEFAULT 'Other',
+                            lastGeneratedTimestamp INTEGER,
+                            createdAt INTEGER NOT NULL,
+                            updatedAt INTEGER NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_items_nextOccurrenceTimestamp ON recurring_items(nextOccurrenceTimestamp)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_items_isActive ON recurring_items(isActive)")
+                    database.execSQL("CREATE INDEX IF NOT EXISTS index_recurring_items_type ON recurring_items(type)")
                 }
             }
     }

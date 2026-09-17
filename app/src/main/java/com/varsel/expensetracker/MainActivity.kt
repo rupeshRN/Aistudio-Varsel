@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.varsel.expensetracker.category.CategoryIconCatalog
@@ -126,16 +127,12 @@ class MainActivity : FragmentActivity() {
                         showNavLabels = generalConfig.showNavLabels,
                         isFloatingNavBar = generalConfig.floatingNavBar,
                         onDestinationSelected = { destination ->
-                            if (destination.route == AppDestination.Home.route) {
-                                navController.popBackStack(AppDestination.Home.route, inclusive = false)
-                            } else {
-                                navController.navigate(destination.route) {
-                                    popUpTo(AppDestination.Home.route) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+                            navController.navigate(destination.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
                                 }
+                                launchSingleTop = true
+                                restoreState = true
                             }
                         }
                     ) { padding ->

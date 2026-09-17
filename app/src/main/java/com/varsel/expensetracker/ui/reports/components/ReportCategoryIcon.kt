@@ -26,9 +26,10 @@ fun ReportCategoryIcon(
     }
 
     Surface(
-        modifier = modifier.size(36.dp),
+        modifier = modifier.size(40.dp),
         shape = CircleShape,
-        color = categoryColor.copy(alpha = 0.15f)
+        color = categoryColor.copy(alpha = 0.16f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, categoryColor.copy(alpha = 0.3f))
     ) {
         Box(
             contentAlignment = Alignment.Center

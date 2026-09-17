@@ -1,5 +1,6 @@
 package com.varsel.expensetracker.ui.reports
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.varsel.expensetracker.domain.model.Transaction
@@ -74,15 +75,99 @@ import java.util.Locale
  */
 @HiltViewModel
 class ReportsViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
     private val transactionRepository: TransactionRepository,
     private val transactionLinkGroupRepository: TransactionLinkGroupRepository,
     private val financialEventAllocationRepository: FinancialEventAllocationRepository
 ) : ViewModel() {
 
+    companion object {
+        const val KEY_PERIOD_FILTER = "reports_period_filter"
+        const val KEY_REPORT_PERIOD = "reports_report_period"
+        const val KEY_SELECTED_MONTH = "reports_selected_month"
+        const val KEY_CUSTOM_START_DATE = "reports_custom_start_date"
+        const val KEY_CUSTOM_END_DATE = "reports_custom_end_date"
+        const val KEY_SELECTED_ACCOUNT_IDS = "reports_selected_account_ids"
+        const val KEY_CURRENT_TAB = "reports_current_tab"
+        const val KEY_SELECTED_FLOW = "reports_selected_flow"
+        const val KEY_COMPARISON_WINDOW = "reports_comparison_window"
+        const val KEY_COMPARISON_FLOW = "reports_comparison_flow"
+    }
+
+    private val initialPeriodFilter: PeriodFilter =
+        savedStateHandle.get<String>(KEY_PERIOD_FILTER)?.let { name ->
+            runCatching { PeriodFilter.valueOf(name) }.getOrNull()
+        } ?: PeriodFilter.THIS_MONTH
+
+    private val initialReportPeriod: ReportPeriod =
+        savedStateHandle.get<String>(KEY_REPORT_PERIOD)?.let { name ->
+            runCatching { ReportPeriod.valueOf(name) }.getOrNull()
+        } ?: when (initialPeriodFilter) {
+            PeriodFilter.THIS_MONTH, PeriodFilter.LAST_3_MONTHS, PeriodFilter.LAST_6_MONTHS -> ReportPeriod.MONTH
+            PeriodFilter.YEAR_TO_DATE -> ReportPeriod.YEAR
+            PeriodFilter.CUSTOM -> ReportPeriod.CUSTOM
+        }
+
+    private val initialSelectedMonth: YearMonth =
+        savedStateHandle.get<String>(KEY_SELECTED_MONTH)?.let { str ->
+            runCatching { YearMonth.parse(str) }.getOrNull()
+        } ?: YearMonth.now()
+
+    private val initialCustomStartDate: LocalDate =
+        savedStateHandle.get<String>(KEY_CUSTOM_START_DATE)?.let { str ->
+            runCatching { LocalDate.parse(str) }.getOrNull()
+        } ?: LocalDate.now().withDayOfMonth(1)
+
+    private val initialCustomEndDate: LocalDate =
+        savedStateHandle.get<String>(KEY_CUSTOM_END_DATE)?.let { str ->
+            runCatching { LocalDate.parse(str) }.getOrNull()
+        } ?: LocalDate.now()
+
+    private val initialSelectedAccountIds: Set<String> = when {
+        savedStateHandle.contains(KEY_SELECTED_ACCOUNT_IDS) -> {
+            val list = savedStateHandle.get<List<String>>(KEY_SELECTED_ACCOUNT_IDS)
+            list?.toSet() ?: emptySet()
+        }
+        savedStateHandle.contains("accountId") -> {
+            val singleId = savedStateHandle.get<String>("accountId")
+            if (!singleId.isNullOrBlank()) setOf(singleId) else emptySet()
+        }
+        else -> emptySet()
+    }
+
+    private val initialCurrentTab: ReportsTab =
+        savedStateHandle.get<String>(KEY_CURRENT_TAB)?.let { name ->
+            runCatching { ReportsTab.valueOf(name) }.getOrNull()
+        } ?: ReportsTab.OVERVIEW
+
+    private val initialSelectedFlow: ReportsFlow =
+        savedStateHandle.get<String>(KEY_SELECTED_FLOW)?.let { name ->
+            runCatching { ReportsFlow.valueOf(name) }.getOrNull()
+        } ?: ReportsFlow.EXPENSES
+
+    private val initialComparisonWindow: ComparisonWindow =
+        savedStateHandle.get<String>(KEY_COMPARISON_WINDOW)?.let { name ->
+            runCatching { ComparisonWindow.valueOf(name) }.getOrNull()
+        } ?: ComparisonWindow.THREE_MONTHS
+
+    private val initialComparisonFlow: ReportsFlow =
+        savedStateHandle.get<String>(KEY_COMPARISON_FLOW)?.let { name ->
+            runCatching { ReportsFlow.valueOf(name) }.getOrNull()
+        } ?: ReportsFlow.EXPENSES
+
     private val _uiState = MutableStateFlow(
         ReportsUiState(
             isLoading = true,
-            selectedMonth = YearMonth.now()
+            periodFilter = initialPeriodFilter,
+            period = initialReportPeriod,
+            selectedMonth = initialSelectedMonth,
+            customStartDate = initialCustomStartDate,
+            customEndDate = initialCustomEndDate,
+            selectedAccountIds = initialSelectedAccountIds,
+            currentTab = initialCurrentTab,
+            selectedFlow = initialSelectedFlow,
+            comparisonWindow = initialComparisonWindow,
+            comparisonFlow = initialComparisonFlow
         )
     )
 
@@ -111,10 +196,12 @@ class ReportsViewModel @Inject constructor(
     // ------------------------------------------------------------------------
 
     fun selectReportsTab(tab: ReportsTab) {
+        savedStateHandle[KEY_CURRENT_TAB] = tab.name
         _uiState.value = _uiState.value.copy(currentTab = tab)
     }
 
     fun selectComparisonWindow(window: ComparisonWindow) {
+        savedStateHandle[KEY_COMPARISON_WINDOW] = window.name
         _uiState.value = _uiState.value.copy(
             comparisonWindow = window,
             isLoading = true
@@ -123,6 +210,7 @@ class ReportsViewModel @Inject constructor(
     }
 
     fun selectComparisonFlow(flow: ReportsFlow) {
+        savedStateHandle[KEY_COMPARISON_FLOW] = flow.name
         _uiState.value = _uiState.value.copy(
             comparisonFlow = flow,
             isLoading = true
@@ -140,30 +228,33 @@ class ReportsViewModel @Inject constructor(
 fun selectPeriod(
     periodFilter: PeriodFilter
 ) {
+    val newPeriod = when (periodFilter) {
+        PeriodFilter.THIS_MONTH ->
+            ReportPeriod.MONTH
+
+        PeriodFilter.LAST_3_MONTHS ->
+            ReportPeriod.MONTH
+
+        PeriodFilter.LAST_6_MONTHS ->
+            ReportPeriod.MONTH
+
+        PeriodFilter.YEAR_TO_DATE ->
+            ReportPeriod.YEAR
+
+        PeriodFilter.CUSTOM ->
+            ReportPeriod.CUSTOM
+    }
+    val currentNow = YearMonth.now()
+
+    savedStateHandle[KEY_PERIOD_FILTER] = periodFilter.name
+    savedStateHandle[KEY_REPORT_PERIOD] = newPeriod.name
+    savedStateHandle[KEY_SELECTED_MONTH] = currentNow.toString()
 
     _uiState.value =
         _uiState.value.copy(
             periodFilter = periodFilter,
-            selectedMonth = YearMonth.now(),
-
-            period =
-                when (periodFilter) {
-                    PeriodFilter.THIS_MONTH ->
-                        ReportPeriod.MONTH
-
-                    PeriodFilter.LAST_3_MONTHS ->
-                        ReportPeriod.MONTH
-
-                    PeriodFilter.LAST_6_MONTHS ->
-                        ReportPeriod.MONTH
-
-                    PeriodFilter.YEAR_TO_DATE ->
-                        ReportPeriod.YEAR
-
-                    PeriodFilter.CUSTOM ->
-                        ReportPeriod.CUSTOM
-                },
-
+            selectedMonth = currentNow,
+            period = newPeriod,
             selectedExpenseCategory = null,
             selectedIncomeCategory = null,
             drillDownState =
@@ -187,6 +278,11 @@ fun setCustomDateRange(
     if (endDate.isBefore(startDate)) {
         return
     }
+
+    savedStateHandle[KEY_PERIOD_FILTER] = PeriodFilter.CUSTOM.name
+    savedStateHandle[KEY_REPORT_PERIOD] = ReportPeriod.CUSTOM.name
+    savedStateHandle[KEY_CUSTOM_START_DATE] = startDate.toString()
+    savedStateHandle[KEY_CUSTOM_END_DATE] = endDate.toString()
 
     _uiState.value =
         _uiState.value.copy(
@@ -245,6 +341,8 @@ fun setCustomDateRange(
     private fun navigatePeriod(
         month: YearMonth
     ) {
+        savedStateHandle[KEY_SELECTED_MONTH] = month.toString()
+
         _uiState.value =
             _uiState.value.copy(
                 selectedMonth = month,
@@ -261,6 +359,9 @@ fun setCustomDateRange(
 private fun updateSelectedMonth(
     month: YearMonth
 ) {
+    savedStateHandle[KEY_PERIOD_FILTER] = PeriodFilter.THIS_MONTH.name
+    savedStateHandle[KEY_REPORT_PERIOD] = ReportPeriod.MONTH.name
+    savedStateHandle[KEY_SELECTED_MONTH] = month.toString()
 
     _uiState.value =
         _uiState.value.copy(
@@ -350,6 +451,8 @@ private fun updateSelectedMonth(
     private fun applyAccountSelection(
         accountIds: Set<String>
     ) {
+        savedStateHandle[KEY_SELECTED_ACCOUNT_IDS] = ArrayList(accountIds)
+
         _uiState.value =
             _uiState.value.copy(
                 selectedAccountIds = accountIds,
@@ -369,6 +472,7 @@ private fun updateSelectedMonth(
     fun selectFlow(
         flow: ReportsFlow
     ) {
+        savedStateHandle[KEY_SELECTED_FLOW] = flow.name
         _uiState.value =
             _uiState.value.copy(
                 selectedFlow = flow,
@@ -635,13 +739,16 @@ private fun observeReportData() {
             latestAllocations =
                 sourceData.allocations
 
+            val hasSavedMonth = savedStateHandle.contains(KEY_SELECTED_MONTH)
             val currentSelected = _uiState.value.selectedMonth
-            if (currentSelected == YearMonth.now() &&
+            if (!hasSavedMonth &&
+                currentSelected == YearMonth.now() &&
                 latestTransactions.isNotEmpty() &&
                 latestTransactions.none { transactionYearMonth(it.dateTimestamp) == currentSelected }
             ) {
                 val latestMonth = latestTransactions.maxOfOrNull { it.dateTimestamp }?.let { transactionYearMonth(it) }
                 if (latestMonth != null) {
+                    savedStateHandle[KEY_SELECTED_MONTH] = latestMonth.toString()
                     _uiState.value = _uiState.value.copy(selectedMonth = latestMonth)
                 }
             }

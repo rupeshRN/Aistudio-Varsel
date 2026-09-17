@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DonutSmall
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,10 +30,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.varsel.expensetracker.ui.design.AppColors
+import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.ui.reports.ReportsFlow
 import com.varsel.expensetracker.ui.reports.ReportsTab
+import com.varsel.expensetracker.ui.theme.isDark
 
 /**
  * Consolidated Sticky Control Row:
@@ -46,6 +50,10 @@ fun ReportsStickyControls(
     onFlowSelected: (ReportsFlow) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+    val containerBg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFF1F5F9)
+    val containerBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.4f) else Color(0xFFE2E8F0)
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -53,17 +61,17 @@ fun ReportsStickyControls(
     ) {
         // Mode Switcher (Overview vs Compare)
         Surface(
-            modifier = Modifier.weight(1.15f),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            modifier = Modifier.weight(0.95f),
+            shape = RoundedCornerShape(16.dp),
+            color = containerBg,
+            border = BorderStroke(1.dp, containerBorder)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(42.dp)
+                    .height(44.dp)
                     .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 TabPill(
                     label = "Overview",
@@ -85,33 +93,39 @@ fun ReportsStickyControls(
 
         // Flow Switcher (Expenses vs Income)
         Surface(
-            modifier = Modifier.weight(0.95f),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            modifier = Modifier.weight(1.05f),
+            shape = RoundedCornerShape(16.dp),
+            color = containerBg,
+            border = BorderStroke(1.dp, containerBorder)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(42.dp)
+                    .height(44.dp)
                     .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                horizontalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 val isExpense = selectedFlow == ReportsFlow.EXPENSES
                 val isIncome = selectedFlow == ReportsFlow.INCOME
 
                 FlowPill(
                     label = "Expenses",
+                    icon = Icons.Outlined.ArrowUpward,
                     selected = isExpense,
-                    activeColor = AppColors.Expense,
+                    activeBg = if (isDark) Color(0xFF450A0A).copy(alpha = 0.7f) else Color(0xFFFEE2E2),
+                    activeBorder = if (isDark) Color(0xFFEF4444) else Color(0xFFFCA5A5),
+                    activeColor = if (isDark) Color(0xFFFCA5A5) else Color(0xFFB91C1C),
                     onClick = { onFlowSelected(ReportsFlow.EXPENSES) },
                     modifier = Modifier.weight(1f)
                 )
 
                 FlowPill(
                     label = "Income",
+                    icon = Icons.Outlined.ArrowDownward,
                     selected = isIncome,
-                    activeColor = AppColors.Income,
+                    activeBg = if (isDark) Color(0xFF052E16).copy(alpha = 0.7f) else Color(0xFFDCFCE7),
+                    activeBorder = if (isDark) Color(0xFF22C55E) else Color(0xFF86EFAC),
+                    activeColor = if (isDark) Color(0xFF86EFAC) else Color(0xFF15803D),
                     onClick = { onFlowSelected(ReportsFlow.INCOME) },
                     modifier = Modifier.weight(1f)
                 )
@@ -121,7 +135,7 @@ fun ReportsStickyControls(
 }
 
 /**
- * Backward-compatible single tab selector if needed.
+ * Single tab selector for standalone view.
  */
 @Composable
 fun ReportsTabSelector(
@@ -129,15 +143,19 @@ fun ReportsTabSelector(
     onTabSelected: (ReportsTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+    val containerBg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.5f) else Color(0xFFF1F5F9)
+    val containerBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.4f) else Color(0xFFE2E8F0)
+
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        shape = RoundedCornerShape(16.dp),
+        color = containerBg,
+        border = BorderStroke(1.dp, containerBorder)
     ) {
         Row(
             modifier = Modifier
-                .height(42.dp)
+                .height(44.dp)
                 .padding(3.dp),
             horizontalArrangement = Arrangement.spacedBy(3.dp)
         ) {
@@ -168,29 +186,44 @@ private fun TabPill(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+
+    val selectedBg = if (isDark) Color(0xFF312E81).copy(alpha = 0.65f) else Color(0xFFEEF2FF)
+    val selectedBorder = if (isDark) Color(0xFF6366F1) else Color(0xFFA5B4FC)
+    val selectedContent = if (isDark) Color(0xFFA5B4FC) else Color(0xFF4338CA)
+
+    val unselectedBg = Color.Transparent
+    val unselectedBorder = Color.Transparent
+    val unselectedContent = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+
     val backgroundColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
+        targetValue = if (selected) selectedBg else unselectedBg,
         animationSpec = tween(durationMillis = 180),
         label = "tab_bg"
     )
 
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) selectedBorder else unselectedBorder,
+        animationSpec = tween(durationMillis = 180),
+        label = "tab_border"
+    )
+
     val contentColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (selected) selectedContent else unselectedContent,
         animationSpec = tween(durationMillis = 180),
         label = "tab_fg"
     )
 
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(11.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
-        tonalElevation = if (selected) 2.dp else 0.dp,
-        shadowElevation = if (selected) 1.dp else 0.dp
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 6.dp, horizontal = 6.dp),
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
@@ -198,15 +231,19 @@ private fun TabPill(
                 imageVector = icon,
                 contentDescription = null,
                 tint = contentColor,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(15.dp)
             )
             Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 12.sp
+                ),
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 color = contentColor,
-                maxLines = 1
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -215,43 +252,67 @@ private fun TabPill(
 @Composable
 private fun FlowPill(
     label: String,
+    icon: ImageVector,
     selected: Boolean,
+    activeBg: Color,
+    activeBorder: Color,
     activeColor: Color,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+
+    val unselectedBg = Color.Transparent
+    val unselectedBorder = Color.Transparent
+    val unselectedContent = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+
     val backgroundColor by animateColorAsState(
-        targetValue = if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
+        targetValue = if (selected) activeBg else unselectedBg,
         animationSpec = tween(durationMillis = 180),
         label = "flow_bg"
     )
 
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) activeBorder else unselectedBorder,
+        animationSpec = tween(durationMillis = 180),
+        label = "flow_border"
+    )
+
     val textColor by animateColorAsState(
-        targetValue = if (selected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+        targetValue = if (selected) activeColor else unselectedContent,
         animationSpec = tween(durationMillis = 180),
         label = "flow_fg"
     )
 
     Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(11.dp))
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(11.dp),
+        shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
-        tonalElevation = if (selected) 2.dp else 0.dp,
-        shadowElevation = if (selected) 1.dp else 0.dp
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
-            modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(13.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 12.sp
+                ),
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 color = textColor,
-                maxLines = 1
+                maxLines = 1,
+                softWrap = false
             )
         }
     }

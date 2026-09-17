@@ -42,6 +42,7 @@ enum class HomeSection(val id: String, val displayName: String, val description:
     INSIGHTS("INSIGHTS", "Actionable Insights", "Smart spending flags and advisory tips"),
     LOANS("LOANS", "Loans & Liabilities", "Active loans and upcoming EMI schedule"),
     BUDGETS("BUDGETS", "Budgets", "Monthly category and total spending caps progress"),
+    RECURRING("RECURRING", "Recurring & Subscriptions", "Upcoming subscriptions, bills, and recurring income"),
     GOALS("GOALS", "Goals", "Savings targets and milestones tracker");
 
     companion object {
@@ -75,7 +76,7 @@ data class GeneralConfig(
     val homeBudgetsSelection: String = "ALL",
     val homeGoalsSelection: String = "ALL",
     val primaryAccount: String = "First Select",
-    val pinnedAccounts: List<String> = listOf("IB", "IC", "IC Credit card", "HD"),
+    val pinnedAccounts: List<String> = emptyList(),
     val showNetWorthBreakdown: Boolean = true,
     val homeTransactionsCount: Int = 5,
     val homeTransactionsFilter: String = "ALL",
@@ -153,13 +154,50 @@ class GeneralPreferencesRepository @Inject constructor(
         val budgetCat = prefs[GeneralPreferenceKeys.BUDGET_WIDGET_CATEGORY] ?: "Food"
         val homeBudgets = prefs[GeneralPreferenceKeys.HOME_BUDGETS_SELECTION] ?: "ALL"
         val homeGoals = prefs[GeneralPreferenceKeys.HOME_GOALS_SELECTION] ?: "ALL"
-        val primaryAcc = prefs[GeneralPreferenceKeys.PRIMARY_ACCOUNT] ?: "First Select"
-        val pinnedAccsRaw = prefs[GeneralPreferenceKeys.PINNED_ACCOUNTS]
-        val pinnedAccs = if (!pinnedAccsRaw.isNullOrBlank()) {
-            pinnedAccsRaw.split(",").map { it.trim() }.filter { it.isNotBlank() }
-        } else {
-            listOf("IB", "IC", "IC Credit card", "HD")
+        val legacyPrimaryAccounts = setOf(
+    "IC",
+    "IC Credit",
+    "IC Credit card",
+    "HD",
+    "SBI",
+    "SC"
+)
+
+val savedPrimaryAccount =
+    prefs[GeneralPreferenceKeys.PRIMARY_ACCOUNT] ?: "First Select"
+
+val primaryAcc =
+    if (legacyPrimaryAccounts.any {
+            it.equals(savedPrimaryAccount, ignoreCase = true)
         }
+    ) {
+        "First Select"
+    } else {
+        savedPrimaryAccount
+    }
+        val pinnedAccsRaw = prefs[GeneralPreferenceKeys.PINNED_ACCOUNTS]
+        val legacyHardcodedAccounts = setOf(
+    "IC",
+    "IC Credit",
+    "IC Credit card",
+    "HD",
+    "SBI",
+    "SC"
+)
+
+val pinnedAccs = if (!pinnedAccsRaw.isNullOrBlank()) {
+    pinnedAccsRaw
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .filterNot { account ->
+            legacyHardcodedAccounts.any {
+                it.equals(account, ignoreCase = true)
+            }
+        }
+} else {
+    emptyList()
+}
         val showNwBreakdown = prefs[GeneralPreferenceKeys.SHOW_NET_WORTH_BREAKDOWN] ?: true
         val txnCount = prefs[GeneralPreferenceKeys.HOME_TRANSACTIONS_COUNT] ?: 5
         val txnFilter = prefs[GeneralPreferenceKeys.HOME_TRANSACTIONS_FILTER] ?: "ALL"

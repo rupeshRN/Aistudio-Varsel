@@ -191,11 +191,15 @@ class PdfTextExtractor @Inject constructor() {
                 }
 
             } catch (e: SecurityException) {
-                if (password.isNullOrEmpty()) {
-                    PdfExtractionResult.PasswordRequired
-                } else {
-                    PdfExtractionResult.InvalidPassword
-                }
+
+    // A SecurityException here means Android/ContentResolver access
+    // failed. It does NOT prove that the PDF is password protected.
+    // Password-related PDF failures are already handled above by
+    // PDFBox using InvalidPasswordException and message inspection.
+
+    PdfExtractionResult.Error(
+        e.message ?: "Could not access the selected PDF file"
+    )
             } catch (e: Exception) {
 
                 PdfExtractionResult.Error(e.message ?: "Failed to process PDF file")

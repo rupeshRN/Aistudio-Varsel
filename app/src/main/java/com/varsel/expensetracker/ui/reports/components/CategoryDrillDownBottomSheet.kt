@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.category.CategoryIconCatalog
 import com.varsel.expensetracker.ui.design.AppColors
 import com.varsel.expensetracker.ui.design.CategoryPalette
@@ -182,7 +183,7 @@ fun CategoryDrillDownBottomSheet(
                                 color = categoryColor.copy(alpha = 0.18f)
                             ) {
                                 Text(
-                                    text = if (state.flow == ReportsFlow.EXPENSES) "EXPENSE" else "INCOME",
+                                    text = if (state.flow == ReportsFlow.EXPENSES) "EXPENSES" else "INCOME",
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = categoryColor,
@@ -190,15 +191,39 @@ fun CategoryDrillDownBottomSheet(
                                 )
                             }
 
-                            Text(
-                                text = "•",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            // Dedicated Transaction Count Badge - ALWAYS visible even in long custom date ranges
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Text(
+                                    text = if (isSearching) "$countText txns" else "$countText txn${if (state.items.size != 1) "s" else ""}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
 
+                        Spacer(modifier = Modifier.height(3.dp))
+
+                        // Date Range / Period display row with calendar icon
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.CalendarToday,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.size(11.dp)
+                            )
                             Text(
-                                text = "$periodDisplay ($countText)",
-                                style = MaterialTheme.typography.bodySmall,
+                                text = periodDisplay,
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -277,6 +302,46 @@ fun CategoryDrillDownBottomSheet(
                     unfocusedIndicatorColor = Color.Transparent
                 )
             )
+
+            // Dynamic Search Result Info Strip
+            if (isSearching) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = categoryColor.copy(alpha = 0.08f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Found ${filteredItems.size} of ${state.items.size} transactions",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        val pct = state.searchPercentOfCategory
+                        val pctString = when {
+                            pct <= 0.0 -> "0%"
+                            pct >= 99.95 -> "100%"
+                            pct < 1.0 -> String.format(Locale.getDefault(), "%.1f%%", pct)
+                            pct % 1.0 == 0.0 -> "${pct.toInt()}%"
+                            else -> "${Math.round(pct)}%"
+                        }
+
+                        Text(
+                            text = "$pctString of category",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = categoryColor
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

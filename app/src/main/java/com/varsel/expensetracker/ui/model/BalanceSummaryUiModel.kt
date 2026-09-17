@@ -61,6 +61,14 @@ data class BalanceSummaryUiModel(
 
 data class AccountBalanceUiModel(
 
+    /**
+     * Stable internal account identifier.
+     *
+     * This is the SHA-256 hash of the full account number.
+     * The actual account number is never stored here.
+     */
+    val accountId: String?,
+
     val bankName: String,
 
     val bankShortName: String = "",

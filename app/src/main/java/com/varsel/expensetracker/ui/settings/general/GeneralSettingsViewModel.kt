@@ -52,47 +52,59 @@ class GeneralSettingsViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+val availableAccounts: StateFlow<List<String>> = combine(
+    transactionRepository.getAllTransactions(),
+    repository.generalConfig,
+    statementSnapshotRepository.observeAllSnapshots()
+) { transactions, config, snapshots ->
 
-    val availableAccounts: StateFlow<List<String>> = combine(
-        transactionRepository.getAllTransactions(),
-        repository.generalConfig
-    ) { transactions, config ->
-        val discovered = linkedSetOf<String>()
-        // Defaults matching user's reference mockup
-        discovered.add("IB")
-        discovered.add("IC")
-        discovered.add("IC Credit card")
-        discovered.add("HD")
+    val discovered = linkedSetOf<String>()
 
-        // Include any currently pinned accounts
-        discovered.addAll(config.pinnedAccounts)
+    // Preserve currently configured accounts.
+    discovered.addAll(config.pinnedAccounts)
 
-        // Include accounts detected from transactions
-        transactions.forEach { txn ->
-            val detected = BankInfoHelper.detectBankForTransaction(txn)
-            if (detected.isNotBlank() && detected != "Bank" && detected != "Bank Account") {
-                val shortName = BankInfoHelper.getBankShortName(detected)
-                if (shortName.isNotBlank()) discovered.add(shortName)
+    // Discover accounts from imported statement snapshots.
+    snapshots.forEach { snapshot ->
+        val bankName = snapshot.bankName
+
+        if (
+            !bankName.isNullOrBlank() &&
+            bankName != "Bank Statement"
+        ) {
+            val shortName = BankInfoHelper.getBankShortName(bankName)
+
+            if (shortName.isNotBlank()) {
+                discovered.add(shortName)
             }
         }
+    }
 
-        // Try getting snapshots
-        try {
-            val snapshots = statementSnapshotRepository.getAllSnapshots()
-            snapshots.forEach { s ->
-                val name = s.bankName
-                if (!name.isNullOrBlank() && name != "Bank Statement") {
-                    discovered.add(BankInfoHelper.getBankShortName(name))
-                }
+    // Discover legacy transaction accounts.
+    transactions.forEach { transaction ->
+        val detectedBank =
+            BankInfoHelper.detectBankForTransaction(transaction)
+
+        if (
+            detectedBank.isNotBlank() &&
+            detectedBank != "Bank" &&
+            detectedBank != "Bank Account"
+        ) {
+            val shortName =
+                BankInfoHelper.getBankShortName(detectedBank)
+
+            if (shortName.isNotBlank()) {
+                discovered.add(shortName)
             }
-        } catch (_: Exception) {}
+        }
+    }
 
-        discovered.toList()
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = listOf("IB", "IC", "IC Credit card", "HD")
-    )
+    discovered.toList()
+
+}.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.WhileSubscribed(5000),
+    initialValue = emptyList()
+)
 
     fun setBiometricTimeout(timeout: BiometricTimeout) {
         viewModelScope.launch {

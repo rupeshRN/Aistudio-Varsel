@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
@@ -33,6 +34,7 @@ import com.varsel.expensetracker.ui.loan.add_edit.AddEditLoanScreen
 import com.varsel.expensetracker.ui.loan.detail.LoanDetailScreen
 import com.varsel.expensetracker.ui.more.MoreScreen
 import com.varsel.expensetracker.ui.more.SettingsDetailScreen
+import com.varsel.expensetracker.ui.recurring.RecurringSubscriptionsScreen
 import com.varsel.expensetracker.ui.reports.ReportsScreen
 import com.varsel.expensetracker.ui.settings.SettingsScreen
 import com.varsel.expensetracker.ui.settings.general.EditHomeScreen
@@ -57,17 +59,33 @@ fun NavGraph(
             DashboardScreen(
                 viewModel = hiltViewModel(),
                 onNavigateToAllTransactions = {
-                    navController.navigate(AppDestination.Transactions.route)
+                    navController.navigate(AppDestination.Transactions.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 onNavigateToImport = {
                     navController.navigate("import_statement")
                 },
                 onNavigateToImportWithUri = { uri ->
-                    val encodedUri = Uri.encode(uri.toString())
-                    navController.navigate("import_statement?initialUri=$encodedUri")
-                },
+
+    navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.set("import_initial_uri", uri)
+
+    navController.navigate("import_statement")
+},
                 onNavigateToAnalytics = {
-                    navController.navigate(AppDestination.Reports.route)
+                    navController.navigate(AppDestination.Reports.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 onNavigateToTransactionDetail = { transactionId ->
                     navController.navigate("transaction_detail/$transactionId")
@@ -79,7 +97,16 @@ fun NavGraph(
                     navController.navigate("loans")
                 },
                 onNavigateToBudgets = {
-                    navController.navigate("budgets")
+                    navController.navigate(AppDestination.Budgets.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onNavigateToRecurring = {
+                    navController.navigate("recurring")
                 }
             )
         }
@@ -267,22 +294,58 @@ composable(AppDestination.Reports.route) {
                     navController.navigate("import_statement")
                 },
                 onBudgetsClick = {
-                    navController.navigate(AppDestination.Budgets.route)
+                    navController.navigate(AppDestination.Budgets.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 onReportsClick = {
-                    navController.navigate(AppDestination.Reports.route)
+                    navController.navigate(AppDestination.Reports.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 onTransactionsClick = {
-                    navController.navigate(AppDestination.Transactions.route)
+                    navController.navigate(AppDestination.Transactions.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 },
                 onHeatmapClick = {
-                    navController.navigate(AppDestination.CalendarHeatmap.route)
+                    navController.navigate(AppDestination.CalendarHeatmap.route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onRecurringClick = {
+                    navController.navigate("recurring")
                 },
                 onSettingsClick = {
                     navController.navigate("settings")
                 },
                 onGeneralSettingsClick = {
                     navController.navigate("general_settings")
+                }
+            )
+        }
+
+        composable(AppDestination.Recurring.route) {
+            RecurringSubscriptionsScreen(
+                viewModel = hiltViewModel(),
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
@@ -402,33 +465,25 @@ composable(AppDestination.Reports.route) {
             )
         }
 
-        composable(
-            route = "import_statement?initialUri={initialUri}",
-            arguments = listOf(
-                navArgument("initialUri") {
-                    type = NavType.StringType
-                    nullable = true
-                    defaultValue = null
-                }
-            )
-        ) { backStackEntry ->
-            val initialUriStr = backStackEntry.arguments?.getString("initialUri")
-            val initialUri = remember(initialUriStr) {
-                initialUriStr?.let { Uri.parse(Uri.decode(it)) }
-            }
+        composable("import_statement") {
 
-            ImportScreen(
-                initialFileUri = initialUri,
-                onBackClick = {
-                    navController.popBackStack()
-                },
-                onNavigateToTransactions = {
-                    navController.navigate(AppDestination.Transactions.route) {
-                        popUpTo(AppDestination.Home.route)
-                        launchSingleTop = true
-                    }
-                }
-            )
+    val initialUri =
+        navController.previousBackStackEntry
+            ?.savedStateHandle
+            ?.get<Uri>("import_initial_uri")
+
+    ImportScreen(
+        initialFileUri = initialUri,
+        onBackClick = {
+            navController.popBackStack()
+        },
+        onNavigateToTransactions = {
+            navController.navigate(AppDestination.Transactions.route) {
+                popUpTo(AppDestination.Home.route)
+                launchSingleTop = true
+            }
+        }
+    )
         }
 
         composable("learning_rules") {

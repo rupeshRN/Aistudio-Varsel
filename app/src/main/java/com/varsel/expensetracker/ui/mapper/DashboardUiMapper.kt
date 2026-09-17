@@ -36,26 +36,15 @@ class DashboardUiMapper @Inject constructor(
 
         val currentMonth =
             now.get(Calendar.MONTH)
+// Always use the actual current calendar month.
+// Do not fall back to the latest transaction month.
+//
+// Example:
+// Current date: September 2026
+// This Month = September 1–September 30, 2026
 
-        val currentMonthStart =
-            calendarAtStartOfMonth(
-                currentYear,
-                currentMonth
-            )
-
-        val hasCurrentMonthData = transactions.any { it.dateTimestamp >= currentMonthStart }
-        val anchorYear: Int
-        val anchorMonth: Int
-
-        if (hasCurrentMonthData || transactions.isEmpty()) {
-            anchorYear = currentYear
-            anchorMonth = currentMonth
-        } else {
-            val latestTime = transactions.maxOf { it.dateTimestamp }
-            val cal = Calendar.getInstance().apply { timeInMillis = latestTime }
-            anchorYear = cal.get(Calendar.YEAR)
-            anchorMonth = cal.get(Calendar.MONTH)
-        }
+val anchorYear = currentYear
+val anchorMonth = currentMonth
 
         val activeMonthStart = calendarAtStartOfMonth(anchorYear, anchorMonth)
         val nextMonthStart = calendarAtStartOfMonth(
@@ -509,6 +498,9 @@ private fun calculateEffectiveExpense(
 
             result.add(
                 AccountBalanceUiModel(
+
+                    accountId =
+    accountId,
                     bankName =
                         bankName,
 
@@ -558,6 +550,9 @@ private fun calculateEffectiveExpense(
 
             result.add(
                 AccountBalanceUiModel(
+
+                    accountId =
+            null,
                     bankName =
                         if (legacyBankName != "Bank Account") legacyBankName else "Other",
 

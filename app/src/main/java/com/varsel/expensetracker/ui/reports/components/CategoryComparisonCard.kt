@@ -35,6 +35,7 @@ import com.varsel.expensetracker.ui.design.AppColors
 import com.varsel.expensetracker.ui.design.CategoryPalette
 import com.varsel.expensetracker.ui.reports.CategoryComparisonItem
 import com.varsel.expensetracker.ui.reports.ReportsFlow
+import com.varsel.expensetracker.ui.theme.isDark
 import java.text.NumberFormat
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -62,15 +63,20 @@ fun CategoryComparisonCard(
         (item.monthlyTotals.maxOfOrNull { it.amount } ?: 1.0).coerceAtLeast(1.0)
     }
 
+    val isDark = MaterialTheme.colorScheme.isDark
+    val cardBg = if (isDark) Color(0xFF0F172A).copy(alpha = 0.5f) else Color(0xFFFFFFFF)
+    val cardBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFE2E8F0)
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(20.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp),
+        color = cardBg,
         tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        shadowElevation = if (isDark) 0.dp else 2.dp,
+        border = BorderStroke(1.dp, cardBorder)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

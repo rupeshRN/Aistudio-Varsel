@@ -9,6 +9,7 @@ import com.varsel.expensetracker.data.local.dao.CustomRuleDao
 import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
 import com.varsel.expensetracker.data.local.dao.LoanAccountDao
 import com.varsel.expensetracker.data.local.dao.LoanPaymentDao
+import com.varsel.expensetracker.data.local.dao.RecurringItemDao
 import com.varsel.expensetracker.data.local.dao.StatementSnapshotDao
 import com.varsel.expensetracker.data.local.dao.TransactionDao
 import com.varsel.expensetracker.data.local.dao.TransactionLinkGroupDao
@@ -71,7 +72,8 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_14_15,
                 AppDatabase.MIGRATION_15_16,
                 AppDatabase.MIGRATION_16_17,
-                AppDatabase.MIGRATION_17_18
+                AppDatabase.MIGRATION_17_18,
+                AppDatabase.MIGRATION_18_19
             )
             .addCallback(
                 AppDatabase.SeedCallback(
@@ -81,6 +83,12 @@ object DatabaseModule {
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
     }
+
+    @Provides
+    fun provideRecurringItemDao(
+        db: AppDatabase
+    ): RecurringItemDao =
+        db.recurringItemDao()
 
     @Provides
     fun provideBudgetDao(

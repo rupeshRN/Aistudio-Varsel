@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -32,22 +34,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.varsel.expensetracker.ui.reports.ComparisonWindow
-import java.time.YearMonth
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import com.varsel.expensetracker.ui.theme.isDark
 
 /**
- * Reports page header.
- *
- * Responsibilities:
- * - Display Reports title.
- * - Display the currently selected reporting period.
- * - Navigate between months.
- * - Display the 3M/6M comparison window selector when in comparison mode.
- * - Display the account-filter button.
- *
- * Account selection itself is deliberately kept outside this component.
+ * Modernized fintech Reports page header.
+ * Provides unified navigation, period stepping, comparison window switching, and tactile filter button.
  */
 @Composable
 fun ReportsHeader(
@@ -65,253 +58,250 @@ fun ReportsHeader(
     onComparisonWindowSelected: (ComparisonWindow) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val isDark = MaterialTheme.colorScheme.isDark
+
+    val cardBg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.65f) else Color(0xFFF8FAFC)
+    val cardBorder = if (isDark) Color(0xFF334155).copy(alpha = 0.5f) else Color(0xFFE2E8F0)
+
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-
+        // Top Navigation Row: Back Button + Title + Subtitle + Tactile Filter Button
         Row(
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            if (onBackClick != null) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.testTag("reports_back_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back"
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                if (onBackClick != null) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isDark) Color(0xFF1E293B).copy(alpha = 0.8f) else Color(0xFFF1F5F9),
+                        border = BorderStroke(1.dp, cardBorder)
+                    ) {
+                        IconButton(
+                            onClick = onBackClick,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .testTag("reports_back_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back",
+                                tint = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "Financial Reports",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp
+                        ),
+                        color = if (isDark) Color(0xFFF8FAFC) else Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = "Cash flow distribution & analytics",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Spacer(modifier = Modifier.width(4.dp))
             }
 
-            Text(
-                text = "Reports",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
+            // Tactile Filter Pill
+            Surface(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(onClick = onFilterClick),
+                shape = RoundedCornerShape(14.dp),
+                color = if (hasActiveAccountFilter) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                } else {
+                    cardBg
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (hasActiveAccountFilter) MaterialTheme.colorScheme.primary else cardBorder
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.FilterList,
+                        contentDescription = "Filter accounts",
+                        tint = if (hasActiveAccountFilter) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                        },
+                        modifier = Modifier.size(18.dp)
+                    )
+
+                    if (hasActiveAccountFilter) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary)
+                        )
+                    }
+
+                    Text(
+                        text = if (hasActiveAccountFilter) accountFilterLabel else "Filter",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        ),
+                        color = if (hasActiveAccountFilter) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                        },
+                        maxLines = 1
+                    )
+                }
+            }
         }
 
+        // Period Navigation Bento Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            /*
-             * Period selector.
-             */
+            // Period stepper
             Surface(
                 modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant
+                shape = RoundedCornerShape(16.dp),
+                color = cardBg,
+                border = BorderStroke(1.dp, cardBorder),
+                tonalElevation = 1.dp
             ) {
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
-                    horizontalArrangement =
-                        Arrangement.SpaceBetween,
-                    verticalAlignment =
-                        Alignment.CenterVertically
+                        .height(48.dp)
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-
                     IconButton(
                         onClick = onPreviousPeriod,
-                        enabled = isPreviousEnabled
+                        enabled = isPreviousEnabled,
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
-                            imageVector =
-                                Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                            contentDescription =
-                                "Previous period",
-                            tint =
-                                if (isPreviousEnabled) {
-                                    MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                                }
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = "Previous period",
+                            tint = if (isPreviousEnabled) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                            },
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Text(
-                        text = periodLabel,
-                        style =
-                            MaterialTheme.typography.titleMedium,
-                        fontWeight =
-                            FontWeight.SemiBold,
-                        color =
-                            MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         modifier = Modifier.padding(horizontal = 4.dp)
-                    )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarMonth,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = periodLabel,
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.2).sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1
+                        )
+                    }
 
                     IconButton(
                         onClick = onNextPeriod,
-                        enabled = isNextEnabled
+                        enabled = isNextEnabled,
+                        modifier = Modifier.size(38.dp)
                     ) {
                         Icon(
-                            imageVector =
-                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription =
-                                "Next period",
-                            tint =
-                                if (isNextEnabled) {
-                                    MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-                                }
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Next period",
+                            tint = if (isNextEnabled) {
+                                MaterialTheme.colorScheme.onSurface
+                            } else {
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                            },
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
 
-            /*
-             * Consolidated 3M / 6M Comparison Window Selector
-             * Reclaims vertical space by living right alongside the Date Header.
-             */
+            // Comparison Window Selector (3M / 6M)
             if (showComparisonWindowSelector) {
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(16.dp),
+                    color = cardBg,
+                    border = BorderStroke(1.dp, cardBorder),
+                    tonalElevation = 1.dp,
                     modifier = Modifier.height(48.dp)
                 ) {
                     Row(
                         modifier = Modifier.padding(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
                     ) {
                         ComparisonWindow.values().forEach { window ->
                             val isSelected = window == selectedComparisonWindow
                             Surface(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(10.dp))
+                                    .clip(RoundedCornerShape(12.dp))
                                     .clickable { onComparisonWindowSelected(window) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.Transparent
+                                },
+                                tonalElevation = if (isSelected) 2.dp else 0.dp
                             ) {
                                 Text(
                                     text = when (window) {
                                         ComparisonWindow.THREE_MONTHS -> "3M"
                                         ComparisonWindow.SIX_MONTHS -> "6M"
                                     },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    ),
+                                    color = if (isSelected) {
+                                        MaterialTheme.colorScheme.onPrimary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
                                 )
                             }
                         }
                     }
                 }
-            }
-
-            /*
-             * Filter button.
-             *
-             * A small indicator appears when an account
-             * filter is active.
-             */
-            Box {
-
-                Surface(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clickable(
-                            onClick = onFilterClick
-                        ),
-                    shape = RoundedCornerShape(14.dp),
-                    color =
-                        if (hasActiveAccountFilter) {
-                            MaterialTheme.colorScheme
-                                .primaryContainer
-                        } else {
-                            MaterialTheme.colorScheme
-                                .surfaceVariant
-                        }
-                ) {
-
-                    Box(
-                        contentAlignment =
-                            Alignment.Center
-                    ) {
-
-                        Icon(
-                            imageVector =
-                                Icons.Default.FilterAlt,
-                            contentDescription =
-                                "Report filters",
-                            tint =
-                                if (hasActiveAccountFilter) {
-                                    MaterialTheme.colorScheme
-                                        .onPrimaryContainer
-                                } else {
-                                    MaterialTheme.colorScheme
-                                        .onSurfaceVariant
-                                }
-                        )
-                    }
-                }
-
-                /*
-                 * Small active-filter indicator.
-                 */
-                if (hasActiveAccountFilter) {
-
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                color =
-                                    MaterialTheme.colorScheme
-                                        .primary,
-                                shape =
-                                    RoundedCornerShape(50)
-                            )
-                            .align(Alignment.TopEnd)
-                    )
-                }
-            }
-        }
-
-        /*
-         * Only show the account description when a
-         * specific account selection is active.
-         *
-         * All Accounts remains the implicit default.
-         */
-        if (hasActiveAccountFilter) {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                Text(
-                    text = accountFilterLabel,
-                    style =
-                        MaterialTheme.typography.labelLarge,
-                    color =
-                        MaterialTheme.colorScheme.primary,
-                    fontWeight =
-                        FontWeight.SemiBold
-                )
-
-                Spacer(
-                    modifier = Modifier.size(4.dp)
-                )
-
-                Text(
-                    text = "filtered",
-                    style =
-                        MaterialTheme.typography.labelMedium,
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }

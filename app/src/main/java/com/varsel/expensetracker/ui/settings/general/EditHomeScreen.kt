@@ -368,6 +368,9 @@ fun EditHomeScreen(
                 onDismiss = { selectedSectionForCustomization = null }
             )
         }
+        HomeSection.RECURRING -> {
+            selectedSectionForCustomization = null
+        }
         null -> { /* No customization open */ }
     }
 }
@@ -407,6 +410,9 @@ private fun getSectionSubtitle(
         }
         HomeSection.LOANS -> {
             if (generalConfig.homeLoansFilter == "ACTIVE") "Active Only" else "All Loans"
+        }
+        HomeSection.RECURRING -> {
+            "Upcoming subscriptions & bills"
         }
         else -> null
     }
@@ -648,6 +654,7 @@ fun getIconForSection(section: HomeSection): ImageVector {
         HomeSection.INSIGHTS -> Icons.Outlined.Lightbulb
         HomeSection.LOANS -> Icons.Outlined.AccountBalance
         HomeSection.BUDGETS -> Icons.Outlined.PieChart
+        HomeSection.RECURRING -> Icons.Outlined.Repeat
         HomeSection.GOALS -> Icons.Outlined.Savings
     }
 }

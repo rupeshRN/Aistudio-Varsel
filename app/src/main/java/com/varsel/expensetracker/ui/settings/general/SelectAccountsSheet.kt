@@ -207,9 +207,9 @@ fun SelectAccountsSheet(
                     }
                 } else {
                     itemsIndexed(
-                        items = pinnedAccounts,
-                        key = { _, account -> account }
-                    ) { index, account ->
+    items = pinnedAccounts,
+    key = { index, account -> "$index-$account" }
+) { index, account ->
                         val pinColor = PIN_COLORS[index % PIN_COLORS.size]
                         val isPrimary = primaryAccount == account || (primaryAccount == "First Select" && index == 0)
 

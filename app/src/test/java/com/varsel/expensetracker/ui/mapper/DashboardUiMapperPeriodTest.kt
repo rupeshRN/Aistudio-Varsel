@@ -52,51 +52,63 @@ class DashboardUiMapperPeriodTest {
         assertEquals(3000.0, resultAllTime.balanceSummary.totalBalance, 0.01)
         assertEquals(3000.0, resultThisMonth.balanceSummary.totalBalance, 0.01)
     }
+@Test
+fun testHistoricalTransactionsWithoutCurrentMonthData() {
+    // Historical statement: August 2025.
+    // Relative periods must use the actual current calendar date,
+    // not the latest transaction date.
 
-    @Test
-    fun testHistoricalTransactionsWithoutCurrentMonthData() {
-        // Historical statement: August 2025
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.YEAR, 2025)
-            set(Calendar.MONTH, Calendar.AUGUST)
-            set(Calendar.DAY_OF_MONTH, 15)
-        }
-        val aug2025 = cal.timeInMillis
-
-        cal.set(Calendar.MONTH, Calendar.FEBRUARY)
-        val feb2025 = cal.timeInMillis
-
-        val txns = listOf(
-            Transaction(
-                id = 1L,
-                amount = 1000.0,
-                type = TransactionType.INCOME,
-                role = TransactionRole.NORMAL,
-                dateTimestamp = aug2025,
-                description = "Aug Income",
-                category = "Income"
-            ),
-            Transaction(
-                id = 2L,
-                amount = 2000.0,
-                type = TransactionType.INCOME,
-                role = TransactionRole.NORMAL,
-                dateTimestamp = feb2025,
-                description = "Feb Income",
-                category = "Income"
-            )
-        )
-
-        val resultThisYear = mapper.map(txns, emptyList(), period = "This Year")
-        assertEquals(3000.0, resultThisYear.balanceSummary.totalIncome, 0.01)
-        assertEquals("This Year", resultThisYear.balanceSummary.periodLabel)
-
-        val resultLast6Months = mapper.map(txns, emptyList(), period = "Last 6 Months")
-        assertEquals(1000.0, resultLast6Months.balanceSummary.totalIncome, 0.01)
-        assertEquals("Last 6 Months", resultLast6Months.balanceSummary.periodLabel)
-
-        val resultLast3Months = mapper.map(txns, emptyList(), period = "Last 3 Months")
-        assertEquals(1000.0, resultLast3Months.balanceSummary.totalIncome, 0.01)
-        assertEquals("Last 3 Months", resultLast3Months.balanceSummary.periodLabel)
+    val cal = Calendar.getInstance().apply {
+        set(Calendar.YEAR, 2025)
+        set(Calendar.MONTH, Calendar.AUGUST)
+        set(Calendar.DAY_OF_MONTH, 15)
     }
+    val aug2025 = cal.timeInMillis
+
+    cal.set(Calendar.MONTH, Calendar.FEBRUARY)
+    val feb2025 = cal.timeInMillis
+
+    val txns = listOf(
+        Transaction(
+            id = 1L,
+            amount = 1000.0,
+            type = TransactionType.INCOME,
+            role = TransactionRole.NORMAL,
+            dateTimestamp = aug2025,
+            description = "Aug Income",
+            category = "Income"
+        ),
+        Transaction(
+            id = 2L,
+            amount = 2000.0,
+            type = TransactionType.INCOME,
+            role = TransactionRole.NORMAL,
+            dateTimestamp = feb2025,
+            description = "Feb Income",
+            category = "Income"
+        )
+    )
+
+    val resultThisYear = mapper.map(
+        txns,
+        emptyList(),
+        period = "This Year"
+    )
+    assertEquals(0.0, resultThisYear.balanceSummary.totalIncome, 0.01)
+    assertEquals("This Year", resultThisYear.balanceSummary.periodLabel)
+
+    val resultLast6Months = mapper.map(
+        txns,
+        emptyList(),
+        period = "Last 6 Months"
+    )
+    assertEquals(0.0, resultLast6Months.balanceSummary.totalIncome, 0.01)
+
+    val resultLast3Months = mapper.map(
+        txns,
+        emptyList(),
+        period = "Last 3 Months"
+    )
+    assertEquals(0.0, resultLast3Months.balanceSummary.totalIncome, 0.01)
+}
 }

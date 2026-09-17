@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.ui.dashboard
 
 import com.varsel.expensetracker.domain.model.loan.LoanSummary
+import com.varsel.expensetracker.domain.model.recurring.RecurringItem
 import com.varsel.expensetracker.ui.budget.model.BudgetUiModel
 import com.varsel.expensetracker.ui.model.BalanceSummaryUiModel
 import com.varsel.expensetracker.ui.model.FinancialInsight
@@ -19,6 +20,8 @@ data class DashboardUiState(
     val recentTransactions: List<TransactionUiModel> = emptyList(),
 
     val loans: List<LoanSummary> = emptyList(),
+
+    val recurringItems: List<RecurringItem> = emptyList(),
 
     val insights: List<FinancialInsight> = emptyList(),
 
