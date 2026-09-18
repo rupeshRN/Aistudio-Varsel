@@ -36,8 +36,8 @@ fun BankLogoBadge(
     val normalized = bankName.uppercase()
 
     when {
-        // Indian Bank (Official Deep Blue + Golden/Yellow emblem)
-        normalized.contains("INDIAN BANK") || normalized.contains("IDIB") || normalized.contains("IND BL") -> {
+        // Indian Bank (Official Emblem from SVG)
+        normalized.contains("INDIAN BANK") || normalized.contains("INDIANBANK") || normalized.contains("IDIB") || normalized.contains("IND BL") || normalized == "IB" -> {
             Surface(
                 modifier = modifier.size(size),
                 shape = RoundedCornerShape(8.dp),
@@ -47,25 +47,11 @@ fun BankLogoBadge(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color(0xFFFFB800),
-                            modifier = Modifier.size(size * 0.44f)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "IB",
-                                    color = Color(0xFF003B70),
-                                    fontSize = (size.value * 0.20f).sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.ic_bank_indian),
+                        contentDescription = "Indian Bank",
+                        modifier = Modifier.size(size * 0.78f)
+                    )
                 }
             }
         }
