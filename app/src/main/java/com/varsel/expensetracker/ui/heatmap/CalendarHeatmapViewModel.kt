@@ -91,11 +91,23 @@ class CalendarHeatmapViewModel @Inject constructor(
             .sorted()
 
         // Extract available accounts
+        val accountBankMap = mutableMapOf<String, String>()
+        rawTransactions.forEach { tx ->
+            val bank = tx.bankName?.takeIf {
+                it.isNotBlank() &&
+                    !it.equals("Bank Account", ignoreCase = true) &&
+                    !it.equals("Bank Statement", ignoreCase = true)
+            }
+            if (bank != null) {
+                tx.accountId?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+                tx.accountLast4?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+            }
+        }
+
         val availableAccounts = rawTransactions.mapNotNull { tx ->
             when {
                 tx.accountLast4 != null -> {
-                    val bank = BankInfoHelper.detectBankForTransaction(tx)
-                    val shortName = if (bank.isNotBlank()) BankInfoHelper.getBankShortName(bank) else "Bank"
+                    val shortName = BankInfoHelper.resolveBankShortName(tx, accountBankMap)
                     "$shortName ••${tx.accountLast4}"
                 }
                 tx.bankName != null -> tx.bankName
@@ -116,8 +128,7 @@ class CalendarHeatmapViewModel @Inject constructor(
             val matchAccount = if (selectedAccount == null) true else {
                 val accLabel = when {
                     tx.accountLast4 != null -> {
-                        val bank = BankInfoHelper.detectBankForTransaction(tx)
-                        val shortName = if (bank.isNotBlank()) BankInfoHelper.getBankShortName(bank) else "Bank"
+                        val shortName = BankInfoHelper.resolveBankShortName(tx, accountBankMap)
                         "$shortName ••${tx.accountLast4}"
                     }
                     tx.bankName != null -> tx.bankName
@@ -189,7 +200,7 @@ class CalendarHeatmapViewModel @Inject constructor(
                     intensityLevel = 0,
                     expenseIntensity = 0,
                     incomeIntensity = 0,
-                    transactions = txList.map { transactionUiMapper.map(it) }
+                    transactions = txList.map { transactionUiMapper.map(it, accountBankMap) }
                 )
             )
         }
@@ -222,7 +233,7 @@ class CalendarHeatmapViewModel @Inject constructor(
                     intensityLevel = intensity,
                     expenseIntensity = expIntensity,
                     incomeIntensity = incIntensity,
-                    transactions = txList.map { transactionUiMapper.map(it) }
+                    transactions = txList.map { transactionUiMapper.map(it, accountBankMap) }
                 )
             )
         }
@@ -249,7 +260,7 @@ class CalendarHeatmapViewModel @Inject constructor(
                     intensityLevel = 0,
                     expenseIntensity = 0,
                     incomeIntensity = 0,
-                    transactions = txList.map { transactionUiMapper.map(it) }
+                    transactions = txList.map { transactionUiMapper.map(it, accountBankMap) }
                 )
             )
         }
@@ -299,7 +310,7 @@ class CalendarHeatmapViewModel @Inject constructor(
                     netFlow = net,
                     transactionCount = txList.size,
                     intensityLevel = 0, // computed below
-                    transactions = txList.map { transactionUiMapper.map(it) }
+                    transactions = txList.map { transactionUiMapper.map(it, accountBankMap) }
                 )
             }
             val mExpTotal = mDaily.sumOf { it.totalExpense }
@@ -354,7 +365,7 @@ class CalendarHeatmapViewModel @Inject constructor(
                     intensityLevel = 0,
                     expenseIntensity = calculateIntensity(exp, monthMaxExpense, HeatmapMetric.EXPENSE, txList.size),
                     incomeIntensity = calculateIntensity(inc, monthMaxIncome, HeatmapMetric.INCOME, txList.size),
-                    transactions = txList.map { transactionUiMapper.map(it) }
+                    transactions = txList.map { transactionUiMapper.map(it, accountBankMap) }
                 )
             }
 

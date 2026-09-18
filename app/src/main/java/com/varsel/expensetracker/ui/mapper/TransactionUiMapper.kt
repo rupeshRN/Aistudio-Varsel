@@ -20,7 +20,8 @@ class TransactionUiMapper @Inject constructor() {
         )
 
     fun map(
-        transaction: Transaction
+        transaction: Transaction,
+        accountBankMap: Map<String, String> = emptyMap()
     ): TransactionUiModel {
 
         val dateText = Instant
@@ -29,8 +30,7 @@ class TransactionUiMapper @Inject constructor() {
             .toLocalDate()
             .format(formatter)
 
-        val bankDetected = BankInfoHelper.detectBankForTransaction(transaction)
-        val bankShort = if (bankDetected.isNotBlank()) BankInfoHelper.getBankShortName(bankDetected) else "Bank"
+        val bankShort = BankInfoHelper.resolveBankShortName(transaction, accountBankMap)
         val accountInfoText = when {
             transaction.accountLast4 != null -> "$bankShort •••• ${transaction.accountLast4}"
             transaction.isImported -> bankShort
@@ -53,5 +53,27 @@ class TransactionUiMapper @Inject constructor() {
             isTransfer = isTransfer,
             isEventLinked = isEventLinked
         )
+    }
+
+    fun map(
+        transactions: List<Transaction>,
+        extraAccountBankMap: Map<String, String> = emptyMap()
+    ): List<TransactionUiModel> {
+        val accountBankMap = mutableMapOf<String, String>()
+        accountBankMap.putAll(extraAccountBankMap)
+
+        transactions.forEach { tx ->
+            val bank = tx.bankName?.takeIf {
+                it.isNotBlank() &&
+                    !it.equals("Bank Account", ignoreCase = true) &&
+                    !it.equals("Bank Statement", ignoreCase = true)
+            }
+            if (bank != null) {
+                tx.accountId?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+                tx.accountLast4?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+            }
+        }
+
+        return transactions.map { map(it, accountBankMap) }
     }
 }

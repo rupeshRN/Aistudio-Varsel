@@ -270,17 +270,20 @@ class TransactionViewModel @Inject constructor(
                 .filter { it.type == TransactionType.EXPENSE }
                 .sumOf { it.amount }
 
-    _uiState.update {
+        val accountBankMap = buildGlobalAccountBankMap()
 
-        it.copy(
+        _uiState.update {
 
-            transactions =
-                transactionUiMapper.map(
-                    finalTransactions
-                ),
+            it.copy(
 
-            availableMonths =
-                availableMonths,
+                transactions =
+                    transactionUiMapper.map(
+                        finalTransactions,
+                        accountBankMap
+                    ),
+
+                availableMonths =
+                    availableMonths,
 
             selectedMonth =
                 selectedMonth,
@@ -297,9 +300,40 @@ class TransactionViewModel @Inject constructor(
 
     }
 
-}
+    }
 
-private fun isInSelectedMonth(
+    private fun buildGlobalAccountBankMap(): Map<String, String> {
+        val map = mutableMapOf<String, String>()
+        availableAccounts.value.forEach { opt ->
+            val id = opt.accountId
+            val last4 = opt.accountLast4
+            val bank = opt.bankName?.takeIf {
+                it.isNotBlank() &&
+                    !it.equals("Cash", ignoreCase = true) &&
+                    !it.equals("Bank Account", ignoreCase = true) &&
+                    !it.equals("Bank Statement", ignoreCase = true)
+            }
+            if (bank != null) {
+                if (!id.isNullOrBlank()) map[id] = bank
+                if (!last4.isNullOrBlank()) map[last4] = bank
+            }
+        }
+        allTransactions.forEach { tx ->
+            val bank = tx.bankName?.takeIf {
+                it.isNotBlank() &&
+                    !it.equals("Cash", ignoreCase = true) &&
+                    !it.equals("Bank Account", ignoreCase = true) &&
+                    !it.equals("Bank Statement", ignoreCase = true)
+            }
+            if (bank != null) {
+                tx.accountId?.takeIf { it.isNotBlank() }?.let { map[it] = bank }
+                tx.accountLast4?.takeIf { it.isNotBlank() }?.let { map[it] = bank }
+            }
+        }
+        return map
+    }
+
+    private fun isInSelectedMonth(
 
     transaction: Transaction,
 

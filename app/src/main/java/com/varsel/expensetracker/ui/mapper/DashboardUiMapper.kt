@@ -259,14 +259,35 @@ val anchorMonth = currentMonth
                 ),
 
             recentTransactions =
-                transactions
-                    .sortedByDescending {
-                        it.dateTimestamp
+                run {
+                    val accountBankMap = mutableMapOf<String, String>()
+                    transactions.forEach { tx ->
+                        val bank = tx.bankName?.takeIf {
+                            it.isNotBlank() &&
+                                !it.equals("Bank Account", ignoreCase = true) &&
+                                !it.equals("Bank Statement", ignoreCase = true)
+                        }
+                        if (bank != null) {
+                            tx.accountId?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+                            tx.accountLast4?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+                        }
                     }
-                    .take(10)
-                    .map {
-                        transactionUiMapper.map(it)
-                    },
+                    snapshots.forEach { snap ->
+                        val bank = snap.bankName?.takeIf { it.isNotBlank() && it != "Bank Statement" }
+                        if (bank != null) {
+                            snap.accountId?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+                            snap.accountLast4?.takeIf { it.isNotBlank() }?.let { accountBankMap[it] = bank }
+                        }
+                    }
+                    transactions
+                        .sortedByDescending {
+                            it.dateTimestamp
+                        }
+                        .take(10)
+                        .map {
+                            transactionUiMapper.map(it, accountBankMap)
+                        }
+                },
 
             insights = insights,
 

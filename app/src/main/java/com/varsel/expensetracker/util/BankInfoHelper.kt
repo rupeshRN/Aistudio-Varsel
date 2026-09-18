@@ -52,28 +52,85 @@ object BankInfoHelper {
     }
 
     /**
-     * Detects bank name from transaction metadata.
+     * Detects bank name from transaction metadata safely.
+     * Prioritizes transaction.bankName, and checks reference numbers (IFSC codes).
+     * Never inspects SHA256 hex fingerprints or generic description counterparties.
      */
     fun detectBankForTransaction(transaction: Transaction): String {
-        val fingerprint = transaction.transactionFingerprint?.uppercase().orEmpty()
-        val ref = transaction.referenceNumber?.uppercase().orEmpty()
-        val desc = transaction.description.uppercase()
-
-        return when {
-            fingerprint.contains("INDIAN_BANK") || fingerprint.contains("INDIANBANK") || fingerprint.contains("IB_") ||
-                ref.contains("INDIAN BANK") || desc.contains("INDIAN BANK") || desc.contains("IDIB") -> "IB"
-
-            fingerprint.contains("ICICI") || ref.contains("ICICI") || desc.contains("ICICI") || desc.contains("ICIC0") -> "ICICI"
-            fingerprint.contains("HDFC") || ref.contains("HDFC") || desc.contains("HDFC") || desc.contains("HDFC0") -> "HDFC"
-            fingerprint.contains("SBI") || ref.contains("SBI") || desc.contains("SBI") || desc.contains("SBIN0") -> "SBI"
-            fingerprint.contains("AXIS") || ref.contains("AXIS") || desc.contains("AXIS") || desc.contains("UTIB0") -> "AXIS"
-            fingerprint.contains("SC") || ref.contains("SCBL") || desc.contains("STANDARD CHARTERED") || desc.contains("SCBL0") -> "SC"
-            fingerprint.contains("KOTAK") || ref.contains("KKBK") || desc.contains("KOTAK") || desc.contains("KKBK0") -> "KOTAK"
-            fingerprint.contains("CANARA") || ref.contains("CNRB") || desc.contains("CANARA") || desc.contains("CNRB0") -> "Canara Bank"
-            fingerprint.contains("PNB") || ref.contains("PUNB") || desc.contains("PUNJAB NATIONAL") -> "PNB"
-            fingerprint.contains("BOB") || ref.contains("BARB") || desc.contains("BARODA") -> "BOB"
-            else -> ""
+        val explicitBank = transaction.bankName?.trim().orEmpty()
+        if (explicitBank.isNotBlank() &&
+            !explicitBank.equals("Bank Account", ignoreCase = true) &&
+            !explicitBank.equals("Bank Statement", ignoreCase = true)
+        ) {
+            return getBankShortName(explicitBank)
         }
+
+        val ref = transaction.referenceNumber?.uppercase().orEmpty()
+        if (ref.isNotBlank()) {
+            return when {
+                ref.contains("IDIB") -> "IB"
+                ref.contains("ICIC0") || ref.startsWith("ICIC") -> "ICICI"
+                ref.contains("HDFC0") || ref.startsWith("HDFC") -> "HDFC"
+                ref.contains("SBIN0") || ref.startsWith("SBIN") -> "SBI"
+                ref.contains("UTIB0") || ref.startsWith("UTIB") -> "AXIS"
+                ref.contains("SCBL0") || ref.startsWith("SCBL") -> "SC"
+                ref.contains("KKBK0") || ref.startsWith("KKBK") -> "KOTAK"
+                ref.contains("CNRB0") || ref.startsWith("CNRB") -> "Canara Bank"
+                ref.contains("PUNB0") || ref.startsWith("PUNB") -> "PNB"
+                ref.contains("BARB0") || ref.startsWith("BARB") -> "BOB"
+                else -> ""
+            }
+        }
+
+        return ""
+    }
+
+    /**
+     * Resolves the short bank name for a transaction using explicit bank name,
+     * account mapping, or safe reference detection.
+     */
+    fun resolveBankShortName(
+        transaction: Transaction,
+        accountBankMap: Map<String, String> = emptyMap()
+    ): String {
+        // 1. Explicit bank name from transaction
+        val explicit = transaction.bankName?.trim().orEmpty()
+        if (explicit.isNotBlank() &&
+            !explicit.equals("Bank Account", ignoreCase = true) &&
+            !explicit.equals("Bank Statement", ignoreCase = true)
+        ) {
+            return getBankShortName(explicit)
+        }
+
+        // 2. Lookup via accountId
+        transaction.accountId?.takeIf { it.isNotBlank() }?.let { id ->
+            val mapped = accountBankMap[id]
+            if (!mapped.isNullOrBlank() &&
+                !mapped.equals("Bank Account", ignoreCase = true) &&
+                !mapped.equals("Bank Statement", ignoreCase = true)
+            ) {
+                return getBankShortName(mapped)
+            }
+        }
+
+        // 3. Lookup via accountLast4
+        transaction.accountLast4?.takeIf { it.isNotBlank() }?.let { last4 ->
+            val mapped = accountBankMap[last4]
+            if (!mapped.isNullOrBlank() &&
+                !mapped.equals("Bank Account", ignoreCase = true) &&
+                !mapped.equals("Bank Statement", ignoreCase = true)
+            ) {
+                return getBankShortName(mapped)
+            }
+        }
+
+        // 4. Safe reference detection
+        val detected = detectBankForTransaction(transaction)
+        if (detected.isNotBlank()) {
+            return getBankShortName(detected)
+        }
+
+        return "Bank"
     }
 
     /**
