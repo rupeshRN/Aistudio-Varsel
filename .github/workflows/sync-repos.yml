@@ -21,10 +21,10 @@ jobs:
 
       - name: Sync exact files from source repo
         run: |
-          # Clone the source repository into a temporary folder
-          git clone https://x-access-token:${{ secrets.SYNC_PAT }}@github.com/rupeshRN/aivarsel.git temp-source
+          # Clone the source repository and fail gracefully if authentication or URL is wrong
+          git clone https://x-access-token:${{ secrets.SYNC_PAT }}@github.com/rupeshRN/aivarsel.git temp-source || { echo "❌ Error: Failed to clone source repository. Check token permissions."; exit 1; }
           
-          # Remove all existing files in destination except .git and .github (to keep the workflow file safe)
+          # Remove all existing files in destination except .git and .github
           find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name '.github' -exec rm -rf {} +
           
           # Copy everything from the source repo into the destination folder
@@ -38,5 +38,5 @@ jobs:
           git diff --staged --quiet || git commit -m "Mirror sync: exact copy from source repository"
           
           # Push changes to destination repo
-          git push origin 
-          main
+          git push origin main
+          
