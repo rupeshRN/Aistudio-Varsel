@@ -32,6 +32,10 @@ import com.varsel.expensetracker.ui.transaction.components.AddTransactionBottomS
 import com.varsel.expensetracker.ui.transaction.components.ManualEntryMode
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
+import com.varsel.expensetracker.ui.components.AppErrorBanner
+import com.varsel.expensetracker.ui.components.InlineErrorView
+import com.varsel.expensetracker.util.AppErrorMessageMapper
+import kotlinx.coroutines.flow.collectLatest
 
 private sealed class FeatureDialogState {
     object None : FeatureDialogState()
@@ -60,6 +64,22 @@ fun DashboardScreen(
     val activeSections by viewModel.activeHomeSections.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val availableAccounts by viewModel.availableAccounts.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(viewModel) {
+        viewModel.errorEvents.collectLatest { event ->
+            val message = AppErrorMessageMapper.getUserMessage(event.error)
+            val action = AppErrorMessageMapper.getActionSuggestion(event.error)
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = if (event.retryAction != null) (action ?: "Retry") else null,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                event.retryAction?.invoke()
+            }
+        }
+    }
 
     var featureDialog by remember { mutableStateOf<FeatureDialogState>(FeatureDialogState.None) }
     var showAddTransactionSheet by remember { mutableStateOf(false) }
@@ -68,20 +88,19 @@ fun DashboardScreen(
     val statementPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-    uri?.let { selectedUri ->
+        uri?.let { selectedUri ->
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    selectedUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: SecurityException) {
+                // Some document providers do not support persistable permissions.
+                // Continue with the temporary URI permission.
+            }
 
-        try {
-            context.contentResolver.takePersistableUriPermission(
-                selectedUri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        } catch (_: SecurityException) {
-            // Some document providers do not support persistable permissions.
-            // Continue with the temporary URI permission.
+            onNavigateToImportWithUri(selectedUri)
         }
-
-        onNavigateToImportWithUri(selectedUri)
-    }
     }
 
     Box(
@@ -92,6 +111,13 @@ fun DashboardScreen(
                 title = "Varsel",
                 subtitle = "Securing your offline ledger..."
             )
+        } else if (uiState.error != null && uiState.balanceSummary.accounts.isEmpty() && uiState.recentTransactions.isEmpty()) {
+            InlineErrorView(
+                error = uiState.error!!,
+                title = "Unable to load dashboard",
+                onRetry = { viewModel.retryLoadDashboard() },
+                modifier = Modifier.align(Alignment.Center)
+            )
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -100,6 +126,16 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
             ) {
+                if (uiState.error != null) {
+                    item(key = "dashboard_error_banner") {
+                        AppErrorBanner(
+                            error = uiState.error,
+                            onDismiss = { viewModel.dismissError() },
+                            onRetry = { viewModel.retryLoadDashboard() }
+                        )
+                    }
+                }
+
                 activeSections.forEach { sectionId ->
                     when (sectionId) {
                         HomeSection.BANNER.id -> {
@@ -297,5 +333,12 @@ fun DashboardScreen(
                 }
             )
         }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
+        )
     }
 }

@@ -12,14 +12,23 @@ import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.domain.usecase.AddManualTransactionUseCase
 import com.varsel.expensetracker.ui.model.TransactionUiMapper
 import com.varsel.expensetracker.ui.transaction.model.AccountOption
+import com.varsel.expensetracker.util.AppError
+import com.varsel.expensetracker.util.SafeErrorHandler
+import com.varsel.expensetracker.util.SafeLog
+import com.varsel.expensetracker.util.UiErrorEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -38,10 +47,19 @@ class TransactionViewModel @Inject constructor(
     private val categoryDao: CategoryDao
 ) : ViewModel() {
 
+    private val _errorEvents = Channel<UiErrorEvent>(Channel.BUFFERED)
+    val errorEvents: Flow<UiErrorEvent> = _errorEvents.receiveAsFlow()
+
     val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
+        .catch { e ->
+            SafeLog.e("TransactionVM", "Failed to load categories", e)
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val availableAccounts: StateFlow<List<AccountOption>> = statementSnapshotRepository.observeAllSnapshots()
+        .catch { e ->
+            SafeLog.e("TransactionVM", "Failed to load available accounts", e)
+        }
         .map { snapshots ->
             val cashOption = AccountOption(
                 accountId = null,
@@ -89,27 +107,28 @@ class TransactionViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 autoTransferReconciliationEngine.reconcileTransfers()
-            } catch (_: Exception) {}
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                SafeLog.w("TransactionVM", "Auto transfer reconciliation failed non-fatally", e)
+            }
         }
         loadTransactions()
     }
 
     private fun loadTransactions() {
-
         viewModelScope.launch {
-
             repository
                 .getAllTransactions()
-                .collectLatest { transactions ->
-
-                    allTransactions = transactions
-
-                    recalculateUi()
-
+                .catch { exception ->
+                    val appError = SafeErrorHandler.handle("TransactionVM", exception, "Load Transactions")
+                    _uiState.update { it.copy(isLoading = false, error = appError) }
                 }
-
+                .collectLatest { transactions ->
+                    allTransactions = transactions
+                    recalculateUi()
+                }
         }
-
     }
 
     private fun recalculateUi() {
@@ -419,6 +438,15 @@ class TransactionViewModel @Inject constructor(
 
     }
 
+    fun retryLoading() {
+        _uiState.update { it.copy(isLoading = true, error = null) }
+        loadTransactions()
+    }
+
+    fun dismissError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
     fun addTransaction(
         amount: Double,
         type: TransactionType,
@@ -432,18 +460,31 @@ class TransactionViewModel @Inject constructor(
         onComplete: ((Boolean) -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val result = addManualTransactionUseCase.addTransaction(
-                amount = amount,
-                type = type,
-                description = description,
-                category = category,
-                dateTimestamp = dateTimestamp,
-                referenceNumber = referenceNumber,
-                accountId = accountId,
-                accountLast4 = accountLast4,
-                bankName = bankName
-            )
-            onComplete?.invoke(result.isSuccess)
+            try {
+                val result = addManualTransactionUseCase.addTransaction(
+                    amount = amount,
+                    type = type,
+                    description = description,
+                    category = category,
+                    dateTimestamp = dateTimestamp,
+                    referenceNumber = referenceNumber,
+                    accountId = accountId,
+                    accountLast4 = accountLast4,
+                    bankName = bankName
+                )
+                if (result.isFailure) {
+                    val ex = result.exceptionOrNull()
+                    val appError = if (ex != null) SafeErrorHandler.handle("TransactionVM", ex, "Add Transaction") else AppError.Database(operation = "Add transaction")
+                    _errorEvents.send(UiErrorEvent(appError))
+                }
+                onComplete?.invoke(result.isSuccess)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("TransactionVM", e, "Add Transaction")
+                _errorEvents.send(UiErrorEvent(appError))
+                onComplete?.invoke(false)
+            }
         }
     }
 
@@ -461,35 +502,55 @@ class TransactionViewModel @Inject constructor(
         onComplete: ((Boolean) -> Unit)? = null
     ) {
         viewModelScope.launch {
-            val result = addManualTransactionUseCase.addTransfer(
-                amount = amount,
-                description = description,
-                dateTimestamp = dateTimestamp,
-                fromAccountId = fromAccountId,
-                fromAccountLast4 = fromAccountLast4,
-                fromBankName = fromBankName,
-                toAccountId = toAccountId,
-                toAccountLast4 = toAccountLast4,
-                toBankName = toBankName,
-                referenceNumber = referenceNumber
-            )
-            onComplete?.invoke(result.isSuccess)
+            try {
+                val result = addManualTransactionUseCase.addTransfer(
+                    amount = amount,
+                    description = description,
+                    dateTimestamp = dateTimestamp,
+                    fromAccountId = fromAccountId,
+                    fromAccountLast4 = fromAccountLast4,
+                    fromBankName = fromBankName,
+                    toAccountId = toAccountId,
+                    toAccountLast4 = toAccountLast4,
+                    toBankName = toBankName,
+                    referenceNumber = referenceNumber
+                )
+                if (result.isFailure) {
+                    val ex = result.exceptionOrNull()
+                    val appError = if (ex != null) SafeErrorHandler.handle("TransactionVM", ex, "Add Transfer") else AppError.Database(operation = "Add transfer")
+                    _errorEvents.send(UiErrorEvent(appError))
+                }
+                onComplete?.invoke(result.isSuccess)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("TransactionVM", e, "Add Transfer")
+                _errorEvents.send(UiErrorEvent(appError))
+                onComplete?.invoke(false)
+            }
         }
     }
 
     fun createCategory(name: String, isIncome: Boolean) {
         viewModelScope.launch(Dispatchers.IO) {
-            val trimmed = name.trim()
-            if (trimmed.isBlank()) return@launch
-            val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(trimmed, isIncome)
-            val colorHex = if (isIncome) "#4CAF50" else "#E91E63"
-            val entity = CategoryEntity(
-                name = trimmed,
-                type = if (isIncome) "INCOME" else "EXPENSE",
-                iconName = iconKey,
-                colorHex = colorHex
-            )
-            categoryDao.insertCategory(entity)
+            try {
+                val trimmed = name.trim()
+                if (trimmed.isBlank()) return@launch
+                val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(trimmed, isIncome)
+                val colorHex = if (isIncome) "#4CAF50" else "#E91E63"
+                val entity = CategoryEntity(
+                    name = trimmed,
+                    type = if (isIncome) "INCOME" else "EXPENSE",
+                    iconName = iconKey,
+                    colorHex = colorHex
+                )
+                categoryDao.insertCategory(entity)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("TransactionVM", e, "Create Category")
+                _errorEvents.send(UiErrorEvent(appError))
+            }
         }
     }
 }

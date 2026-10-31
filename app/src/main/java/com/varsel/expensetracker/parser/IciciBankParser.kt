@@ -45,32 +45,166 @@ class IciciBankParser @Inject constructor(
     private val amountRegex = Regex("""(?<![.\d])([0-9]{1,3}(?:,[0-9]{3})*|\d+)\.(\d{2})(?![.\d])""")
 
     private var lastParsedRows: List<Pair<Transaction, Double?>> = emptyList()
+    
 
     override fun canParse(rawText: String): Boolean {
-        val upper = rawText.uppercase()
 
-        val isIndianBankStatement = upper.contains("INDIAN BANK") ||
-                (upper.contains("ACCOUNT ACTIVITY") && upper.contains("DATE TRANSACTION DETAILS")) ||
-                (upper.contains("IDIB") && upper.contains("DATE TRANSACTION DETAILS"))
-
-        if (isIndianBankStatement && !upper.contains("ICICI BANK") && !upper.contains("ICICIBANK")) {
+        if (rawText.isBlank()) {
             return false
         }
 
-        val hasIciciBrand = upper.contains("ICICI BANK") ||
-                upper.contains("ICICI.BANK") ||
-                upper.contains("ICICIBANK") ||
-                upper.contains("TEAM ICICI BANK") ||
-                upper.contains("WWW.ICICI.BANK.IN") ||
-                (Regex("""\bICICI\b""", RegexOption.IGNORE_CASE).containsMatchIn(rawText) && !upper.contains("@ICICI"))
+        val upper = rawText.uppercase()
 
-        val hasIciciTable = upper.contains("TRANSACTION REMARKS") ||
-                (upper.contains("WITHDRAWAL") && upper.contains("DEPOSIT") && upper.contains("BALANCE"))
+        // Reject if explicitly identified as another bank
+        val isCompetitorBank =
+            upper.contains("AXIS BANK") ||
+            upper.contains("STATE BANK OF INDIA") ||
+            upper.contains("YONO SBI") ||
+            upper.contains("HDFC BANK") ||
+            upper.contains("KOTAK MAHINDRA") ||
+            upper.contains("PUNJAB NATIONAL BANK") ||
+            upper.contains("BANK OF BARODA") ||
+            (upper.contains("INDIAN BANK") && !upper.contains("ICICI"))
 
-        val hasNumericDates = Regex("""\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b""").containsMatchIn(rawText)
+        if (isCompetitorBank) {
+            return false
+        }
 
-        return hasIciciBrand || (hasIciciTable && hasNumericDates) || (hasNumericDates && !upper.contains("INDIAN BANK"))
-    }
+        /*
+         * Normalize OCR/PDF text by removing spaces and punctuation.
+     *
+     * Examples:
+     * ICICI BANK  -> ICICIBANK
+     * BALANCE (INR) -> BALANCEINR
+     * WITHDRAWAL AMOUNT -> WITHDRAWALAMOUNT
+     */
+    val compact = upper.replace(
+        Regex("[^A-Z0-9]"),
+        ""
+    )
+
+    /*
+     * ------------------------------------------------------------
+     * 1. ICICI identity evidence
+     * ------------------------------------------------------------
+     *
+     * Search the complete extracted document because OCR may place
+     * the bank name beyond the first 40 lines.
+     */
+    val hasIciciBankIdentity =
+        upper.contains("ICICI BANK") ||
+        compact.contains("ICICIBANK") ||
+        upper.contains("ICICI BANK LIMITED") ||
+        upper.contains("ICICI BANK LTD") ||
+        upper.contains("WWW.ICICIBANK.COM") ||
+        upper.contains("WWW.ICICI.BANK.IN")
+
+    /*
+     * A standalone ICICI token is accepted only when combined with
+     * additional statement evidence.
+     */
+    val hasStandaloneIcici =
+        Regex("""\bICICI\b""").containsMatchIn(upper)
+
+    /*
+     * ------------------------------------------------------------
+     * 2. General statement evidence
+     * ------------------------------------------------------------
+     */
+    val hasStatementKeyword =
+        upper.contains("ACCOUNT STATEMENT") ||
+        upper.contains("BANK STATEMENT") ||
+        upper.contains("TRANSACTION") ||
+        upper.contains("ACCOUNT NUMBER") ||
+        upper.contains("ACCOUNT NO") ||
+        upper.contains("BALANCE")
+
+    val hasSupportedDate =
+        Regex(
+            """\b\d{1,2}[./-](?:\d{1,2}|[A-Za-z]{3})[./-]\d{2,4}\b"""
+        ).containsMatchIn(rawText) ||
+        Regex(
+            """\b\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\b"""
+        ).containsMatchIn(rawText) ||
+        Regex(
+            """\b\d{4}-\d{2}-\d{2}\b"""
+        ).containsMatchIn(rawText)
+
+    /*
+     * ------------------------------------------------------------
+     * 3. Flexible ICICI table evidence
+     * ------------------------------------------------------------
+     */
+    val hasTransactionRemarks =
+        upper.contains("TRANSACTION REMARKS") ||
+        compact.contains("TRANSACTIONREMARKS")
+
+    val hasTransactionDate =
+        upper.contains("TRANSACTION DATE") ||
+        compact.contains("TRANSACTIONDATE")
+
+    val hasChequeNumber =
+        upper.contains("CHEQUE NUMBER") ||
+        upper.contains("CHEQUE NO") ||
+        compact.contains("CHEQUENUMBER") ||
+        compact.contains("CHEQUENO")
+
+    val hasWithdrawalAmount =
+        upper.contains("WITHDRAWAL AMOUNT") ||
+        compact.contains("WITHDRAWALAMOUNT") ||
+        upper.contains("WITHDRAWAL")
+
+    val hasDepositAmount =
+        upper.contains("DEPOSIT AMOUNT") ||
+        compact.contains("DEPOSITAMOUNT") ||
+        upper.contains("DEPOSIT")
+
+    val hasBalance =
+        upper.contains("BALANCE") ||
+        compact.contains("BALANCE")
+
+    val hasIciciTableEvidence =
+        (
+            hasTransactionRemarks &&
+                hasWithdrawalAmount &&
+                hasDepositAmount &&
+                hasBalance
+            ) ||
+            (
+                hasTransactionDate &&
+                    hasWithdrawalAmount &&
+                    hasDepositAmount &&
+                    hasBalance
+                ) ||
+            (
+                hasChequeNumber &&
+                    hasWithdrawalAmount &&
+                    hasDepositAmount &&
+                    hasBalance
+                )
+
+    /*
+ * ------------------------------------------------------------
+ * 4. Final detection decision
+ * ------------------------------------------------------------
+ *
+ * A strong ICICI identity combined with a statement-related
+ * keyword is sufficient for bank detection.
+ *
+ * Transaction/table evidence is required only when the document
+ * contains a standalone ICICI reference.
+ */
+if (hasIciciBankIdentity) {
+    return hasStatementKeyword
+}
+
+if (hasStandaloneIcici) {
+    return hasIciciTableEvidence &&
+            hasSupportedDate
+}
+
+return false
+}
 
     override fun parse(rawText: String): List<Transaction> {
         val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }

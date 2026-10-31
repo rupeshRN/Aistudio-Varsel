@@ -1,3 +1,4 @@
+
 package com.varsel.expensetracker.parser
 
 import javax.inject.Inject
@@ -5,106 +6,143 @@ import javax.inject.Singleton
 
 @Singleton
 class BankDetector @Inject constructor(
-    private val indianBankParser: IndianBankParser,
-    private val iciciBankParser: IciciBankParser,
-    private val hdfcBankParser: HdfcBankParser
+    private val bankParserRegistry: BankParserRegistry,
+    private val heuristicMetadataScanner: HeuristicMetadataScanner = HeuristicMetadataScanner()
 ) {
 
-    fun detect(rawText: String): StatementParser {
-        val upper = rawText.uppercase()
-        val header = rawText.lines().take(30).joinToString("\n").uppercase()
-
-        // 1. Primary Header Branding Check
-        val hasHdfcInHeader = header.contains("HDFC") ||
-                header.contains("HDFCBANK") ||
-                header.contains("HDFC BANK") ||
-                header.contains("WWW.HDFCBANK.COM")
-
-        val hasIndianBankInHeader = header.contains("INDIAN BANK") ||
-                header.contains("INDIANBANK") ||
-                header.contains("IND BL") ||
-                header.contains("IDIB")
-
-        val hasIciciInHeader = header.contains("ICICI") ||
-                header.contains("ICIC0")
-
-        if (hasHdfcInHeader && !hasIndianBankInHeader && !hasIciciInHeader) {
-            return hdfcBankParser
-        }
-
-        if (hasIndianBankInHeader && !hasIciciInHeader && !hasHdfcInHeader) {
-            return indianBankParser
-        }
-
-        if (hasIciciInHeader && !hasIndianBankInHeader && !hasHdfcInHeader) {
-            return iciciBankParser
-        }
-
-        // 2. Structural & Layout Checks
-        val hdfcTableSignals = listOf(
-            "NARRATION",
-            "CHQ./REF.NO.",
-            "VALUE DT",
-            "WITHDRAWAL AMT.",
-            "DEPOSIT AMT.",
-            "CLOSING BALANCE",
-            "HDFC BANK"
-        ).count { upper.contains(it) }
-
-        val iciciTableSignals = listOf(
-            "TRANSACTION REMARKS",
-            "WITHDRAWAL AMOUNT",
-            "DEPOSIT AMOUNT",
-            "CHEQUE NUMBER",
-            "BALANCE (INR)",
-            "SAVING ACCOUNT",
-            "CURRENT ACCOUNT",
-            "STATEMENT OF TRANSACTIONS"
-        ).count { upper.contains(it) }
-
-        val indianBankSignals = listOf(
-            "ACCOUNT ACTIVITY",
-            "DATE TRANSACTION DETAILS",
-            "TOTAL CREDITS",
-            "TOTAL DEBITS",
-            "OPENING BALANCE",
-            "CLOSING BALANCE"
-        ).count { upper.contains(it) }
-
-        val indianBankDateCount = Regex("""\b\d{1,2}\s+(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+\d{4}\b""", RegexOption.IGNORE_CASE).findAll(rawText).count()
-        val numericDateCount = Regex("""\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b""").findAll(rawText).count()
-
-        var hdfcScore = (if (hasHdfcInHeader) 10 else 0) + (hdfcTableSignals * 2)
-        var indianScore = (if (hasIndianBankInHeader) 10 else 0) + (indianBankSignals * 2) + (if (indianBankDateCount > 0) 5 else 0)
-        var iciciScore = (if (hasIciciInHeader) 10 else 0) + (iciciTableSignals * 2) + (if (numericDateCount > 0) 5 else 0)
-
-        if (upper.contains("HDFC")) hdfcScore += 5
-        if (upper.contains("INDIAN BANK")) indianScore += 5
-        if (upper.contains("ICICI")) iciciScore += 5
-
-        val maxScore = maxOf(hdfcScore, iciciScore, indianScore)
-        if (maxScore > 0) {
-            if (hdfcScore > iciciScore && hdfcScore > indianScore) {
-                return hdfcBankParser
-            } else if (iciciScore > indianScore && iciciScore > hdfcScore) {
-                return iciciBankParser
-            } else if (indianScore > iciciScore && indianScore > hdfcScore) {
-                return indianBankParser
+    /**
+     * Detects the bank using fast header metadata first, then falling back to registered parsers.
+     *
+     * 1. Heuristic Metadata Scanner checks the top 45 lines for RBI IFSC prefix and official branding.
+     * 2. If an unsupported bank is found (e.g. Axis Bank, SBI, Kotak), it immediately returns UnsupportedBank.
+     * 3. If a supported bank is definitively identified, it routes to that parser directly.
+     * 4. Otherwise, it queries registered parsers.
+     */
+    fun detectResult(rawText: String): BankDetectionResult {
+        // Step 1: High-speed header metadata scan (RBI IFSC + Official Branding)
+        when (val metadataResult = heuristicMetadataScanner.scan(rawText)) {
+            is BankMetadataResult.Unsupported -> {
+                return BankDetectionResult.UnsupportedBank(detectedBankName = metadataResult.detectedBankName)
+            }
+            is BankMetadataResult.Supported -> {
+                val matchedParser = bankParserRegistry.all().firstOrNull { it.bankId == metadataResult.bankId }
+                if (matchedParser != null && matchedParser.parser.canParse(rawText)) {
+                    return BankDetectionResult.Supported(
+                        parser = matchedParser.parser,
+                        bankId = matchedParser.bankId,
+                        displayName = matchedParser.displayName
+                    )
+                }
+            }
+            is BankMetadataResult.Unknown -> {
+                // Fall through to general registry scan
             }
         }
 
-        // 3. Fallbacks using structural canParse validation
-        if (hdfcBankParser.canParse(rawText)) {
-            return hdfcBankParser
+        val matchingParsers = bankParserRegistry
+            .all()
+            .filter { registeredParser ->
+                registeredParser.parser.canParse(rawText)
+            }
+
+        return when {
+
+            matchingParsers.isEmpty() -> {
+                resolveUnsupportedResult(rawText)
+            }
+
+            matchingParsers.size == 1 -> {
+
+                val match = matchingParsers.first()
+
+                BankDetectionResult.Supported(
+                    parser = match.parser,
+                    bankId = match.bankId,
+                    displayName = match.displayName
+                )
+            }
+
+            else -> {
+
+                BankDetectionResult.Ambiguous(
+                    parsers = matchingParsers.map { it.parser },
+                    possibleBankIds = matchingParsers.map { it.bankId },
+                    possibleBankNames = matchingParsers.map { it.displayName }
+                )
+            }
         }
-        if (iciciBankParser.canParse(rawText)) {
-            return iciciBankParser
-        }
-        if (indianBankParser.canParse(rawText)) {
-            return indianBankParser
+    }
+
+    private fun resolveUnsupportedResult(rawText: String): BankDetectionResult {
+        val upper = rawText.uppercase()
+
+        // 1. Check for known unsupported financial institutions
+        val knownUnsupportedBanks = listOf(
+            "State Bank of India (SBI)" to listOf("STATE BANK OF INDIA", "SBIN0", "YONO SBI", "ONLINESBI.COM", "SBI"),
+            "Axis Bank" to listOf("AXIS BANK", "UTIB0"),
+            "Kotak Mahindra Bank" to listOf("KOTAK MAHINDRA", "KKBK0"),
+            "Punjab National Bank" to listOf("PUNJAB NATIONAL BANK", "PUNB0"),
+            "Bank of Baroda" to listOf("BANK OF BARODA", "BARB0"),
+            "Canara Bank" to listOf("CANARA BANK", "CNRB0"),
+            "Union Bank of India" to listOf("UNION BANK OF INDIA", "UBIN0")
+        )
+
+        for ((bankName, markers) in knownUnsupportedBanks) {
+            if (markers.any { marker -> upper.contains(marker) }) {
+                return BankDetectionResult.UnsupportedBank(detectedBankName = bankName)
+            }
         }
 
-        throw IllegalArgumentException("Unsupported bank statement format. Supported banks: HDFC, ICICI, and Indian Bank.")
+        // 2. Check if a supported bank identity is present, but its format wasn't parsed
+        val knownSupportedBankCues = listOf(
+            "Indian Bank" to listOf("INDIAN BANK", "IDIB0", "INDIANBANK.IN"),
+            "ICICI Bank" to listOf("ICICI BANK", "ICIC0", "ICICIBANK.COM"),
+            "HDFC Bank" to listOf("HDFC BANK", "HDFC0", "HDFCBANK.COM")
+        )
+
+        for ((bankName, cues) in knownSupportedBankCues) {
+            if (cues.any { cue -> upper.contains(cue) }) {
+                return BankDetectionResult.UnsupportedFormat(
+                    bankName = bankName,
+                    reason = "This $bankName statement format is not supported yet."
+                )
+            }
+        }
+
+        // 3. Completely unrecognized format
+        return BankDetectionResult.Unsupported(
+            reason = "No supported bank statement format was detected."
+        )
+    }
+
+    /**
+     * Compatibility method used by StatementParserEngine.
+     */
+    fun detect(rawText: String): StatementParser {
+
+        return when (val result = detectResult(rawText)) {
+
+            is BankDetectionResult.Supported -> {
+                result.parser
+            }
+
+            is BankDetectionResult.Ambiguous -> {
+                throw AmbiguousBankException(result.possibleBankNames)
+            }
+
+            is BankDetectionResult.UnsupportedBank -> {
+                throw UnsupportedBankException(result.detectedBankName)
+            }
+
+            is BankDetectionResult.UnsupportedFormat -> {
+                throw UnsupportedStatementFormatException(result.bankName, result.reason)
+            }
+
+            is BankDetectionResult.Unsupported -> {
+                throw UnsupportedStatementFormatException(reason = result.reason)
+            }
+            
+        }
     }
 }
 

@@ -4,6 +4,8 @@ import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
 import com.varsel.expensetracker.domain.model.TransactionRole
 import com.varsel.expensetracker.domain.model.TransactionType
+import com.varsel.expensetracker.util.AppError
+import com.varsel.expensetracker.util.AppErrorMessageMapper
 
 enum class PastTimeframe(val label: String) {
     ALL_TIME("All Past Transactions"),
@@ -176,7 +178,8 @@ sealed interface TransactionDetailUiState {
         val customCutoffTimestamp: Long? = null,
         val isLoadingSimilar: Boolean = false,
         val applyToSimilarTransactions: Boolean = false,
-        val updateDescriptionForSimilar: Boolean = true
+        val updateDescriptionForSimilar: Boolean = true,
+        val error: AppError? = null
 
     ) : TransactionDetailUiState
 
@@ -185,8 +188,7 @@ sealed interface TransactionDetailUiState {
     //--------------------------------------------------
 
     data class Error(
-
-        val message: String
-
+        val error: AppError = AppError.Unknown(),
+        val message: String = AppErrorMessageMapper.getUserMessage(error)
     ) : TransactionDetailUiState
 }

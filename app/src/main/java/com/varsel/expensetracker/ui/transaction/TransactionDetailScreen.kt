@@ -49,6 +49,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -67,6 +71,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.ui.components.AppErrorBanner
+import com.varsel.expensetracker.ui.components.InlineErrorView
 import com.varsel.expensetracker.ui.transaction.components.BottomActionBar
 import com.varsel.expensetracker.ui.transaction.components.CategorySection
 import com.varsel.expensetracker.ui.transaction.components.DescriptionSection
@@ -76,6 +82,8 @@ import com.varsel.expensetracker.ui.transaction.components.TransactionLinkSectio
 import com.varsel.expensetracker.ui.transaction.components.TransferLinkSection
 import com.varsel.expensetracker.domain.model.TransactionRole
 import com.varsel.expensetracker.domain.model.TransactionType
+import com.varsel.expensetracker.util.AppErrorMessageMapper
+import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -91,6 +99,7 @@ fun TransactionDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val saveCompleted by viewModel.saveCompleted.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var showSaveConfirmDialog by remember { mutableStateOf(false) }
     var rememberSmartRule by remember { mutableStateOf(false) }
@@ -107,6 +116,21 @@ fun TransactionDetailScreen(
         viewModel.loadTransaction(transactionId)
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.errorEvents.collectLatest { event ->
+            val message = AppErrorMessageMapper.getUserMessage(event.error)
+            val action = AppErrorMessageMapper.getActionSuggestion(event.error)
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = if (event.retryAction != null) (action ?: "Retry") else null,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                event.retryAction?.invoke()
+            }
+        }
+    }
+
     //--------------------------------------------------
     // Handle successful save
     //--------------------------------------------------
@@ -118,6 +142,7 @@ fun TransactionDetailScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -186,12 +211,29 @@ fun TransactionDetailScreen(
         ) {
             when (val state = uiState) {
                 TransactionDetailUiState.Loading -> {
-                    Text("Loading...")
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
                 is TransactionDetailUiState.Error -> {
-                    Text(state.message)
+                    InlineErrorView(
+                        error = state.error,
+                        onRetry = { viewModel.loadTransaction(transactionId) }
+                    )
                 }
                 is TransactionDetailUiState.Loaded -> {
+                    if (state.error != null) {
+                        AppErrorBanner(
+                            error = state.error,
+                            onDismiss = { viewModel.loadTransaction(transactionId) },
+                            onRetry = { viewModel.loadTransaction(transactionId) }
+                        )
+                    }
                     val transaction = state.transaction
                     val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
                     val isTransfer = state.selectedRole == TransactionRole.TRANSFER_IN || state.selectedRole == TransactionRole.TRANSFER_OUT

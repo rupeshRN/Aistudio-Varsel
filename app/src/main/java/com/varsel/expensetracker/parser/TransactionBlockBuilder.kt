@@ -10,10 +10,10 @@ class TransactionBlockBuilder @Inject constructor(
 ) {
 
     private val transactionStartRegex =
-    Regex("^\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4}.*")
+        Regex("""^\s*\d{1,2}(?:\s+|[-/.])(?:[A-Za-z]{3}|\d{1,2})(?:\s+|[-/.])\d{2,4}.*""")
 
     private val anyDateRegex =
-    Regex("\\d{1,2}\\s+[A-Za-z]{3}\\s+\\d{4}")
+        Regex("""\d{1,2}(?:\s+|[-/.])(?:[A-Za-z]{3}|\d{1,2})(?:\s+|[-/.])\d{2,4}""")
 
     fun build(normalizedText: String): List<TransactionBlock> {
 
@@ -30,37 +30,44 @@ class TransactionBlockBuilder @Inject constructor(
 
         for (line in lines) {
 
-    val upper = line.uppercase()
+            val upper = line.uppercase()
 
-    if (!accountActivityFound) {
+            if (!accountActivityFound) {
 
-        if (upper.contains("ACCOUNT ACTIVITY")) {
-            accountActivityFound = true
-        }
+                if (upper.contains("ACCOUNT ACTIVITY") ||
+                    upper.contains("STATEMENT OF ACCOUNT") ||
+                    upper.contains("TRANSACTION DETAILS") ||
+                    (upper.contains("DATE") && (upper.contains("WITHDRAWAL") || upper.contains("DEBIT") || upper.contains("DEBITS")))
+                ) {
+                    accountActivityFound = true
+                    continue
+                } else if (transactionStartRegex.matches(line)) {
+                    accountActivityFound = true
+                } else {
+                    continue
+                }
+            }
 
-        continue
-    }
+            // Skip table header
+            if (upper.contains("DATE TRANSACTION DETAILS") || (upper.startsWith("DATE") && upper.contains("BALANCE"))) {
+                continue
+            }
 
-    // Skip table header
-    if (upper.contains("DATE TRANSACTION DETAILS")) {
-        continue
-    }
+            // Stop when footer starts (only after at least one transaction row or table content has been captured)
+            if (statementEndDetector.isStatementEnd(line)) {
+                if (transactionLines.any { transactionStartRegex.matches(it) }) {
+                    ParserDiagnosticsManager.latest =
+                        ParserDiagnosticsManager.latest.copy(
+                            stopReason = "Stopped by statement end\nLine: $line"
+                        )
+                    break
+                } else {
+                    // Pre-table summary line (e.g. Opening Balance at header) - skip rather than aborting
+                    continue
+                }
+            }
 
-    // Stop when footer starts
-if (statementEndDetector.isStatementEnd(line)) {
-
-    ParserDiagnosticsManager.latest =
-        ParserDiagnosticsManager.latest.copy(
-
-            stopReason =
-                "Stopped by statement end\nLine: $line"
-
-        )
-
-    break
-}
-
-    transactionLines.add(line)
+            transactionLines.add(line)
         }
 
         val blocks = mutableListOf<TransactionBlock>()

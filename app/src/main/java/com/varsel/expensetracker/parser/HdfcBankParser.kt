@@ -46,34 +46,94 @@ class HdfcBankParser @Inject constructor(
     private val amountRegex = Regex("""(?<![.\d])([0-9]{1,3}(?:,[0-9]{3})*|\d+)\.(\d{2})(?![.\d])""")
 
     private var lastParsedRows: List<Pair<Transaction, Double?>> = emptyList()
+    
 
-    override fun canParse(rawText: String): Boolean {
-        val upper = rawText.uppercase()
-        val header = rawText.lines().take(30).joinToString("\n").uppercase()
+    
+override fun canParse(rawText: String): Boolean {
 
-        // Exclude other bank statements if explicit
-        if ((upper.contains("INDIAN BANK") || upper.contains("INDIANBANK") || upper.contains("IDIB")) && !upper.contains("HDFC")) {
-            return false
-        }
-        if ((upper.contains("ICICI BANK") || upper.contains("ICICIBANK") || upper.contains("ICIC0")) && !upper.contains("HDFC")) {
-            return false
-        }
-
-        val hasHdfcBrand = header.contains("HDFC") ||
-                header.contains("HDFCBANK") ||
-                header.contains("HDFC BANK") ||
-                header.contains("WWW.HDFCBANK.COM") ||
-                upper.contains("HDFC BANK") ||
-                upper.contains("HDFCBANK")
-
-        val hasHdfcTableHeaders = (upper.contains("NARRATION") || upper.contains("PARTICULARS")) &&
-                (upper.contains("WITHDRAWAL") || upper.contains("DEPOSIT") || upper.contains("CHQ") || upper.contains("CLOSING BALANCE"))
-
-        val hasHdfcDateMatch = Regex("""\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b""").containsMatchIn(rawText) ||
-                Regex("""\b\d{1,2}-[A-Za-z]{3}-\d{2,4}\b""").containsMatchIn(rawText)
-
-        return hasHdfcBrand || (hasHdfcTableHeaders && hasHdfcDateMatch)
+    if (rawText.isBlank()) {
+        return false
     }
+
+    val upper = rawText.uppercase()
+    val compact = upper.replace(Regex("[^A-Z0-9]"), "")
+
+    // Prevent false detection of clearly identified competitor statements.
+    val isIndianBankStatement =
+        upper.contains("INDIAN BANK") ||
+        compact.contains("INDIANBANK") ||
+        upper.contains("ACCOUNT ACTIVITY") &&
+        upper.contains("TRANSACTION DETAILS") &&
+        upper.contains("DEBITS") &&
+        upper.contains("CREDITS")
+
+    val isIciciStatement =
+        upper.contains("ICICI BANK") ||
+        compact.contains("ICICIBANK") ||
+        upper.contains("TRANSACTION REMARKS") &&
+        upper.contains("WITHDRAWAL AMOUNT") &&
+        upper.contains("DEPOSIT AMOUNT")
+
+    if (isIndianBankStatement || isIciciStatement) {
+        return false
+    }
+
+    // Search the complete document because PDF/OCR may reorder the header.
+    val hasHdfcIdentity =
+        upper.contains("HDFC BANK") ||
+        compact.contains("HDFCBANK") ||
+        upper.contains("HDFCBANK.COM") ||
+        compact.contains("HDFCBANKLIMITED") ||
+        compact.contains("HDFCBANKLTD")
+
+    val hasStatementEvidence =
+        upper.contains("ACCOUNT STATEMENT") ||
+        upper.contains("STATEMENT OF ACCOUNT") ||
+        upper.contains("TRANSACTION") ||
+        upper.contains("ACCOUNT NUMBER") ||
+        upper.contains("ACCOUNT NO") ||
+        upper.contains("CLOSING BALANCE") ||
+        upper.contains("WITHDRAWAL") &&
+        upper.contains("DEPOSIT") &&
+        upper.contains("BALANCE")
+
+    val hasTransactionDate =
+        Regex(
+            """\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b"""
+        ).containsMatchIn(rawText) ||
+        Regex(
+            """\b\d{1,2}-[A-Za-z]{3}-\d{2,4}\b"""
+        ).containsMatchIn(rawText) ||
+        Regex(
+            """\b\d{1,2}\s+[A-Za-z]{3}\s+\d{2,4}\b"""
+        ).containsMatchIn(rawText) ||
+        Regex(
+            """\b\d{4}-\d{2}-\d{2}\b"""
+        ).containsMatchIn(rawText)
+
+    val hasTableEvidence =
+        (
+            upper.contains("NARRATION") ||
+            upper.contains("PARTICULARS")
+        ) &&
+        (
+            upper.contains("WITHDRAWAL") ||
+            upper.contains("DEBIT")
+        ) &&
+        (
+            upper.contains("DEPOSIT") ||
+            upper.contains("CREDIT")
+        ) &&
+        upper.contains("BALANCE")
+
+    // Explicit HDFC identity plus statement evidence.
+    if (hasHdfcIdentity) {
+        return hasStatementEvidence || hasTransactionDate
+    }
+
+    // OCR may lose the bank name; require strong table evidence instead.
+    return hasTableEvidence && hasTransactionDate
+}
 
     override fun parse(rawText: String): List<Transaction> {
         val lines = rawText.lines().map { it.trim() }.filter { it.isNotBlank() }
@@ -1117,3 +1177,4 @@ class HdfcBankParser @Inject constructor(
         }
     }
 }
+

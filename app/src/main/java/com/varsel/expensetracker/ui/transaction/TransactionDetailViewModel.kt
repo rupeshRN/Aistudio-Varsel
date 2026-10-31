@@ -16,14 +16,23 @@ import com.varsel.expensetracker.domain.repository.TransactionLinkGroupRepositor
 import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.domain.repository.TransferLinkResult
 import com.varsel.expensetracker.domain.usecase.CreateFinancialEventAllocationUseCase
+import com.varsel.expensetracker.util.AppError
+import com.varsel.expensetracker.util.SafeErrorHandler
+import com.varsel.expensetracker.util.SafeLog
+import com.varsel.expensetracker.util.UiErrorEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
@@ -44,6 +53,9 @@ class TransactionDetailViewModel @Inject constructor(
     )
     val uiState: StateFlow<TransactionDetailUiState> = _uiState.asStateFlow()
 
+    private val _errorEvents = Channel<UiErrorEvent>(Channel.BUFFERED)
+    val errorEvents: Flow<UiErrorEvent> = _errorEvents.receiveAsFlow()
+
     private val _saveCompleted = MutableStateFlow(false)
     val saveCompleted: StateFlow<Boolean> = _saveCompleted.asStateFlow()
 
@@ -57,53 +69,62 @@ class TransactionDetailViewModel @Inject constructor(
         transactionObservationJob?.cancel()
 
         viewModelScope.launch {
-            val transaction = transactionRepository.getTransactionById(transactionId)
+            try {
+                val transaction = transactionRepository.getTransactionById(transactionId)
 
-            if (transaction == null) {
-                _uiState.value = TransactionDetailUiState.Error("Transaction not found.")
-                return@launch
+                if (transaction == null) {
+                    _uiState.value = TransactionDetailUiState.Error(
+                        error = AppError.Database(operation = "Transaction not found.")
+                    )
+                    return@launch
+                }
+
+                val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
+                val categories = loadCategories(isIncome)
+
+                val initialAmountStr = if (transaction.amount % 1.0 == 0.0) {
+                    transaction.amount.toLong().toString()
+                } else {
+                    String.format(java.util.Locale.US, "%.2f", transaction.amount)
+                }
+
+                _uiState.value = TransactionDetailUiState.Loaded(
+                    transaction = transaction,
+                    editableDescription = transaction.description,
+                    selectedCategory = transaction.category,
+                    selectedRole = transaction.role,
+                    editableAmount = initialAmountStr,
+                    selectedType = transaction.type,
+                    selectedDateTimestamp = transaction.dateTimestamp,
+                    editableReferenceNumber = transaction.referenceNumber.orEmpty(),
+                    hasChanges = false,
+                    isSaving = false,
+                    categories = categories,
+                    allocations = emptyList(),
+                    totalAllocatedAmount = 0.0,
+                    remainingUnallocatedAmount = abs(transaction.amount),
+                    allAvailableEventGroups = emptyList(),
+                    showCreateGroupPrompt = false,
+                    showAllocateExistingPrompt = false,
+                    editingAllocation = null,
+                    allocationErrorMessage = null,
+                    linkedTransactions = emptyList(),
+                    isLinking = false,
+                    transactionLinkGroup = null,
+                    isSavingGroup = false,
+                    linkedTransfer = null,
+                    transferCandidates = emptyList(),
+                    isTransferLinking = false,
+                    transferErrorMessage = null
+                )
+
+                observeTransactions(transactionId)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("TransactionDetailVM", e, "Load Transaction")
+                _uiState.value = TransactionDetailUiState.Error(error = appError)
             }
-
-            val isIncome = transaction.type == TransactionType.INCOME || transaction.type == TransactionType.CREDIT
-            val categories = loadCategories(isIncome)
-
-            val initialAmountStr = if (transaction.amount % 1.0 == 0.0) {
-                transaction.amount.toLong().toString()
-            } else {
-                String.format(java.util.Locale.US, "%.2f", transaction.amount)
-            }
-
-            _uiState.value = TransactionDetailUiState.Loaded(
-                transaction = transaction,
-                editableDescription = transaction.description,
-                selectedCategory = transaction.category,
-                selectedRole = transaction.role,
-                editableAmount = initialAmountStr,
-                selectedType = transaction.type,
-                selectedDateTimestamp = transaction.dateTimestamp,
-                editableReferenceNumber = transaction.referenceNumber.orEmpty(),
-                hasChanges = false,
-                isSaving = false,
-                categories = categories,
-                allocations = emptyList(),
-                totalAllocatedAmount = 0.0,
-                remainingUnallocatedAmount = abs(transaction.amount),
-                allAvailableEventGroups = emptyList(),
-                showCreateGroupPrompt = false,
-                showAllocateExistingPrompt = false,
-                editingAllocation = null,
-                allocationErrorMessage = null,
-                linkedTransactions = emptyList(),
-                isLinking = false,
-                transactionLinkGroup = null,
-                isSavingGroup = false,
-                linkedTransfer = null,
-                transferCandidates = emptyList(),
-                isTransferLinking = false,
-                transferErrorMessage = null
-            )
-
-            observeTransactions(transactionId)
         }
     }
 
@@ -757,59 +778,77 @@ class TransactionDetailViewModel @Inject constructor(
                 role = current.selectedRole
             )
 
-            if (createSmartRule && (
-                current.transaction.description != current.editableDescription ||
-                current.transaction.category != current.selectedCategory
-            )) {
-                customRuleRepository.saveRule(
-                    pattern = current.transaction.description,
-                    displayDescription = current.editableDescription,
-                    categoryName = current.selectedCategory
-                )
-            }
-
-            transactionRepository.updateTransaction(updatedTransaction)
-
-            if (applyToSimilar && current.similarTransactions.isNotEmpty()) {
-                val similarToUpdate = current.similarTransactions.map { sim ->
-                    sim.copy(
-                        category = current.selectedCategory,
-                        description = if (updateDescriptionForSimilar && current.editableDescription.isNotBlank()) {
-                            current.editableDescription
-                        } else {
-                            sim.description
-                        }
+            try {
+                if (createSmartRule && (
+                    current.transaction.description != current.editableDescription ||
+                    current.transaction.category != current.selectedCategory
+                )) {
+                    customRuleRepository.saveRule(
+                        pattern = current.transaction.description,
+                        displayDescription = current.editableDescription,
+                        categoryName = current.selectedCategory
                     )
                 }
-                transactionRepository.updateTransactions(similarToUpdate)
-            }
 
-            _saveCompleted.value = true
-            _uiState.value = current.copy(
-                transaction = updatedTransaction,
-                selectedRole = updatedTransaction.role,
-                hasChanges = false,
-                isSaving = false,
-                transferErrorMessage = null
-            )
+                transactionRepository.updateTransaction(updatedTransaction)
+
+                if (applyToSimilar && current.similarTransactions.isNotEmpty()) {
+                    val similarToUpdate = current.similarTransactions.map { sim ->
+                        sim.copy(
+                            category = current.selectedCategory,
+                            description = if (updateDescriptionForSimilar && current.editableDescription.isNotBlank()) {
+                                current.editableDescription
+                            } else {
+                                sim.description
+                            }
+                        )
+                    }
+                    transactionRepository.updateTransactions(similarToUpdate)
+                }
+
+                _saveCompleted.value = true
+                _uiState.value = current.copy(
+                    transaction = updatedTransaction,
+                    selectedRole = updatedTransaction.role,
+                    hasChanges = false,
+                    isSaving = false,
+                    transferErrorMessage = null
+                )
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("TransactionDetailVM", e, "Save Changes")
+                _errorEvents.send(UiErrorEvent(appError))
+                _uiState.value = current.copy(
+                    isSaving = false,
+                    transferErrorMessage = "Failed to save changes. Please try again."
+                )
+            }
         }
     }
 
     fun createCategory(name: String, isIncome: Boolean) {
         if (name.isBlank()) return
         viewModelScope.launch {
-            val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(name, isIncome)
-            val typeStr = if (isIncome) "INCOME" else "EXPENSE"
-            val newCategory = com.varsel.expensetracker.data.local.entity.CategoryEntity(
-                name = name.trim(),
-                type = typeStr,
-                colorHex = if (isIncome) "#4CAF50" else "#2196F3",
-                iconName = iconKey,
-                budgetLimit = 0.0,
-                keywords = name.trim().uppercase()
-            )
-            categoryDao.insertCategory(newCategory)
-            updateCategory(name.trim())
+            try {
+                val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(name, isIncome)
+                val typeStr = if (isIncome) "INCOME" else "EXPENSE"
+                val newCategory = com.varsel.expensetracker.data.local.entity.CategoryEntity(
+                    name = name.trim(),
+                    type = typeStr,
+                    colorHex = if (isIncome) "#4CAF50" else "#2196F3",
+                    iconName = iconKey,
+                    budgetLimit = 0.0,
+                    keywords = name.trim().uppercase()
+                )
+                categoryDao.insertCategory(newCategory)
+                updateCategory(name.trim())
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("TransactionDetailVM", e, "Create Category")
+                _errorEvents.send(UiErrorEvent(appError))
+            }
         }
     }
 
@@ -818,8 +857,15 @@ class TransactionDetailViewModel @Inject constructor(
         if (current.transaction.isImported) return
 
         viewModelScope.launch {
-            transactionRepository.deleteTransaction(current.transaction)
-            onDeleted()
+            try {
+                transactionRepository.deleteTransaction(current.transaction)
+                onDeleted()
+            } catch (c: CancellationException) {
+                throw c
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("TransactionDetailVM", e, "Delete Transaction")
+                _errorEvents.send(UiErrorEvent(appError))
+            }
         }
     }
 

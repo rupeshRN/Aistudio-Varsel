@@ -190,20 +190,16 @@ class PdfTextExtractor @Inject constructor() {
                     PdfExtractionResult.Success(text)
                 }
 
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: SecurityException) {
-
-    // A SecurityException here means Android/ContentResolver access
-    // failed. It does NOT prove that the PDF is password protected.
-    // Password-related PDF failures are already handled above by
-    // PDFBox using InvalidPasswordException and message inspection.
-
-    PdfExtractionResult.Error(
-        e.message ?: "Could not access the selected PDF file"
-    )
+                SafeLog.e("PdfTextExtractor", "SecurityException reading PDF file", e)
+                PdfExtractionResult.Error(
+                    "Permission denied: Could not access the selected PDF file."
+                )
             } catch (e: Exception) {
-
-                PdfExtractionResult.Error(e.message ?: "Failed to process PDF file")
-
+                SafeLog.e("PdfTextExtractor", "Exception processing PDF file", e)
+                PdfExtractionResult.Error("Unable to process the selected PDF file. Please ensure it is a valid document.")
             } finally {
 
                 try {

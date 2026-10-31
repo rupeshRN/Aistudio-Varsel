@@ -1,5 +1,6 @@
 package com.varsel.expensetracker.ui.reports
 
+import com.varsel.expensetracker.util.AppError
 import java.time.YearMonth
 import java.time.LocalDate
 
@@ -14,6 +15,7 @@ data class ReportsUiState(
     val isLoading: Boolean = true,
 
     val errorMessage: String? = null,
+    val error: AppError? = null,
 
     /**
  * Current user-selected reporting period.

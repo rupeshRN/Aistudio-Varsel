@@ -93,6 +93,14 @@ import com.varsel.expensetracker.ui.import_statement.components.StatementSummary
 import com.varsel.expensetracker.ui.import_statement.components.StatementUploadHeroCard
 import com.varsel.expensetracker.ui.import_statement.components.TransactionReviewRow
 
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import com.varsel.expensetracker.util.AppError
+import com.varsel.expensetracker.util.AppErrorMessageMapper
+import kotlinx.coroutines.flow.collectLatest
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImportScreen(
@@ -105,6 +113,22 @@ fun ImportScreen(
     val importHistory by viewModel.importHistory.collectAsState()
     val diagnostics by viewModel.diagnostics.collectAsState()
     val parserDiagnosticsEnabled by viewModel.parserDiagnosticsEnabled.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(viewModel) {
+        viewModel.errorEvents.collectLatest { event ->
+            val message = AppErrorMessageMapper.getUserMessage(event.error)
+            val action = AppErrorMessageMapper.getActionSuggestion(event.error)
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = if (event.retryAction != null) (action ?: "Retry") else null,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                event.retryAction?.invoke()
+            }
+        }
+    }
 
     var showTransactionReview by remember { mutableStateOf(false) }
     var selectedSnapshotForDetail by remember { mutableStateOf<StatementSnapshotEntity?>(null) }
@@ -151,6 +175,7 @@ fun ImportScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -271,10 +296,16 @@ fun ImportScreen(
                 //--------------------------------------------------
                 is ImportUiState.Error -> {
                     ErrorImportContent(
+                        error = state.error,
                         message = state.message,
                         onRetry = {
                             showTransactionReview = false
                             viewModel.resetState()
+                        },
+                        onSelectAnother = {
+                            showTransactionReview = false
+                            viewModel.resetState()
+                            launcher.launch(arrayOf("application/pdf", "image/*"))
                         }
                     )
                 }
@@ -570,9 +601,26 @@ private fun SavedSuccessContent(
 
 @Composable
 private fun ErrorImportContent(
+    error: AppError,
     message: String,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onSelectAnother: () -> Unit
 ) {
+    val displayTitle = when (error) {
+        is AppError.NoTransactionsFound -> "No Transactions Detected"
+        is AppError.PdfExtractionFailed -> "Document Reading Failed"
+        is AppError.OcrFailed -> "Image OCR Failed"
+        is AppError.PasswordRequired -> "Password Required"
+        is AppError.InvalidPassword -> "Incorrect Password"
+        is AppError.InvalidFile,
+        is AppError.UnsupportedFile -> "Unsupported File Format"
+        is AppError.Database -> "Storage Error"
+        else -> "Import Failed"
+    }
+
+    val displayMessage = message.ifBlank { AppErrorMessageMapper.getUserMessage(error) }
+    val suggestion = AppErrorMessageMapper.getActionSuggestion(error)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -612,29 +660,56 @@ private fun ErrorImportContent(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = "Import Failed",
+                    text = displayTitle,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = message,
+                    text = displayMessage,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
 
+                if (!suggestion.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Text(
+                            text = suggestion,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
+                    onClick = onSelectAnother,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Select Another File")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
                     onClick = onRetry,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Try Again")
+                    Text("Back to Imports")
                 }
             }
         }

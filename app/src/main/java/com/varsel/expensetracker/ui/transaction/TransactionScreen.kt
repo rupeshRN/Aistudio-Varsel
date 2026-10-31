@@ -67,6 +67,13 @@ import com.varsel.expensetracker.ui.transaction.components.TransactionFilterBar
 import com.varsel.expensetracker.ui.transaction.components.TransactionHeader
 import com.varsel.expensetracker.ui.transaction.components.TransactionSearchBar
 import com.varsel.expensetracker.ui.transaction.components.transactionList
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import com.varsel.expensetracker.ui.components.AppErrorBanner
+import com.varsel.expensetracker.util.AppErrorMessageMapper
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,9 +89,25 @@ fun TransactionScreen(
     val availableAccounts by viewModel.availableAccounts.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showAddTransactionSheet by remember { mutableStateOf(false) }
     var isMonthMenuExpanded by remember { mutableStateOf(false) }
     val isDark = MaterialTheme.colorScheme.isDark
+
+    androidx.compose.runtime.LaunchedEffect(viewModel) {
+        viewModel.errorEvents.collectLatest { event ->
+            val message = AppErrorMessageMapper.getUserMessage(event.error)
+            val action = AppErrorMessageMapper.getActionSuggestion(event.error)
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = if (event.retryAction != null) (action ?: "Retry") else null,
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                event.retryAction?.invoke()
+            }
+        }
+    }
 
     val showScrollToTop by remember {
         derivedStateOf {
@@ -118,6 +141,7 @@ fun TransactionScreen(
     )
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             Surface(
                 color = MaterialTheme.colorScheme.background,
@@ -332,6 +356,16 @@ fun TransactionScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (uiState.error != null) {
+                item(key = "error_banner") {
+                    AppErrorBanner(
+                        error = uiState.error!!,
+                        onDismiss = { viewModel.dismissError() },
+                        onRetry = { viewModel.retryLoading() }
+                    )
+                }
+            }
+
             // 1. Month Switcher Pills (Horizontal scroll right above summary card)
             item(key = "month_selector") {
                 MonthSelector(

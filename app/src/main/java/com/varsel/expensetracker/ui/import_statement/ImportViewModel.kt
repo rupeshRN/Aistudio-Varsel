@@ -15,18 +15,26 @@ import com.varsel.expensetracker.domain.repository.RecurringRepository
 import com.varsel.expensetracker.domain.repository.StatementSnapshotRepository
 import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.parser.StatementImportResult
+import com.varsel.expensetracker.ui.util.UiErrorEvent
+import com.varsel.expensetracker.util.AppError
+import com.varsel.expensetracker.util.AppErrorMessageMapper
 import com.varsel.expensetracker.util.OcrManager
 import com.varsel.expensetracker.util.PdfExtractionResult
 import com.varsel.expensetracker.util.PdfTextExtractor
+import com.varsel.expensetracker.util.SafeErrorHandler
+import com.varsel.expensetracker.util.SafeLog
 import com.varsel.expensetracker.util.StatementParserEngine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -55,7 +63,8 @@ sealed interface ImportUiState {
     ) : ImportUiState
 
     data class Error(
-        val message: String
+        val error: AppError = AppError.Unknown(),
+        val message: String = AppErrorMessageMapper.getUserMessage(error)
     ) : ImportUiState
 }
 
@@ -91,6 +100,9 @@ class ImportViewModel @Inject constructor(
 
     val uiState: StateFlow<ImportUiState> =
         _uiState.asStateFlow()
+
+    private val _errorEvents = Channel<UiErrorEvent>(Channel.BUFFERED)
+    val errorEvents = _errorEvents.receiveAsFlow()
 
     private var pendingStatementResult: StatementImportResult? = null
 
@@ -130,13 +142,27 @@ class ImportViewModel @Inject constructor(
 
     fun deleteSnapshot(snapshotId: Long) {
         viewModelScope.launch(Dispatchers.IO) {
-            statementSnapshotRepository.deleteSnapshot(snapshotId)
+            try {
+                statementSnapshotRepository.deleteSnapshot(snapshotId)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("ImportViewModel", e, "Delete Snapshot")
+                _errorEvents.send(UiErrorEvent(error = appError))
+            }
         }
     }
 
     fun deleteSnapshotWithTransactions(snapshot: StatementSnapshotEntity) {
         viewModelScope.launch(Dispatchers.IO) {
-            statementSnapshotRepository.deleteSnapshotWithTransactions(snapshot)
+            try {
+                statementSnapshotRepository.deleteSnapshotWithTransactions(snapshot)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("ImportViewModel", e, "Delete Snapshot with Transactions")
+                _errorEvents.send(UiErrorEvent(error = appError))
+            }
         }
     }
 
@@ -187,7 +213,8 @@ class ImportViewModel @Inject constructor(
                         }
                         is PdfExtractionResult.Error -> {
                             _uiState.value = ImportUiState.Error(
-                                pdfResult.message ?: "Could not extract text from document."
+                                error = AppError.PdfExtractionFailed(pdfResult.message),
+                                message = pdfResult.message ?: AppErrorMessageMapper.getUserMessage(AppError.PdfExtractionFailed())
                             )
                             return@launch
                         }
@@ -195,20 +222,33 @@ class ImportViewModel @Inject constructor(
                 } else {
                     val textFromImage = ocrManager.extractTextFromImage(context, uri)
                     if (textFromImage.isNullOrBlank()) {
-                        _uiState.value = ImportUiState.Error("Could not extract any text from the selected document.")
+                        _uiState.value = ImportUiState.Error(
+                            error = AppError.OcrFailed("No text detected in image"),
+                            message = AppErrorMessageMapper.getUserMessage(AppError.OcrFailed())
+                        )
                         return@launch
                     }
                     textFromImage
                 }
 
                 if (rawText.isBlank()) {
+    val isPdf =
+        resolvedMimeType == "application/pdf" ||
+            uri.toString().endsWith(".pdf", true)
 
-                    _uiState.value =
-                        ImportUiState.Error(
-                            "Could not extract any text from the selected document."
-                        )
+    val error = if (isPdf) {
+        AppError.PdfExtractionFailed("Document contains no readable text")
+    } else {
+        AppError.OcrFailed("No readable text detected")
+    }
 
-                    return@launch
+    _uiState.value =
+        ImportUiState.Error(
+            error = error,
+            message = AppErrorMessageMapper.getUserMessage(error)
+        )
+
+    return@launch
                 }
 
                 // --------------------------------------------------
@@ -227,12 +267,11 @@ class ImportViewModel @Inject constructor(
                     ParserDiagnosticsManager.latest
 
                 if (result.transactions.isEmpty()) {
-
                     _uiState.value =
                         ImportUiState.Error(
-                            "No transactions found."
+                            error = AppError.NoTransactionsFound,
+                            message = AppErrorMessageMapper.getUserMessage(AppError.NoTransactionsFound)
                         )
-
                     return@launch
                 }
 
@@ -246,14 +285,12 @@ class ImportViewModel @Inject constructor(
 
                 val credits =
                     result.transactions.count {
-
                         it.type ==
                             TransactionType.INCOME
                     }
 
                 val debits =
                     result.transactions.count {
-
                         it.type ==
                             TransactionType.EXPENSE
                     }
@@ -277,7 +314,6 @@ class ImportViewModel @Inject constructor(
 
                 val duplicateCount =
                     result.transactions.count {
-
                         val fingerprint =
                             it.transactionFingerprint
 
@@ -299,7 +335,6 @@ class ImportViewModel @Inject constructor(
 
                 val summary =
                     ImportSummary(
-
                         bankName =
                             result.bankName,
 
@@ -342,9 +377,16 @@ class ImportViewModel @Inject constructor(
                 // --------------------------------------------------
 
                 val activeRecurringItems = try {
-                    recurringRepository.getActiveRecurringItems().first()
-                } catch (e: Exception) {
-                    emptyList()
+    recurringRepository.getActiveRecurringItems().first()
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    SafeErrorHandler.handle(
+        tag = "ImportViewModel",
+        throwable = e,
+        operationContext = "Load Recurring Items"
+    )
+    emptyList()
                 }
 
                 // --------------------------------------------------
@@ -394,7 +436,6 @@ class ImportViewModel @Inject constructor(
 
                 _uiState.value =
                     ImportUiState.ParsedTransactions(
-
                         summary =
                             finalSummary,
 
@@ -402,12 +443,14 @@ class ImportViewModel @Inject constructor(
                             selectableTransactions
                     )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-
+                val appError = SafeErrorHandler.handle("ImportViewModel", e, "Process Statement File")
                 _uiState.value =
                     ImportUiState.Error(
-                        e.message
-                            ?: e.stackTraceToString()
+                        error = appError,
+                        message = AppErrorMessageMapper.getUserMessage(appError)
                     )
             }
         }
@@ -420,7 +463,6 @@ class ImportViewModel @Inject constructor(
     private suspend fun saveStatementSnapshot(
         result: StatementImportResult
     ) {
-
         val summary =
             result.summary
 
@@ -474,18 +516,59 @@ class ImportViewModel @Inject constructor(
                     }
 
                 if (selectedTransactions.isEmpty()) {
-
                     _uiState.value =
                         ImportUiState.Error(
-                            "Please select at least one transaction."
+                            error = AppError.InvalidInput(reason = "Please select at least one transaction to import."),
+                            message = "Please select at least one transaction to import."
                         )
-
                     return@launch
                 }
 
                 // 1. Commit the statement snapshot now that user has confirmed
                 pendingStatementResult?.let { snapshotResult ->
                     saveStatementSnapshot(snapshotResult)
+                }
+
+                // 2. Perform atomic batch insert of selected transactions
+                transactionRepository.insertTransactions(
+                    selectedTransactions.map { it.transaction }
+                )
+
+                // 3. Advance occurrence on matched recurring items so user won't get prompted again for the same cycle
+                val matchedItems = selectedTransactions.mapNotNull { sel ->
+                    sel.matchedRecurringItem?.let { match ->
+                        match.recurringItem to sel.transaction.dateTimestamp
+                    }
+                }
+                for ((item, txDateTimestamp) in matchedItems) {
+                    try {
+                        val advancedItem = recurringMatcherEngine.advanceOccurrenceAfterMatch(item, txDateTimestamp)
+                        recurringRepository.updateRecurringItem(advancedItem)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+    SafeErrorHandler.handle(
+        tag = "ImportViewModel",
+        throwable = e,
+        operationContext = "Advance Recurring Item After Match"
+    )
+                    }
+                }
+
+                // 4. Clear pending result
+                pendingStatementResult = null
+
+                // 5. Automatically reconcile and link transfers across accounts
+                try {
+                    autoTransferReconciliationEngine.reconcileTransfers()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+    SafeErrorHandler.handle(
+        tag = "ImportViewModel",
+        throwable = e,
+        operationContext = "Auto-Reconciliation After Import"
+    )
                 }
 
                 // 2. Perform atomic batch insert of selected transactions
@@ -519,12 +602,14 @@ class ImportViewModel @Inject constructor(
                         selectedTransactions.size
                     )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-
+                val appError = SafeErrorHandler.handle("ImportViewModel", e, "Save Transactions")
                 _uiState.value =
                     ImportUiState.Error(
-                        e.localizedMessage
-                            ?: "Failed to save transactions."
+                        error = appError,
+                        message = AppErrorMessageMapper.getUserMessage(appError)
                     )
             }
         }

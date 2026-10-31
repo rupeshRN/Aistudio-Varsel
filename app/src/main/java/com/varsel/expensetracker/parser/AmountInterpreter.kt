@@ -5,14 +5,21 @@ import javax.inject.Inject
 
 class AmountInterpreter @Inject constructor() {
 
-    private val amountRegex =
+    private val inrAmountRegex =
         Regex("INR\\s*([\\d,]+\\.\\d{2})")
+
+    private val plainAmountRegex =
+        Regex("""(?<![.\d])([0-9]{1,3}(?:,[0-9]{3})*\.\d{2}|\d+\.\d{2})(?![.\d])""")
 
     fun parse(firstLine: String): ParsedAmount? {
 
-        val matches = amountRegex.findAll(firstLine).toList()
+        var matches = inrAmountRegex.findAll(firstLine).toList()
 
         if (matches.size < 2) {
+            matches = plainAmountRegex.findAll(firstLine).toList()
+        }
+
+        if (matches.isEmpty()) {
             return null
         }
 
@@ -24,11 +31,26 @@ class AmountInterpreter @Inject constructor() {
                 ?: return null
 
         val balance =
-            matches[1]
-                .groupValues[1]
-                .replace(",", "")
-                .toDoubleOrNull()
-                ?: return null
+            if (matches.size >= 2) {
+                matches[1]
+                    .groupValues[1]
+                    .replace(",", "")
+                    .toDoubleOrNull()
+                    ?: 0.0
+            } else {
+                0.0
+            }
+
+        // If only 1 amount found, determine type by line markers
+        if (matches.size == 1) {
+            val upper = firstLine.uppercase()
+            val isCredit = upper.contains(" CR") || upper.endsWith("CR") || upper.contains("CREDIT") || upper.contains("DEPOSIT") || upper.contains("BY ")
+            return ParsedAmount(
+                amount = firstAmount,
+                balance = balance,
+                type = if (isCredit) TransactionType.INCOME else TransactionType.EXPENSE
+            )
+        }
 
         //----------------------------------------------------
         // Determine whether first amount is Debit or Credit
@@ -94,6 +116,18 @@ class AmountInterpreter @Inject constructor() {
                     amount = firstAmount,
                     balance = balance,
                     type = TransactionType.EXPENSE
+                )
+            }
+
+            // Explicit Credit indicator on the line (e.g. CR, CREDIT)
+            firstLine.uppercase().contains(" CR") ||
+            firstLine.uppercase().endsWith("CR") ||
+            firstLine.uppercase().contains("CREDIT") -> {
+
+                ParsedAmount(
+                    amount = firstAmount,
+                    balance = balance,
+                    type = TransactionType.INCOME
                 )
             }
 

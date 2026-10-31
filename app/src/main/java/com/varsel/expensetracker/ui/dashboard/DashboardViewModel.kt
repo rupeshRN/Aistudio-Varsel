@@ -23,15 +23,25 @@ import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.domain.usecase.AddManualTransactionUseCase
 import com.varsel.expensetracker.ui.budget.BudgetCalculator
 import com.varsel.expensetracker.ui.mapper.DashboardUiMapper
+import com.varsel.expensetracker.ui.model.AccountBalanceUiModel
 import com.varsel.expensetracker.ui.transaction.model.AccountOption
+import com.varsel.expensetracker.ui.util.UiErrorEvent
+import com.varsel.expensetracker.util.AppError
+import com.varsel.expensetracker.util.SafeErrorHandler
+import com.varsel.expensetracker.util.SafeLog
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -59,7 +69,16 @@ class DashboardViewModel @Inject constructor(
     val uiState: StateFlow<DashboardUiState> =
         _uiState.asStateFlow()
 
+    private val _errorEvents = Channel<UiErrorEvent>(Channel.BUFFERED)
+    val errorEvents = _errorEvents.receiveAsFlow()
+
+    private var dashboardLoadJob: Job? = null
+
     val categories: StateFlow<List<CategoryEntity>> = categoryDao.getAllCategories()
+        .catch { e ->
+            if (e is CancellationException) throw e
+            SafeLog.e("DashboardViewModel", "Failed to stream categories", e)
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val availableAccounts: StateFlow<List<AccountOption>> = statementSnapshotRepository.observeAllSnapshots()
@@ -82,7 +101,12 @@ class DashboardViewModel @Inject constructor(
                 )
             }.distinctBy { it.accountId }
             listOf(cashOption) + bankAccounts
-        }.stateIn(
+        }
+        .catch { e ->
+            if (e is CancellationException) throw e
+            SafeLog.e("DashboardViewModel", "Failed to stream account snapshots", e)
+        }
+        .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
             listOf(
@@ -97,6 +121,10 @@ class DashboardViewModel @Inject constructor(
 
     val activeHomeSections: StateFlow<List<String>> = generalPreferencesRepository.generalConfig
         .map { it.activeHomeSections }
+        .catch { e ->
+            if (e is CancellationException) throw e
+            SafeLog.e("DashboardViewModel", "Failed to stream active home sections", e)
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -107,13 +135,28 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 autoTransferReconciliationEngine.reconcileTransfers()
-            } catch (_: Exception) {}
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SafeLog.w("DashboardViewModel", "Auto-reconciliation could not complete", e)
+            }
         }
         loadDashboard()
     }
 
+    fun retryLoadDashboard() {
+        loadDashboard()
+    }
+
+    fun dismissError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
     private fun loadDashboard() {
-        viewModelScope.launch(Dispatchers.IO) {
+        dashboardLoadJob?.cancel()
+        _uiState.update { it.copy(isLoading = true, error = null) }
+
+        dashboardLoadJob = viewModelScope.launch(Dispatchers.IO) {
             combine(
                 transactionRepository.getAllTransactions(),
                 loanRepository.getAllLoansSummary(),
@@ -260,10 +303,18 @@ class DashboardViewModel @Inject constructor(
                         totalGoalTarget = totalGoalTarget,
                         totalGoalSaved = totalGoalSaved,
                         isBalanceHidden = current.isBalanceHidden,
-                        showNetWorthBreakdown = generalConfig.showNetWorthBreakdown
+                        showNetWorthBreakdown = generalConfig.showNetWorthBreakdown,
+                        isLoading = false,
+                        error = null
                     )
                 }
-            }.collect {}
+            }
+            .catch { throwable ->
+                if (throwable is CancellationException) throw throwable
+                val appError = SafeErrorHandler.handle("DashboardViewModel", throwable, "Load Dashboard")
+                _uiState.update { it.copy(isLoading = false, error = appError) }
+            }
+            .collect {}
         }
     }
 
@@ -273,13 +324,25 @@ class DashboardViewModel @Inject constructor(
 
     fun setHomeBudgetsSelection(selection: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            generalPreferencesRepository.setHomeBudgetsSelection(selection)
+            try {
+                generalPreferencesRepository.setHomeBudgetsSelection(selection)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SafeLog.w("DashboardViewModel", "Failed to update home budget preference", e)
+            }
         }
     }
 
     fun setHomeGoalsSelection(selection: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            generalPreferencesRepository.setHomeGoalsSelection(selection)
+            try {
+                generalPreferencesRepository.setHomeGoalsSelection(selection)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                SafeLog.w("DashboardViewModel", "Failed to update home goal preference", e)
+            }
         }
     }
 
@@ -287,8 +350,125 @@ class DashboardViewModel @Inject constructor(
         transaction: Transaction
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            transactionRepository
-                .updateTransaction(transaction)
+            try {
+                transactionRepository.updateTransaction(transaction)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("DashboardViewModel", e, "Update Transaction")
+                _errorEvents.send(UiErrorEvent(error = appError))
+            }
+        }
+    }
+
+    fun addTransaction(
+        amount: Double,
+        type: TransactionType,
+        description: String,
+        category: String,
+        dateTimestamp: Long,
+        referenceNumber: String?,
+        accountId: String? = null,
+        accountLast4: String? = null,
+        bankName: String? = null,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                val result = addManualTransactionUseCase.addTransaction(
+                    amount = amount,
+                    type = type,
+                    description = description,
+                    category = category,
+                    dateTimestamp = dateTimestamp,
+                    referenceNumber = referenceNumber,
+                    accountId = accountId,
+                    accountLast4 = accountLast4,
+                    bankName = bankName
+                )
+                if (result.isSuccess) {
+                    onComplete?.invoke(true)
+                } else {
+                    val throwable = result.exceptionOrNull() ?: Exception("Transaction saving failed")
+                    val appError = SafeErrorHandler.handle("DashboardViewModel", throwable, "Add Transaction")
+                    _errorEvents.send(UiErrorEvent(error = appError))
+                    onComplete?.invoke(false)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("DashboardViewModel", e, "Add Transaction")
+                _errorEvents.send(UiErrorEvent(error = appError))
+                onComplete?.invoke(false)
+            }
+        }
+    }
+
+    fun addTransfer(
+        amount: Double,
+        description: String,
+        dateTimestamp: Long,
+        fromAccountId: String?,
+        fromAccountLast4: String?,
+        fromBankName: String?,
+        toAccountId: String?,
+        toAccountLast4: String?,
+        toBankName: String?,
+        referenceNumber: String?,
+        onComplete: ((Boolean) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            try {
+                val result = addManualTransactionUseCase.addTransfer(
+                    amount = amount,
+                    description = description,
+                    dateTimestamp = dateTimestamp,
+                    fromAccountId = fromAccountId,
+                    fromAccountLast4 = fromAccountLast4,
+                    fromBankName = fromBankName,
+                    toAccountId = toAccountId,
+                    toAccountLast4 = toAccountLast4,
+                    toBankName = toBankName,
+                    referenceNumber = referenceNumber
+                )
+                if (result.isSuccess) {
+                    onComplete?.invoke(true)
+                } else {
+                    val throwable = result.exceptionOrNull() ?: Exception("Transfer saving failed")
+                    val appError = SafeErrorHandler.handle("DashboardViewModel", throwable, "Add Transfer")
+                    _errorEvents.send(UiErrorEvent(error = appError))
+                    onComplete?.invoke(false)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("DashboardViewModel", e, "Add Transfer")
+                _errorEvents.send(UiErrorEvent(error = appError))
+                onComplete?.invoke(false)
+            }
+        }
+    }
+
+    fun createCategory(name: String, isIncome: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val trimmed = name.trim()
+                if (trimmed.isBlank()) return@launch
+                val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(trimmed, isIncome)
+                val colorHex = if (isIncome) "#4CAF50" else "#E91E63"
+                val entity = CategoryEntity(
+                    name = trimmed,
+                    type = if (isIncome) "INCOME" else "EXPENSE",
+                    iconName = iconKey,
+                    colorHex = colorHex
+                )
+                categoryDao.insertCategory(entity)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                val appError = SafeErrorHandler.handle("DashboardViewModel", e, "Create Category")
+                _errorEvents.send(UiErrorEvent(error = appError))
+            }
         }
     }
 
@@ -366,3 +546,4 @@ class DashboardViewModel @Inject constructor(
         }
     }
 }
+

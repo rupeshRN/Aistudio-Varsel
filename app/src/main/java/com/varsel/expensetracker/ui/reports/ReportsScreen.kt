@@ -37,6 +37,8 @@ import com.varsel.expensetracker.ui.reports.components.ReportsTabSelector
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import com.varsel.expensetracker.ui.components.InlineErrorView
+import com.varsel.expensetracker.util.AppError
 import kotlinx.coroutines.launch
 
 /**
@@ -131,7 +133,10 @@ fun ReportsScreen(
         },
 
         onFinancialEventClick =
-            onFinancialEventClick
+            onFinancialEventClick,
+
+        onRetry =
+            viewModel::retry
     )
 
     if (filterSheetVisible) {
@@ -210,7 +215,8 @@ private fun ReportsScreenContent(
     onFlowSelected: (ReportsFlow) -> Unit,
     onExpenseCategorySelected: (String?) -> Unit,
     onIncomeCategorySelected: (String?) -> Unit,
-    onFinancialEventClick: (String) -> Unit
+    onFinancialEventClick: (String) -> Unit,
+    onRetry: () -> Unit = {}
 ) {
     Box(
         modifier = Modifier.fillMaxSize()
@@ -228,16 +234,14 @@ private fun ReportsScreenContent(
                 )
             }
 
-            uiState.errorMessage != null -> {
+            uiState.error != null || uiState.errorMessage != null -> {
 
-                Text(
-                    text =
-                        uiState.errorMessage,
-
-                    modifier =
-                        Modifier.align(
-                            Alignment.Center
-                        )
+                InlineErrorView(
+                    error = uiState.error ?: AppError.Unknown(uiState.errorMessage ?: "Unable to prepare report"),
+                    onRetry = onRetry,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(24.dp)
                 )
             }
 

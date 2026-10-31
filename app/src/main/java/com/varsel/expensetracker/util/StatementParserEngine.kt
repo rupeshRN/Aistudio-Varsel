@@ -18,6 +18,10 @@ import javax.inject.Inject
 import com.varsel.expensetracker.parser.TransactionFingerprintGenerator
 import com.varsel.expensetracker.parser.AccountDetailsExtractor
 import com.varsel.expensetracker.parser.AccountIdentityGenerator
+import com.varsel.expensetracker.parser.BankDetectionResult
+import com.varsel.expensetracker.parser.AmbiguousBankException
+import com.varsel.expensetracker.parser.UnsupportedBankException
+import com.varsel.expensetracker.parser.UnsupportedStatementFormatException
 
 
 /**
@@ -198,8 +202,30 @@ class StatementParserEngine @Inject constructor(
         // Detect bank and execute the correct parser.
         //--------------------------------------------------
 
-        val parser =
-            bankDetector.detect(rawText)
+        val detectionResult = bankDetector.detectResult(rawText)
+
+val parser = when (detectionResult) {
+
+    is BankDetectionResult.Supported -> {
+        detectionResult.parser
+    }
+
+    is BankDetectionResult.Ambiguous -> {
+        throw AmbiguousBankException(detectionResult.possibleBankNames)
+    }
+
+    is BankDetectionResult.UnsupportedBank -> {
+        throw UnsupportedBankException(detectionResult.detectedBankName)
+    }
+
+    is BankDetectionResult.UnsupportedFormat -> {
+        throw UnsupportedStatementFormatException(detectionResult.bankName, detectionResult.reason)
+    }
+
+    is BankDetectionResult.Unsupported -> {
+        throw UnsupportedStatementFormatException(reason = detectionResult.reason)
+    }
+}
 
         val parsedTransactions =
             parser.parse(normalizedText).ifEmpty {
@@ -306,11 +332,13 @@ class StatementParserEngine @Inject constructor(
             statementDebits = resolvedSummary.totalDebits
         )
 
-        val bankName = when (parser) {
-            is IciciBankParser -> "ICICI Bank"
-            is IndianBankParser -> "Indian Bank"
-            is HdfcBankParser -> "HDFC Bank"
-            else -> "Bank Statement"
+        val bankName = when (detectionResult) {
+            is BankDetectionResult.Supported -> {
+                detectionResult.displayName ?: "Bank Statement"
+            }
+            else -> {
+                "Bank Statement"
+            }
         }
 
         val ifscCode = accountDetailsExtractor.extractIfscCode(rawText)

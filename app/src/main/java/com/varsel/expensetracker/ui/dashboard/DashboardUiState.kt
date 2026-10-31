@@ -49,5 +49,7 @@ data class DashboardUiState(
 
     val showNetWorthBreakdown: Boolean = true,
 
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+
+    val error: com.varsel.expensetracker.util.AppError? = null
 )

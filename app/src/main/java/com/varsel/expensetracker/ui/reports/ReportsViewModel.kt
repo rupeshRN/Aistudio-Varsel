@@ -11,15 +11,21 @@ import com.varsel.expensetracker.domain.repository.TransactionLinkGroupRepositor
 import com.varsel.expensetracker.domain.repository.TransactionRepository
 import com.varsel.expensetracker.data.repository.FinancialEventAllocationRepository
 import com.varsel.expensetracker.data.local.entity.FinancialEventAllocationEntity
+import com.varsel.expensetracker.util.AppError
+import com.varsel.expensetracker.util.AppErrorMessageMapper
+import com.varsel.expensetracker.util.SafeErrorHandler
+import com.varsel.expensetracker.util.SafeLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -713,23 +719,27 @@ private fun updateSelectedMonth(
     // ------------------------------------------------------------------------
 
 private fun observeReportData() {
-
     viewModelScope.launch(Dispatchers.IO) {
-
         combine(
             transactionRepository.getAllTransactions(),
             transactionLinkGroupRepository.getAllGroups(),
             financialEventAllocationRepository.observeAllAllocations()
         ) { transactions, groups, allocations ->
-
             ReportSourceData(
                 transactions = transactions,
                 groups = groups,
                 allocations = allocations
             )
-
-        }.collect { sourceData ->
-
+        }
+        .catch { exception ->
+            val appError = SafeErrorHandler.handle("ReportsViewModel", exception, "Observe Report Data")
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                error = appError,
+                errorMessage = AppErrorMessageMapper.getUserMessage(appError)
+            )
+        }
+        .collect { sourceData ->
             latestTransactions =
                 sourceData.transactions
 
@@ -935,14 +945,15 @@ val financialEvents =
                         comparisonSummary
                 )
 
+        } catch (c: CancellationException) {
+            throw c
         } catch (exception: Exception) {
-
+            val appError = SafeErrorHandler.handle("ReportsViewModel", exception, "Generate Report")
             _uiState.value =
                 _uiState.value.copy(
                     isLoading = false,
-                    errorMessage =
-                        exception.message
-                            ?: "Unable to prepare report"
+                    error = appError,
+                    errorMessage = AppErrorMessageMapper.getUserMessage(appError)
                 )
         }
     }

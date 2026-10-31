@@ -1,6 +1,7 @@
 package com.varsel.expensetracker.ui.transaction
 
 import com.varsel.expensetracker.ui.model.TransactionUiModel
+import com.varsel.expensetracker.util.AppError
 
 data class TransactionUiState(
 
@@ -8,7 +9,7 @@ data class TransactionUiState(
 
     val availableMonths: List<TransactionMonth> = emptyList(),
 
-val selectedMonth: TransactionMonth? = null,
+    val selectedMonth: TransactionMonth? = null,
 
     val selectedFilter: TransactionFilter = TransactionFilter.All,
 
@@ -17,7 +18,7 @@ val selectedMonth: TransactionMonth? = null,
     val isLoading: Boolean = false,
     val monthlyIncome: Double = 0.0,
     val monthlyExpense: Double = 0.0,
-
+    val error: AppError? = null
 )
 
 enum class TransactionFilter {
