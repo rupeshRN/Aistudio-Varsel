@@ -27,7 +27,7 @@ jobs:
           git fetch source-repo
           
           # Merge changes (use --allow-unrelated-histories if the repos don't share a common history)
-          git merge source-repo/main --allow-unrelated-histories -m "Auto-sync changes from source repository"
+          git merge source-repo/main --allow-unrelated-histories -X theirs -m "Auto-sync changes from source repository"
           
           # Push the merged changes back to the destination repo
           git push origin main
