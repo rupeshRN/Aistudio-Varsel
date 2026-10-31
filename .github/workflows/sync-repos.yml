@@ -21,10 +21,12 @@ jobs:
           token: ${{ secrets.SYNC_PAT }}
           path: temp-source
 
-      - name: Configure Git identity
+      - name: Debug Workspace
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          echo "--- Listing Workspace Root ---"
+          ls -la
+          echo "--- Listing temp-source Directory ---"
+          ls -la temp-source || echo "❌ temp-source directory does not exist!"
 
       - name: Sync exact files from source repo
         run: |
@@ -46,4 +48,5 @@ jobs:
           git diff --staged --quiet || git commit -m "Mirror sync: exact copy from source repository"
           
           # Push changes to destination repo
-          git push origin main
+          git push origin
+          main
