@@ -46,7 +46,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import com.varsel.expensetracker.ui.model.AccountBalanceUiModel
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
@@ -469,80 +468,6 @@ class DashboardViewModel @Inject constructor(
                 val appError = SafeErrorHandler.handle("DashboardViewModel", e, "Create Category")
                 _errorEvents.send(UiErrorEvent(error = appError))
             }
-        }
-    }
-
-    fun addTransaction(
-        amount: Double,
-        type: TransactionType,
-        description: String,
-        category: String,
-        dateTimestamp: Long,
-        referenceNumber: String?,
-        accountId: String? = null,
-        accountLast4: String? = null,
-        bankName: String? = null,
-        onComplete: ((Boolean) -> Unit)? = null
-    ) {
-        viewModelScope.launch {
-            val result = addManualTransactionUseCase.addTransaction(
-                amount = amount,
-                type = type,
-                description = description,
-                category = category,
-                dateTimestamp = dateTimestamp,
-                referenceNumber = referenceNumber,
-                accountId = accountId,
-                accountLast4 = accountLast4,
-                bankName = bankName
-            )
-            onComplete?.invoke(result.isSuccess)
-        }
-    }
-
-    fun addTransfer(
-        amount: Double,
-        description: String,
-        dateTimestamp: Long,
-        fromAccountId: String?,
-        fromAccountLast4: String?,
-        fromBankName: String?,
-        toAccountId: String?,
-        toAccountLast4: String?,
-        toBankName: String?,
-        referenceNumber: String?,
-        onComplete: ((Boolean) -> Unit)? = null
-    ) {
-        viewModelScope.launch {
-            val result = addManualTransactionUseCase.addTransfer(
-                amount = amount,
-                description = description,
-                dateTimestamp = dateTimestamp,
-                fromAccountId = fromAccountId,
-                fromAccountLast4 = fromAccountLast4,
-                fromBankName = fromBankName,
-                toAccountId = toAccountId,
-                toAccountLast4 = toAccountLast4,
-                toBankName = toBankName,
-                referenceNumber = referenceNumber
-            )
-            onComplete?.invoke(result.isSuccess)
-        }
-    }
-
-    fun createCategory(name: String, isIncome: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val trimmed = name.trim()
-            if (trimmed.isBlank()) return@launch
-            val iconKey = com.varsel.expensetracker.category.CategoryIconCatalog.iconKeyForCategory(trimmed, isIncome)
-            val colorHex = if (isIncome) "#4CAF50" else "#E91E63"
-            val entity = CategoryEntity(
-                name = trimmed,
-                type = if (isIncome) "INCOME" else "EXPENSE",
-                iconName = iconKey,
-                colorHex = colorHex
-            )
-            categoryDao.insertCategory(entity)
         }
     }
 }

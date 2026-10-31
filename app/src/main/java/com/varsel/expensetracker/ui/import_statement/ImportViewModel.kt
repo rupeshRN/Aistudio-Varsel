@@ -571,32 +571,6 @@ class ImportViewModel @Inject constructor(
     )
                 }
 
-                // 2. Perform atomic batch insert of selected transactions
-                transactionRepository.insertTransactions(
-                    selectedTransactions.map { it.transaction }
-                )
-
-                // 3. Advance occurrence on matched recurring items so user won't get prompted again for the same cycle
-                val matchedItems = selectedTransactions.mapNotNull { sel ->
-                    sel.matchedRecurringItem?.let { match ->
-                        match.recurringItem to sel.transaction.dateTimestamp
-                    }
-                }
-                for ((item, txDateTimestamp) in matchedItems) {
-                    try {
-                        val advancedItem = recurringMatcherEngine.advanceOccurrenceAfterMatch(item, txDateTimestamp)
-                        recurringRepository.updateRecurringItem(advancedItem)
-                    } catch (e: Exception) {
-                        // Keep going if individual item update fails
-                    }
-                }
-
-                // 4. Clear pending result
-                pendingStatementResult = null
-
-                // 5. Automatically reconcile and link transfers across accounts
-                autoTransferReconciliationEngine.reconcileTransfers()
-
                 _uiState.value =
                     ImportUiState.Saved(
                         selectedTransactions.size

@@ -145,5 +145,3 @@ class BankDetector @Inject constructor(
         }
     }
 }
-
-

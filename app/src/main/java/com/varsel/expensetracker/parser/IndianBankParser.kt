@@ -21,8 +21,6 @@ class IndianBankParser @Inject constructor(
 ) : StatementParser {
 
     override fun canParse(rawText: String): Boolean {
-        val upper = rawText.uppercase()
-        val header = rawText.lines().take(30).joinToString("\n").uppercase()
 
         val upper = rawText.uppercase()
 
