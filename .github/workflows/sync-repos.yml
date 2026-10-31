@@ -23,7 +23,7 @@ jobs:
       - name: Fetch and merge changes from source repo
         run: |
           # Add the source repository using the token for authentication
-          git remote add source-repo https://x-access-token:${{ secrets.SYNC_PAT }}@github.com/rupeshrn/source-repo-name.git
+          git remote add source-repo https://x-access-token:${{ secrets.SYNC_PAT }}@github.com/rupeshrn/https://github.com/rupeshRN/aivarsel.git
           git fetch source-repo
           
           # Merge changes (use --allow-unrelated-histories if the repos don't share a common history)
