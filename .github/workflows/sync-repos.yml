@@ -14,6 +14,13 @@ jobs:
         with:
           token: ${{ secrets.SYNC_PAT }}
 
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          repository: rupeshRN/aivarsel
+          token: ${{ secrets.SYNC_PAT }}
+          path: temp-source
+
       - name: Configure Git identity
         run: |
           git config --global user.name "github-actions[bot]"
@@ -21,8 +28,9 @@ jobs:
 
       - name: Sync exact files from source repo
         run: |
-          # Clone the source repository and fail gracefully if authentication or URL is wrong
-          git clone https://x-access-token:${{ secrets.SYNC_PAT }}@github.com/rupeshRN/aivarsel.git temp-source || { echo "❌ Error: Failed to clone source repository. Check token permissions."; exit 1; }
+          # Remove source repo's git history and its .github folder (to protect our workflow file)
+          rm -rf temp-source/.git
+          rm -rf temp-source/.github
           
           # Remove all existing files in destination except .git and .github
           find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name '.github' -exec rm -rf {} +
@@ -39,4 +47,3 @@ jobs:
           
           # Push changes to destination repo
           git push origin main
-          
