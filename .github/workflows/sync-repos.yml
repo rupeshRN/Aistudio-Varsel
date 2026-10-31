@@ -14,39 +14,32 @@ jobs:
         with:
           token: ${{ secrets.SYNC_PAT }}
 
-      - name: Checkout source repo
-        uses: actions/checkout@v4
-        with:
-          repository: rupeshRN/aivarsel
-          token: ${{ secrets.SYNC_PAT }}
-          path: temp-source
-
-      - name: Debug Workspace
+      - name: Configure Git identity
         run: |
-          echo "--- Listing Workspace Root ---"
-          ls -la
-          echo "--- Listing temp-source Directory ---"
-          ls -la temp-source || echo "❌ temp-source directory does not exist!"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Clone source repo outside workspace
+        run: |
+          # Clone securely into the runner's official temp directory (completely outside workspace)
+          git clone https://x-access-token:${{ secrets.SYNC_PAT }}@github.com/rupeshRN/aivarsel.git "$RUNNER_TEMP/source-repo"
 
       - name: Sync exact files from source repo
         run: |
           # Remove source repo's git history and its .github folder (to protect our workflow file)
-          rm -rf temp-source/.git
-          rm -rf temp-source/.github
+          rm -rf "$RUNNER_TEMP/source-repo/.git"
+          rm -rf "$RUNNER_TEMP/source-repo/.github"
           
           # Remove all existing files in destination except .git and .github
           find . -maxdepth 1 ! -name '.' ! -name '.git' ! -name '.github' -exec rm -rf {} +
           
-          # Copy everything from the source repo into the destination folder
-          cp -r temp-source/. .
+          # Copy everything from the safe temp folder into our destination root
+          cp -r "$RUNNER_TEMP/source-repo/." .
           
-          # Clean up temporary folder
-          rm -rf temp-source
+          # Clean up the temp folder
+          rm -rf "$RUNNER_TEMP/source-repo"
           
-          # Stage and commit changes if any differences exist
+          # Stage, commit, and push if there are changes
           git add .
           git diff --staged --quiet || git commit -m "Mirror sync: exact copy from source repository"
-          
-          # Push changes to destination repo
-          git push origin
-          main
+          git push origin main
