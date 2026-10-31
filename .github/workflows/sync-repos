@@ -1,0 +1,33 @@
+name: Sync Repositories
+
+on:
+  workflow_dispatch: # Allows you to trigger it manually from the Actions tab
+  schedule:
+    - cron: '0 0 * * *' # Optional: Runs automatically every day at midnight
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout destination repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SYNC_PAT }}
+          fetch-depth: 0
+
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch and merge changes from source repo
+        run: |
+          # Add the source repository using the token for authentication
+          git remote add source-repo https://x-access-token:${{ secrets.SYNC_PAT }}@github.com/YOUR_USERNAME/source-repo-name.git
+          git fetch source-repo
+          
+          # Merge changes (use --allow-unrelated-histories if the repos don't share a common history)
+          git merge source-repo/main --allow-unrelated-histories -m "Auto-sync changes from source repository"
+          
+          # Push the merged changes back to the destination repo
+          git push origin main
