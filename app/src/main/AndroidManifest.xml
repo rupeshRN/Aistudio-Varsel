@@ -7,6 +7,8 @@
         We intentionally DO NOT declare <uses-permission android:name="android.permission.INTERNET" />.
         This guarantees that no financial data, statement content, or OCR text can leave the device.
     -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".ExpenseTrackerApp"
@@ -19,6 +21,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.VarselExpenseTracker"
         tools:targetApi="31">
+
+        <!-- Notification Alarm Receiver for Daily Reminders -->
+        <receiver
+            android:name=".util.notification.NotificationAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="com.varsel.expensetracker.ACTION_CHECK_NOTIFICATIONS" />
+            </intent-filter>
+        </receiver>
 
         <!-- Main Single-Activity Jetpack Compose Container -->
         <activity

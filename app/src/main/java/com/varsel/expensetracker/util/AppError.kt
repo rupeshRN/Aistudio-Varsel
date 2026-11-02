@@ -54,6 +54,12 @@ sealed interface AppError {
     /** The statement matches signatures for multiple banks ambiguously */
     data class AmbiguousBankStatement(val matchedBanks: List<String> = emptyList()) : AppError
 
+    /** Statement could not be identified by bank branding and the account number is unrecognized */
+    data class UnrecognizedAccount(
+        val detectedAccountNumber: String? = null,
+        val details: String? = null
+    ) : AppError
+
     /** Statement was parsed but contains 0 valid transactions */
     data object NoTransactionsFound : AppError
 

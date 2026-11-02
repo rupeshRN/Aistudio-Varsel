@@ -22,6 +22,7 @@ import com.varsel.expensetracker.parser.BankDetectionResult
 import com.varsel.expensetracker.parser.AmbiguousBankException
 import com.varsel.expensetracker.parser.UnsupportedBankException
 import com.varsel.expensetracker.parser.UnsupportedStatementFormatException
+import com.varsel.expensetracker.parser.UnrecognizedAccountStatementException
 
 
 /**
@@ -220,6 +221,13 @@ val parser = when (detectionResult) {
 
     is BankDetectionResult.UnsupportedFormat -> {
         throw UnsupportedStatementFormatException(detectionResult.bankName, detectionResult.reason)
+    }
+
+    is BankDetectionResult.UnrecognizedAccount -> {
+        throw UnrecognizedAccountStatementException(
+            detectedAccountNumber = detectionResult.detectedAccountNumber,
+            details = detectionResult.details
+        )
     }
 
     is BankDetectionResult.Unsupported -> {

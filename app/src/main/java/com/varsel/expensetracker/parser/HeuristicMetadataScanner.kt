@@ -10,16 +10,26 @@ sealed class BankMetadataResult {
 }
 
 /**
- * High-speed heuristic metadata scanner that inspects the document header (first 45 lines).
+ * High-speed heuristic metadata scanner that inspects the pre-transaction document header.
  *
- * It uses standardized RBI branch IFSC prefixes and official bank brand / domain markers
- * to deterministically identify the issuing financial institution before deep table
- * or layout parsing is attempted.
+ * Design Principles:
+ * 1. Strict Boundary Isolation: Slices off raw transaction ledgers before scanning to guarantee
+ *    that counterpart banks mentioned in transaction narrations (e.g. "NEFT-IOBA0001234-TRANSFER")
+ *    never trigger false positive bank detection.
+ * 2. Official Brand Cue Priority: Official institution branding (e.g. "ICICI BANK", "HDFC BANK")
+ *    in the header takes precedence over unanchored alphanumeric strings.
+ * 3. Contextual Branch Anchoring: IFSC codes are only evaluated if they appear alongside
+ *    official branch/account labels (e.g. "IFSC:", "Branch Code:", "RTGS/NEFT IFSC").
  */
 @Singleton
 class HeuristicMetadataScanner @Inject constructor() {
 
     private val ifscRegex = Regex("""\b([A-Z]{4})0[A-Z0-9]{6}\b""")
+
+    private val anchoredIfscRegex = Regex(
+        """(?:IFSC|RTGS/NEFT\s+IFSC|NEFT\s+IFSC|BRANCH\s+IFSC|IFS\s+CODE|BRANCH\s+CODE)\s*[:\-]?\s*([A-Za-z]{4}0[A-Za-z0-9]{6})""",
+        RegexOption.IGNORE_CASE
+    )
 
     companion object {
         // Supported bank IFSC prefixes
@@ -102,28 +112,158 @@ class HeuristicMetadataScanner @Inject constructor() {
         )
     }
 
+    /**
+     * Isolates the statement header lines by terminating as soon as the transaction ledger
+     * table header or transaction rows are encountered.
+     */
+    fun isolateHeaderLines(rawText: String): List<String> {
+        val lines = rawText.lines()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+
+        val headerLines = mutableListOf<String>()
+
+        for (line in lines) {
+            val upper = line.uppercase()
+
+            // Stop immediately if the ledger table column headers are reached
+            if (isLedgerTableHeader(upper)) {
+                break
+            }
+
+            // Stop immediately if an actual transaction row has started
+            if (isTransactionRow(upper)) {
+                break
+            }
+
+            headerLines.add(line)
+
+            // Safety cap: statement headers do not exceed 35 non-blank lines
+            if (headerLines.size >= 35) {
+                break
+            }
+        }
+
+        return headerLines
+    }
+
+    private fun isLedgerTableHeader(line: String): Boolean {
+        val hasDate = line.contains("DATE") || line.contains("TXN DATE") || line.contains("VALUE DATE")
+        val hasDesc = line.contains("PARTICULARS") || line.contains("DESCRIPTION") ||
+                line.contains("TRANSACTION REMARKS") || line.contains("NARRATION") ||
+                line.contains("DETAILS") || line.contains("REMARKS")
+        val hasFinancialCol = line.contains("WITHDRAWAL") || line.contains("DEPOSIT") ||
+                line.contains("DEBIT") || line.contains("CREDIT") ||
+                line.contains("BALANCE") || line.contains("CHQ") || line.contains("CHEQUE")
+
+        if (hasDate && (hasDesc || hasFinancialCol)) {
+            return true
+        }
+
+        if ((line.contains("WITHDRAWAL") || line.contains("DEBIT")) &&
+            (line.contains("DEPOSIT") || line.contains("CREDIT")) &&
+            line.contains("BALANCE")
+        ) {
+            return true
+        }
+
+        return false
+    }
+
+    private fun isTransactionRow(line: String): Boolean {
+        val startsWithDate = Regex(
+            """^\s*(?:\d{1,4}[.)]?\s+)?(?:\d{1,2}[./-](?:\d{1,2}|[A-Za-z]{3})[./-]\d{2,4}|\d{4}-\d{2}-\d{2})"""
+        ).containsMatchIn(line)
+
+        if (!startsWithDate) return false
+
+        val hasTxnIndicators = line.contains("UPI/") || line.contains("NEFT") || line.contains("RTGS") ||
+                line.contains("IMPS") || line.contains("TRANSFER") || line.contains("BY CLG") ||
+                line.contains("TO CLG") || line.contains("ATM-") || line.contains("POS-") ||
+                Regex("""\d+\.\d{2}""").containsMatchIn(line)
+
+        return hasTxnIndicators
+    }
+
+    private fun isNarrationOrTransactionLine(line: String): Boolean {
+        return line.contains("UPI/") ||
+                line.contains("NEFT-") ||
+                line.contains("RTGS-") ||
+                line.contains("IMPS/") ||
+                line.contains("TRANSFER TO") ||
+                line.contains("TRANSFER FROM") ||
+                line.contains("BY TRANSFER") ||
+                line.contains("TO TRANSFER") ||
+                line.contains("CHQ NO") ||
+                line.contains("REF NO") ||
+                line.contains("/CR") ||
+                line.contains("/DR")
+    }
+
+    private fun extractAnchoredIfsc(line: String): String? {
+        val anchoredMatch = anchoredIfscRegex.find(line)
+        if (anchoredMatch != null) {
+            return anchoredMatch.groupValues[1].uppercase()
+        }
+
+        // Secondary check: line contains an IFSC code AND explicitly mentions "IFSC" or "BRANCH"
+        if (line.contains("IFSC") || line.contains("BRANCH")) {
+            val match = ifscRegex.find(line)
+            if (match != null) {
+                return match.groupValues[0].uppercase()
+            }
+        }
+
+        return null
+    }
+
     fun scan(rawText: String): BankMetadataResult {
         if (rawText.isBlank()) return BankMetadataResult.Unknown
 
-        // 1. Extract exclusively the document header (first 45 non-blank lines)
-        val headerLines = rawText.lines()
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
-            .take(45)
-
+        // 1. Extract exclusively the pre-transaction document header
+        val headerLines = isolateHeaderLines(rawText)
         val headerText = headerLines.joinToString("\n").uppercase()
 
-        // 2. Check for IFSC codes in header lines
+        // 2. High-priority official brand identity check in header
+        val hasIciciBank = headerText.contains("ICICI BANK") ||
+                headerText.contains("WWW.ICICIBANK.COM") ||
+                headerText.contains("ICICIBANK")
+        val hasHdfcBank = headerText.contains("HDFC BANK") ||
+                headerText.contains("WWW.HDFCBANK.COM") ||
+                headerText.contains("HDFCBANK")
+        val hasIndianBank = (headerText.contains("INDIAN BANK") || headerText.contains("WWW.INDIANBANK.IN")) &&
+                !headerText.contains("INDIAN OVERSEAS BANK")
+
+        val supportedBrandsFound = listOfNotNull(
+            if (hasIciciBank) "icici_bank" to "ICICI Bank" else null,
+            if (hasHdfcBank) "hdfc_bank" to "HDFC Bank" else null,
+            if (hasIndianBank) "indian_bank" to "Indian Bank" else null
+        )
+
+        if (supportedBrandsFound.size == 1) {
+            val match = supportedBrandsFound.first()
+            return BankMetadataResult.Supported(match.first, match.second)
+        }
+
+        // 3. Check for known unsupported bank brands in header (only if no supported brand matched)
+        if (supportedBrandsFound.isEmpty()) {
+            for ((bankName, markers) in BRAND_HEADER_MAP) {
+                if (markers.any { marker -> headerText.contains(marker) }) {
+                    return BankMetadataResult.Unsupported(detectedBankName = bankName)
+                }
+            }
+        }
+
+        // 4. Check for contextually anchored branch IFSC codes in header lines
         for (line in headerLines) {
             val upperLine = line.uppercase()
-            // Ignore transaction narration lines that accidentally leak into the header
-            if (upperLine.startsWith("UPI/") || upperLine.startsWith("NEFT-") || upperLine.startsWith("RTGS-")) {
+            if (isNarrationOrTransactionLine(upperLine)) {
                 continue
             }
 
-            val match = ifscRegex.find(upperLine)
-            if (match != null) {
-                val prefix = match.groupValues[1]
+            val anchoredIfsc = extractAnchoredIfsc(upperLine)
+            if (anchoredIfsc != null) {
+                val prefix = anchoredIfsc.take(4)
 
                 // Check supported IFSC
                 val supported = SUPPORTED_IFSC_MAP[prefix]
@@ -136,36 +276,9 @@ class HeuristicMetadataScanner @Inject constructor() {
                 if (knownBankName != null) {
                     return BankMetadataResult.Unsupported(detectedBankName = knownBankName, ifscPrefix = prefix)
                 } else {
-                    // Unknown Indian bank with genuine RBI IFSC
                     return BankMetadataResult.Unsupported(detectedBankName = "Bank ($prefix)", ifscPrefix = prefix)
                 }
             }
-        }
-
-        // 3. Check for supported bank brands in the header
-        val hasIndianBank = headerText.contains("INDIAN BANK") || headerText.contains("WWW.INDIANBANK.IN") || headerText.contains("IDIB")
-        val hasIciciBank = headerText.contains("ICICI BANK") || headerText.contains("WWW.ICICIBANK.COM") || headerText.contains("ICIC0")
-        val hasHdfcBank = headerText.contains("HDFC BANK") || headerText.contains("WWW.HDFCBANK.COM") || headerText.contains("HDFC0")
-
-        val supportedBrandsFound = listOfNotNull(
-            if (hasIndianBank) "indian_bank" to "Indian Bank" else null,
-            if (hasIciciBank) "icici_bank" to "ICICI Bank" else null,
-            if (hasHdfcBank) "hdfc_bank" to "HDFC Bank" else null
-        )
-
-        // 4. Check for known unsupported bank brands in header
-        for ((bankName, markers) in BRAND_HEADER_MAP) {
-            if (markers.any { marker -> headerText.contains(marker) }) {
-                // If a competitor brand like Axis Bank is explicitly present in the header,
-                // it takes precedence over secondary payee references
-                return BankMetadataResult.Unsupported(detectedBankName = bankName)
-            }
-        }
-
-        // 5. If supported brand found uniquely in header
-        if (supportedBrandsFound.size == 1) {
-            val match = supportedBrandsFound.first()
-            return BankMetadataResult.Supported(match.first, match.second)
         }
 
         return BankMetadataResult.Unknown

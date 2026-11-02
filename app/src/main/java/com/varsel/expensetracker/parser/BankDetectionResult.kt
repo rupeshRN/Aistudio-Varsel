@@ -26,4 +26,9 @@ sealed class BankDetectionResult {
     data class Unsupported(
         val reason: String
     ) : BankDetectionResult()
+
+    data class UnrecognizedAccount(
+        val detectedAccountNumber: String? = null,
+        val details: String? = null
+    ) : BankDetectionResult()
 }

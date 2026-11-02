@@ -28,3 +28,11 @@ class AmbiguousBankException(val matchedBanks: List<String> = emptyList()) :
         appError = AppError.AmbiguousBankStatement(matchedBanks),
         message = "Ambiguous bank match: ${matchedBanks.joinToString(", ")}"
     )
+
+class UnrecognizedAccountStatementException(
+    val detectedAccountNumber: String? = null,
+    val details: String? = null
+) : StatementParsingException(
+    appError = AppError.UnrecognizedAccount(detectedAccountNumber, details),
+    message = details ?: "Unrecognized account statement (${detectedAccountNumber ?: "unknown account"})."
+)

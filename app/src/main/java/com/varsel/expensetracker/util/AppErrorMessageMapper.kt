@@ -66,6 +66,13 @@ object AppErrorMessageMapper {
                     "The statement matches multiple bank formats. Please provide a clearer statement PDF."
                 }
             }
+            is AppError.UnrecognizedAccount -> {
+                if (!error.detectedAccountNumber.isNullOrBlank()) {
+                    "Account number (${error.detectedAccountNumber}) is not recognized from previous imports and the issuing bank could not be determined. Please import an official statement with clear bank branding."
+                } else {
+                    "The statement could not be identified as a supported bank and no matching account history was found. Please ensure the document includes official bank header branding."
+                }
+            }
             is AppError.NoTransactionsFound -> {
                 "No transactions were detected in the selected statement."
             }
@@ -115,6 +122,7 @@ object AppErrorMessageMapper {
             is AppError.UnsupportedBank -> "Use supported bank"
             is AppError.UnsupportedStatementFormat -> "Use standard statement layout"
             is AppError.AmbiguousBankStatement -> "Select bank or upload clearer PDF"
+            is AppError.UnrecognizedAccount -> "Verify account statement"
             is AppError.ParsingFailed -> "Use developer parser tool or manual entry"
             is AppError.NoTransactionsFound -> "Check statement dates"
             is AppError.DuplicateData -> "View existing items"

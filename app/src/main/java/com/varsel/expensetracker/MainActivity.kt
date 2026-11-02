@@ -27,6 +27,9 @@ import com.varsel.expensetracker.ui.theme.VarselExpenseTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import android.content.Intent
+import com.varsel.expensetracker.util.notification.NotificationHelper
+import com.varsel.expensetracker.util.notification.NotificationReminderManager
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -44,10 +47,24 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var biometricAuthManager: BiometricAuthManager
 
+    @Inject
+    lateinit var notificationReminderManager: NotificationReminderManager
+
     private var currentTimeout = com.varsel.expensetracker.data.preference.BiometricTimeout.OFF
+    private var pendingNavigationRoute by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize Notification Channels and Schedule Daily Alarms
+        NotificationHelper.createNotificationChannels(this)
+        notificationReminderManager.scheduleDailyAlarm()
+        notificationReminderManager.checkAndTriggerReminders()
+
+        // Capture incoming notification routing if any
+        intent?.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)?.let {
+            pendingNavigationRoute = it
+        }
 
         // Read fast synchronous preference on launch
         currentTimeout = generalPreferencesRepository.getBiometricTimeoutSync()
@@ -103,6 +120,15 @@ class MainActivity : FragmentActivity() {
                 amoledDark = appearanceConfig.amoledDark
             ) {
                 val navController = rememberNavController()
+
+                // Automatic navigation when launched or resumed from a notification
+                LaunchedEffect(pendingNavigationRoute) {
+                    val route = pendingNavigationRoute
+                    if (!route.isNullOrBlank()) {
+                        pendingNavigationRoute = null
+                        navController.navigate(route)
+                    }
+                }
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = backStackEntry?.destination?.route
 
@@ -160,9 +186,18 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        intent.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)?.let {
+            pendingNavigationRoute = it
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         biometricAuthManager.checkLockOnResume(currentTimeout)
+        notificationReminderManager.checkAndTriggerReminders()
     }
 
     override fun onPause() {

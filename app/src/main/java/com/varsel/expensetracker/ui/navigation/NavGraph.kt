@@ -39,6 +39,7 @@ import com.varsel.expensetracker.ui.reports.ReportsScreen
 import com.varsel.expensetracker.ui.settings.SettingsScreen
 import com.varsel.expensetracker.ui.settings.general.EditHomeScreen
 import com.varsel.expensetracker.ui.settings.general.GeneralSettingsScreen
+import com.varsel.expensetracker.ui.settings.notification.NotificationSettingsScreen
 import com.varsel.expensetracker.ui.transaction.TransactionDetailScreen
 import com.varsel.expensetracker.ui.transaction.TransactionScreen
 
@@ -373,6 +374,17 @@ composable(AppDestination.Reports.route) {
                 },
                 onAboutClick = {
                     navController.navigate("about")
+                },
+                onNotificationsClick = {
+                    navController.navigate("settings/notifications")
+                }
+            )
+        }
+
+        composable("settings/notifications") {
+            NotificationSettingsScreen(
+                onBackClick = {
+                    navController.popBackStack()
                 }
             )
         }

@@ -27,7 +27,8 @@ fun SettingsScreen(
     onLearningRulesClick: () -> Unit,
     onAppearanceClick: () -> Unit,
     onDeveloperClick: () -> Unit,
-    onAboutClick: () -> Unit
+    onAboutClick: () -> Unit,
+    onNotificationsClick: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -126,6 +127,14 @@ fun SettingsScreen(
                         subtitle = "Dark mode, Material You, accents & AMOLED display",
                         showDivider = true,
                         onClick = onAppearanceClick
+                    )
+
+                    MoreMenuItem(
+                        icon = Icons.Outlined.Notifications,
+                        title = "Notifications & Reminders",
+                        subtitle = "Monthly statement upload & EMI due date alerts",
+                        showDivider = true,
+                        onClick = onNotificationsClick
                     )
 
                     MoreMenuItem(

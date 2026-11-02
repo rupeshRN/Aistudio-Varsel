@@ -24,33 +24,27 @@ class IndianBankParser @Inject constructor(
 
         val upper = rawText.uppercase()
 
-        // 1. Strict negative check against competing banks to prevent false detection
-        val isCompetitorBank =
-            upper.contains("ICICI BANK") ||
-            upper.contains("HDFC BANK") ||
-            upper.contains("STATE BANK OF INDIA") ||
-            upper.contains("YONO SBI") ||
-            upper.contains("AXIS BANK") ||
-            upper.contains("KOTAK") ||
-            upper.contains("PUNJAB NATIONAL BANK")
-
-        if (isCompetitorBank) {
-            return false
-        }
-
-        /*
-         * ------------------------------------------------------------
-         * 1. Examine the statement header separately.
-         *
-         * Bank names appearing inside transaction narrations should
-         * not be sufficient to identify the statement.
-         * ------------------------------------------------------------
-         */
         val header = rawText
             .lines()
             .take(40)
             .joinToString("\n")
             .uppercase()
+
+        // 1. Strict negative check against competing banks in header to prevent false detection
+        val hasOwnIdentity = header.contains("INDIAN BANK") || header.contains("INDIANBANK") || header.contains("IDIB")
+        val isCompetitorBank = !hasOwnIdentity && (
+            header.contains("ICICI BANK") ||
+            header.contains("HDFC BANK") ||
+            header.contains("STATE BANK OF INDIA") ||
+            header.contains("YONO SBI") ||
+            header.contains("AXIS BANK") ||
+            header.contains("KOTAK") ||
+            header.contains("PUNJAB NATIONAL BANK")
+        )
+
+        if (isCompetitorBank) {
+            return false
+        }
 
         /*
          * ------------------------------------------------------------

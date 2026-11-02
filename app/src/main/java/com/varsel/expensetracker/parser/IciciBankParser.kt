@@ -54,17 +54,20 @@ class IciciBankParser @Inject constructor(
         }
 
         val upper = rawText.uppercase()
+        val header = rawText.lines().take(30).joinToString("\n").uppercase()
 
-        // Reject if explicitly identified as another bank
-        val isCompetitorBank =
-            upper.contains("AXIS BANK") ||
-            upper.contains("STATE BANK OF INDIA") ||
-            upper.contains("YONO SBI") ||
-            upper.contains("HDFC BANK") ||
-            upper.contains("KOTAK MAHINDRA") ||
-            upper.contains("PUNJAB NATIONAL BANK") ||
-            upper.contains("BANK OF BARODA") ||
-            (upper.contains("INDIAN BANK") && !upper.contains("ICICI"))
+        // Reject if the document header explicitly identifies another bank without ICICI identity
+        val hasOwnIdentity = upper.contains("ICICI BANK") || upper.contains("ICICI BANK LIMITED") || upper.contains("WWW.ICICIBANK.COM")
+        val isCompetitorBank = !hasOwnIdentity && (
+            header.contains("AXIS BANK") ||
+            header.contains("STATE BANK OF INDIA") ||
+            header.contains("YONO SBI") ||
+            header.contains("HDFC BANK") ||
+            header.contains("KOTAK MAHINDRA") ||
+            header.contains("PUNJAB NATIONAL BANK") ||
+            header.contains("BANK OF BARODA") ||
+            (header.contains("INDIAN BANK") && !header.contains("ICICI"))
+        )
 
         if (isCompetitorBank) {
             return false

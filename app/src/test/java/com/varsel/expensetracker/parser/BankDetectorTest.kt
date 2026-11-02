@@ -1,5 +1,9 @@
 package com.varsel.expensetracker.parser
 
+import com.varsel.expensetracker.data.local.dao.StatementSnapshotDao
+import com.varsel.expensetracker.data.local.entity.StatementSnapshotEntity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -12,18 +16,33 @@ class BankDetectorTest {
     private lateinit var dummyIciciBankParser: StatementParser
     private lateinit var dummyHdfcBankParser: StatementParser
 
+    private class FakeStatementSnapshotDao(
+        private val snapshots: List<StatementSnapshotEntity> = emptyList()
+    ) : StatementSnapshotDao {
+        override suspend fun insertSnapshot(snapshot: StatementSnapshotEntity) {}
+        override suspend fun getLatestSnapshot(accountId: String): StatementSnapshotEntity? =
+            snapshots.firstOrNull { it.accountId == accountId }
+        override suspend fun getAllSnapshots(): List<StatementSnapshotEntity> = snapshots
+        override fun observeAllSnapshots(): Flow<List<StatementSnapshotEntity>> = flowOf(snapshots)
+        override suspend fun deleteSnapshotById(id: Long) {}
+        override suspend fun deleteTransactionsForAccountPeriod(accountId: String, startDate: Long, endDate: Long) {}
+    }
+
     @Before
     fun setup() {
         dummyIndianBankParser = object : StatementParser {
-            override fun canParse(rawText: String) = rawText.contains("INDIAN BANK") && rawText.contains("STATEMENT OF ACCOUNT") && !rawText.contains("AMBIGUOUS")
+            override fun canParse(rawText: String) =
+                rawText.contains("INDIAN BANK") && rawText.contains("STATEMENT OF ACCOUNT") && !rawText.contains("AMBIGUOUS")
             override fun parse(rawText: String) = emptyList<com.varsel.expensetracker.domain.model.Transaction>()
         }
         dummyIciciBankParser = object : StatementParser {
-            override fun canParse(rawText: String) = rawText.contains("ICICI BANK") && rawText.contains("STATEMENT OF ACCOUNT") && !rawText.contains("AMBIGUOUS")
+            override fun canParse(rawText: String) =
+                rawText.contains("ICICI BANK") && rawText.contains("STATEMENT OF ACCOUNT") && !rawText.contains("AMBIGUOUS")
             override fun parse(rawText: String) = emptyList<com.varsel.expensetracker.domain.model.Transaction>()
         }
         dummyHdfcBankParser = object : StatementParser {
-            override fun canParse(rawText: String) = rawText.contains("HDFC BANK") && rawText.contains("STATEMENT OF ACCOUNT") && !rawText.contains("AMBIGUOUS")
+            override fun canParse(rawText: String) =
+                rawText.contains("HDFC BANK") && rawText.contains("STATEMENT OF ACCOUNT") && !rawText.contains("AMBIGUOUS")
             override fun parse(rawText: String) = emptyList<com.varsel.expensetracker.domain.model.Transaction>()
         }
 
@@ -138,5 +157,126 @@ class BankDetectorTest {
         val result = bankDetector.detectResult(federalBankStatement)
         assertTrue(result is BankDetectionResult.UnsupportedBank)
         assertEquals("Federal Bank", (result as BankDetectionResult.UnsupportedBank).detectedBankName)
+    }
+
+    @Test
+    fun `test ICICI Bank statement with IOB transaction narration is correctly detected as ICICI Bank`() {
+        val iciciWithIobNarration = """
+            ICICI BANK
+            STATEMENT OF ACCOUNT
+            Account Number: 001105001234
+            Branch: BANDRA BRANCH
+            IFSC: ICIC0000001
+            Date        Particulars                             Chq/Ref No   Withdrawal  Deposit   Balance
+            15/03/2024  NEFT-IOBA0001234-TRANSFER TO RAJESH    54321        1500.00     0.00      45000.00
+            16/03/2024  UPI/407812/Ram/IOB/Grocery             12345        250.00      0.00      44750.00
+        """.trimIndent()
+
+        val result = bankDetector.detectResult(iciciWithIobNarration)
+        assertTrue("Expected ICICI Bank, got: $result", result is BankDetectionResult.Supported)
+        assertEquals("ICICI Bank", (result as BankDetectionResult.Supported).displayName)
+    }
+
+    @Test
+    fun `test genuine Indian Overseas Bank statement is correctly detected as Indian Overseas Bank`() {
+        val iobStatement = """
+            INDIAN OVERSEAS BANK
+            Central Office, Chennai
+            Statement of Account
+            Branch: ANNA NAGAR
+            Branch IFSC: IOBA0000123
+            Date        Particulars     Debit       Credit      Balance
+            01/04/2024  Salary          0.00        50000.00    50000.00
+        """.trimIndent()
+
+        val result = bankDetector.detectResult(iobStatement)
+        assertTrue("Expected UnsupportedBank, got: $result", result is BankDetectionResult.UnsupportedBank)
+        assertEquals("Indian Overseas Bank", (result as BankDetectionResult.UnsupportedBank).detectedBankName)
+    }
+
+    @Test
+    fun `test ICICI Bank statement with multiple competitor transfer narrations correctly detects as ICICI Bank`() {
+        val iciciMultiCompetitor = """
+            ICICI BANK LIMITED
+            STATEMENT OF ACCOUNT
+            Account Number: 123456789012
+            Date        Particulars                         Amount
+            01/01/2024  NEFT-UTIB0001234-AXIS BANK TRANSFER 2000.00
+            02/01/2024  NEFT-HDFC0000123-HDFC BANK CC PAY   5000.00
+            03/01/2024  UPI/SBIN0001234/STATE BANK OF INDIA 300.00
+        """.trimIndent()
+
+        val result = bankDetector.detectResult(iciciMultiCompetitor)
+        assertTrue(result is BankDetectionResult.Supported)
+        assertEquals("ICICI Bank", (result as BankDetectionResult.Supported).displayName)
+    }
+
+    @Test
+    fun `test ambiguous statement matched with historical account number resolves to historical bank`() {
+        val historicalDao = FakeStatementSnapshotDao(
+            listOf(
+                StatementSnapshotEntity(
+                    accountId = "987654321012",
+                    accountLast4 = "1012",
+                    bankName = "ICICI Bank",
+                    importedAt = System.currentTimeMillis()
+                )
+            )
+        )
+        val historyMatcher = AccountHistoryMatcher(
+            statementSnapshotDao = historicalDao,
+            accountDetailsExtractor = AccountDetailsExtractor()
+        )
+
+        // Statement has no clear bank header name, but has the known account number and general format
+        val unbrandedStatement = """
+            STATEMENT OF ACCOUNT
+            Account Number: 987654321012
+            Statement Period: 01/01/2024 to 31/01/2024
+            Date        Particulars     Withdrawal  Deposit Balance
+            10/01/2024  Grocery Store   500.00      0.00    10000.00
+        """.trimIndent()
+
+        // Create a detector with registry and history matcher
+        val detectorWithHistory = BankDetector(
+            bankParserRegistry = BankParserRegistry {
+                listOf(
+                    RegisteredBankParser("icici_bank", "ICICI Bank", dummyIciciBankParser),
+                    RegisteredBankParser("hdfc_bank", "HDFC Bank", dummyHdfcBankParser)
+                )
+            },
+            accountHistoryMatcher = historyMatcher
+        )
+
+        val result = detectorWithHistory.detectResult(unbrandedStatement)
+        assertTrue("Expected Supported via historical account match, got: $result", result is BankDetectionResult.Supported)
+        assertEquals("ICICI Bank", (result as BankDetectionResult.Supported).displayName)
+    }
+
+    @Test
+    fun `test unrecognized statement with unknown account returns UnrecognizedAccount`() {
+        val unknownStatement = """
+            FINANCIAL REPORT
+            Account Number: 999988887777
+            Date        Description     Amount
+            01/01/2024  Payment         100.00
+        """.trimIndent()
+
+        val result = bankDetector.detectResult(unknownStatement)
+        assertTrue("Expected UnrecognizedAccount, got: $result", result is BankDetectionResult.UnrecognizedAccount)
+        val unrecognized = result as BankDetectionResult.UnrecognizedAccount
+        assertEquals("999988887777", unrecognized.detectedAccountNumber)
+    }
+
+    @Test(expected = UnrecognizedAccountStatementException::class)
+    fun `test detect throws UnrecognizedAccountStatementException for unrecognized account`() {
+        val unknownStatement = """
+            FINANCIAL REPORT
+            Account Number: 999988887777
+            Date        Description     Amount
+            01/01/2024  Payment         100.00
+        """.trimIndent()
+
+        bankDetector.detect(unknownStatement)
     }
 }
