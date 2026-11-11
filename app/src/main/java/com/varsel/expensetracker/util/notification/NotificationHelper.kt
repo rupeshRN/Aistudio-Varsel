@@ -74,6 +74,7 @@ object NotificationHelper {
 
     fun showStatementUploadNotification(
         context: Context,
+        pendingBanks: List<String> = emptyList(),
         isTest: Boolean = false
     ) {
         if (!hasNotificationPermission(context)) return
@@ -92,16 +93,38 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = if (isTest) {
-            "[Test] Monthly Statement Upload Reminder"
-        } else {
-            "New Month: Upload Your Bank Statement"
+        val title = when {
+            isTest && pendingBanks.isNotEmpty() -> {
+                if (pendingBanks.size == 1) {
+                    "[Test] Pending Statement: ${pendingBanks.first()}"
+                } else {
+                    "[Test] Pending Statements: ${pendingBanks.joinToString(", ")}"
+                }
+            }
+            isTest -> "[Test] Monthly Statement Upload Reminder"
+            pendingBanks.isNotEmpty() -> {
+                if (pendingBanks.size == 1) {
+                    "Pending Statement: ${pendingBanks.first()}"
+                } else {
+                    "Pending Statements: ${pendingBanks.joinToString(", ")}"
+                }
+            }
+            else -> "New Month: Upload Your Bank Statement"
         }
 
-        val message = if (isTest) {
-            "Varsel will notify you at the start of each month to import your latest bank statement."
-        } else {
-            "A new month has begun! Upload your latest bank statement to sync account balances and auto-categorize your spending."
+        val message = when {
+            isTest && pendingBanks.isNotEmpty() -> {
+                "Varsel detected pending statements for: ${pendingBanks.joinToString(", ")}. Import them to keep balances synchronized."
+            }
+            isTest -> {
+                "Varsel will notify you at the start of each month to import your latest bank statement."
+            }
+            pendingBanks.isNotEmpty() -> {
+                "You still have pending statement(s) to upload for: ${pendingBanks.joinToString(", ")}. Upload now to keep account balances and transactions up to date."
+            }
+            else -> {
+                "A new month has begun! Upload your latest bank statement to sync account balances and auto-categorize your spending."
+            }
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_STATEMENT_REMINDER)

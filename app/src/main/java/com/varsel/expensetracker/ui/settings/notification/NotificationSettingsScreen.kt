@@ -20,9 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.ui.design.AppColors
 import com.varsel.expensetracker.util.notification.NotificationHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,6 +35,7 @@ fun NotificationSettingsScreen(
 ) {
     val context = LocalContext.current
     val config by viewModel.notificationConfig.collectAsStateWithLifecycle()
+    val trackedBanks by viewModel.trackedBankStatuses.collectAsStateWithLifecycle()
 
     var hasNotificationPermission by remember {
         mutableStateOf(NotificationHelper.hasNotificationPermission(context))
@@ -219,10 +222,86 @@ fun NotificationSettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Varsel checks at the beginning of each calendar month. If no new statement has been imported, you'll receive a gentle reminder to import your latest statement.",
+                                    text = "Varsel checks at the start of each month (Days 1–7). If no statements have been uploaded for any account, you'll receive a general reminder. If you manage multiple accounts and one or more are pending, the reminder lists those specific pending banks.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+
+                            if (trackedBanks.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = "Tracked Bank Accounts (This Month)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    trackedBanks.forEach { bank ->
+                                        Surface(
+                                            shape = RoundedCornerShape(10.dp),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.AccountBalance,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.primary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = bank.displayName,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (bank.isUploadedThisMonth) {
+                                                        AppColors.Success.copy(alpha = 0.15f)
+                                                    } else {
+                                                        AppColors.Warning.copy(alpha = 0.18f)
+                                                    }
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = if (bank.isUploadedThisMonth) Icons.Outlined.CheckCircle else Icons.Outlined.HourglassEmpty,
+                                                            contentDescription = null,
+                                                            tint = if (bank.isUploadedThisMonth) AppColors.Success else AppColors.Warning,
+                                                            modifier = Modifier.size(12.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            text = if (bank.isUploadedThisMonth) "Uploaded" else "Pending",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (bank.isUploadedThisMonth) AppColors.Success else AppColors.Warning
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(14.dp))
@@ -246,6 +325,25 @@ fun NotificationSettingsScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Send Test Statement Reminder")
+                            }
+
+                            if (trackedBanks.size > 1) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                TextButton(
+                                    onClick = {
+                                        if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                        } else {
+                                            viewModel.sendTestStatementNotification(forcePendingSample = true)
+                                        }
+                                    },
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                ) {
+                                    Text(
+                                        text = "Preview Multi-Bank Pending Alert Format",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
                             }
                         }
                     }
@@ -343,32 +441,69 @@ fun NotificationSettingsScreen(
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // Chip Selector for Days Before
-                            val timingOptions = listOf(
-                                0 to "On Due Date",
-                                1 to "1 Day Before",
-                                2 to "2 Days Before",
-                                3 to "3 Days Before"
-                            )
+                            // Chip Selector for Days Before (2x2 balanced grid to eliminate clipping)
+                            val row1 = listOf(0 to "On Due Date", 1 to "1 Day Before")
+                            val row2 = listOf(2 to "2 Days Before", 3 to "3 Days Before")
 
-                            Row(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                timingOptions.forEach { (days, label) ->
-                                    val isSelected = config.emiReminderDaysBefore == days
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { viewModel.setEmiReminderDaysBefore(days) },
-                                        label = {
-                                            Text(
-                                                text = label,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        modifier = Modifier.testTag("chip_emi_days_$days")
-                                    )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    row1.forEach { (days, label) ->
+                                        val isSelected = config.emiReminderDaysBefore == days
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { viewModel.setEmiReminderDaysBefore(days) },
+                                            label = {
+                                                Box(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = label,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("chip_emi_days_$days")
+                                        )
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    row2.forEach { (days, label) ->
+                                        val isSelected = config.emiReminderDaysBefore == days
+                                        FilterChip(
+                                            selected = isSelected,
+                                            onClick = { viewModel.setEmiReminderDaysBefore(days) },
+                                            label = {
+                                                Box(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(
+                                                        text = label,
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .testTag("chip_emi_days_$days")
+                                        )
+                                    }
                                 }
                             }
 

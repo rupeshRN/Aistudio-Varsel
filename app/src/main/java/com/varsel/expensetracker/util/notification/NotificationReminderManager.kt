@@ -50,6 +50,25 @@ class NotificationReminderManager @Inject constructor(
         }
     }
 
+    data class MultiBankStatus(
+        val totalTrackedAccounts: Int,
+        val hasAnyUploadedThisMonth: Boolean,
+        val pendingBankNames: List<String>
+    )
+
+    suspend fun getMultiBankStatementStatus(): MultiBankStatus {
+        val startOfMonthTimestamp = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val snapshots = statementSnapshotDao.getAllSnapshots()
+        return evaluateMultiBankStatus(snapshots, startOfMonthTimestamp)
+    }
+
     private suspend fun checkStatementReminder(lastNotifiedMonth: String) {
         val calendar = Calendar.getInstance()
         val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
@@ -61,22 +80,35 @@ class NotificationReminderManager @Inject constructor(
 
         // Notify during the start of the month (Days 1 to 7) if not already notified this month
         if (dayOfMonth in 1..7 && lastNotifiedMonth != currentYearMonth) {
-            val startOfMonthTimestamp = Calendar.getInstance().apply {
-                set(Calendar.DAY_OF_MONTH, 1)
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
+            val status = getMultiBankStatementStatus()
 
-            val snapshots = statementSnapshotDao.getAllSnapshots()
-            val alreadyImportedThisMonth = snapshots.any { it.importedAt >= startOfMonthTimestamp }
-
-            if (!alreadyImportedThisMonth) {
-                NotificationHelper.showStatementUploadNotification(context, isTest = false)
+            when {
+                // If user has no tracked accounts yet OR none of the bank statements have been uploaded this month:
+                // Give generic reminder ("If none of the bank statement uploaded, give generic")
+                status.totalTrackedAccounts == 0 || !status.hasAnyUploadedThisMonth -> {
+                    NotificationHelper.showStatementUploadNotification(
+                        context = context,
+                        pendingBanks = emptyList(),
+                        isTest = false
+                    )
+                    notificationPreferencesRepository.recordStatementReminderNotified(currentYearMonth)
+                }
+                // If at least one statement has been uploaded, but one or more are still pending:
+                // List the specific pending banks ("if any one or more pending, list those specific bank in remainder")
+                status.pendingBankNames.isNotEmpty() -> {
+                    NotificationHelper.showStatementUploadNotification(
+                        context = context,
+                        pendingBanks = status.pendingBankNames,
+                        isTest = false
+                    )
+                    notificationPreferencesRepository.recordStatementReminderNotified(currentYearMonth)
+                }
+                // All known bank statements have already been uploaded for this month!
+                else -> {
+                    // All up to date, record notified so we don't bother the user with reminders
+                    notificationPreferencesRepository.recordStatementReminderNotified(currentYearMonth)
+                }
             }
-            // Mark notified for this month so we don't trigger repeatedly
-            notificationPreferencesRepository.recordStatementReminderNotified(currentYearMonth)
         }
     }
 
@@ -158,8 +190,19 @@ class NotificationReminderManager @Inject constructor(
         )
     }
 
-    suspend fun triggerTestStatementNotification() {
-        NotificationHelper.showStatementUploadNotification(context, isTest = true)
+    suspend fun triggerTestStatementNotification(forcePendingSample: Boolean = false) {
+        val status = getMultiBankStatementStatus()
+        val pending = when {
+            forcePendingSample -> listOf("HDFC Bank (••4321)", "State Bank of India (••7890)")
+            status.hasAnyUploadedThisMonth && status.pendingBankNames.isNotEmpty() -> status.pendingBankNames
+            status.totalTrackedAccounts > 1 && status.pendingBankNames.isNotEmpty() -> status.pendingBankNames
+            else -> emptyList()
+        }
+        NotificationHelper.showStatementUploadNotification(
+            context = context,
+            pendingBanks = pending,
+            isTest = true
+        )
     }
 
     suspend fun triggerTestEmiNotification() {
@@ -194,5 +237,40 @@ class NotificationReminderManager @Inject constructor(
     companion object {
         const val ACTION_CHECK_NOTIFICATIONS = "com.varsel.expensetracker.ACTION_CHECK_NOTIFICATIONS"
         const val ALARM_REQUEST_CODE = 4001
+
+        fun evaluateMultiBankStatus(
+            snapshots: List<com.varsel.expensetracker.data.local.entity.StatementSnapshotEntity>,
+            startOfMonthTimestamp: Long
+        ): MultiBankStatus {
+            if (snapshots.isEmpty()) {
+                return MultiBankStatus(
+                    totalTrackedAccounts = 0,
+                    hasAnyUploadedThisMonth = false,
+                    pendingBankNames = emptyList()
+                )
+            }
+
+            // Group snapshots to find each distinct historical bank account
+            val accounts = snapshots
+                .filter { !it.bankName.isNullOrBlank() || !it.accountLast4.isNullOrBlank() }
+                .groupBy { it.accountId ?: "${it.bankName}_${it.accountLast4}" }
+                .map { (key, list) ->
+                    val latest = list.maxByOrNull { it.importedAt } ?: list.first()
+                    val bank = latest.bankName?.takeIf { it.isNotBlank() && it != "Bank Statement" } ?: "Bank"
+                    val last4 = latest.accountLast4
+                    val isUploadedThisMonth = list.any { it.importedAt >= startOfMonthTimestamp }
+                    val displayName = if (!last4.isNullOrBlank()) "$bank (••$last4)" else bank
+                    Triple(key, displayName, isUploadedThisMonth)
+                }
+
+            val hasAnyUploaded = accounts.any { it.third }
+            val pendingList = accounts.filter { !it.third }.map { it.second }
+
+            return MultiBankStatus(
+                totalTrackedAccounts = accounts.size,
+                hasAnyUploadedThisMonth = hasAnyUploaded,
+                pendingBankNames = pendingList
+            )
+        }
     }
 }
