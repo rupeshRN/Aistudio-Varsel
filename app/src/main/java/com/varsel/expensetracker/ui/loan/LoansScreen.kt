@@ -308,6 +308,23 @@ private fun LoanSummaryItemCard(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
+                            val isOverdue = loanSummary.currentOutstandingBalance > 0.0 &&
+                                    loanSummary.nextEmiDueDateTimestamp != null &&
+                                    loanSummary.nextEmiDueDateTimestamp < System.currentTimeMillis()
+                            if (isOverdue) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = MaterialTheme.colorScheme.errorContainer
+                                ) {
+                                    Text(
+                                        text = "Overdue",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
                             if (loan.loanType == LoanType.HOME_LOAN && loan.interestType == InterestRateType.FLOATING) {
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
@@ -374,6 +391,9 @@ private fun LoanSummaryItemCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     val isBullet = loan.loanType == LoanType.GOLD_LOAN && loan.repaymentType == LoanRepaymentType.BULLET_YEARLY
+                    val isOverdue = loanSummary.currentOutstandingBalance > 0.0 &&
+                            loanSummary.nextEmiDueDateTimestamp != null &&
+                            loanSummary.nextEmiDueDateTimestamp < System.currentTimeMillis()
                     Text(
                         text = if (isBullet) "Due: ${currencyFormatter.format(loan.emiAmount)}" else "EMI: ${currencyFormatter.format(loan.emiAmount)}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -388,6 +408,14 @@ private fun LoanSummaryItemCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (loanSummary.nextEmiDueDateTimestamp != null && loanSummary.currentOutstandingBalance > 0.0) {
+                        Text(
+                            text = (if (isOverdue) "Overdue: " else "Due: ") + dateFormat.format(Date(loanSummary.nextEmiDueDateTimestamp)),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = if (isOverdue) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 

@@ -96,6 +96,7 @@ import java.util.Locale
 fun QualityDashboardScreen(
     onNavigateBack: () -> Unit,
     onNavigateToTransactionDetail: (Long) -> Unit = {},
+    onNavigateToLoanDetail: (Long) -> Unit = {},
     viewModel: DataQualityViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -181,7 +182,15 @@ fun QualityDashboardScreen(
                         items(issues, key = { it.id }) { issue ->
                             QualityIssueCard(
                                 issue = issue,
-                                onQuickFix = { viewModel.openQuickFix(issue) },
+                                onQuickFix = {
+                                    if (issue.actionType == QualityActionType.VIEW_LOAN && issue.entityId != null) {
+                                        onNavigateToLoanDetail(issue.entityId)
+                                    } else if (issue.actionType == QualityActionType.LINK_TRANSFER && issue.entityId != null) {
+                                        onNavigateToTransactionDetail(issue.entityId)
+                                    } else {
+                                        viewModel.openQuickFix(issue)
+                                    }
+                                },
                                 onDismiss = { viewModel.dismissIssue(issue) }
                             )
                         }

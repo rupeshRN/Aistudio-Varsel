@@ -1,5 +1,5 @@
 {
-  "name": "VarSel",
+  "name": "Varsel Expense Tracker",
   "description": "Expense Tracker & Financial Management App",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

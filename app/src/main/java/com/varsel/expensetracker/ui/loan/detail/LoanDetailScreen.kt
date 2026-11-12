@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.varsel.expensetracker.domain.model.loan.AmortizationScheduleItem
 import com.varsel.expensetracker.domain.model.loan.InterestRateType
@@ -200,7 +201,8 @@ fun LoanDetailScreen(
                             loanSummary = loanSummary,
                             currencyFormatter = currencyFormatter,
                             dateFormat = dateFormat,
-                            onUpdateFloatingRateClick = { showFloatingRateDialog = true }
+                            onUpdateFloatingRateClick = { showFloatingRateDialog = true },
+                            onRecordPaymentClick = { showRecordPaymentDialog = true }
                         )
                     }
                     LoanDetailTab.SCHEDULE -> {
@@ -239,9 +241,13 @@ private fun LoanOverviewTab(
     loanSummary: LoanSummary,
     currencyFormatter: NumberFormat,
     dateFormat: SimpleDateFormat,
-    onUpdateFloatingRateClick: () -> Unit
+    onUpdateFloatingRateClick: () -> Unit,
+    onRecordPaymentClick: () -> Unit
 ) {
     val loan = loanSummary.loan
+    val isOverdue = loanSummary.currentOutstandingBalance > 0.0 &&
+            loanSummary.nextEmiDueDateTimestamp != null &&
+            loanSummary.nextEmiDueDateTimestamp < System.currentTimeMillis()
 
     Column(
         modifier = Modifier
@@ -250,6 +256,55 @@ private fun LoanOverviewTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // Overdue Alert Banner
+        if (isOverdue && loanSummary.nextEmiDueDateTimestamp != null) {
+            val daysOverdue = ((System.currentTimeMillis() - loanSummary.nextEmiDueDateTimestamp) / (1000 * 60 * 60 * 24)).coerceAtLeast(1)
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Warning,
+                        contentDescription = "Overdue",
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "EMI Payment Overdue",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        Text(
+                            text = "Due on ${dateFormat.format(Date(loanSummary.nextEmiDueDateTimestamp))} ($daysOverdue day${if (daysOverdue > 1) "s" else ""} ago). Record payment now to avoid late interest.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.9f)
+                        )
+                    }
+                    Button(
+                        onClick = onRecordPaymentClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text("Pay", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         // Hero Balance Card
         Card(
             shape = RoundedCornerShape(20.dp),
@@ -371,15 +426,36 @@ private fun LoanOverviewTab(
 
                         if (loanSummary.nextEmiDueDateTimestamp != null) {
                             Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    text = if (isBullet) "Maturity Date" else "Next Due Date",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = if (isBullet) "Maturity Date" else "Next Due Date",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    if (isOverdue) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = MaterialTheme.colorScheme.errorContainer
+                                        ) {
+                                            Text(
+                                                text = "OVERDUE",
+                                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                                fontSize = 9.sp
+                                            )
+                                        }
+                                    }
+                                }
                                 Text(
                                     text = dateFormat.format(Date(loanSummary.nextEmiDueDateTimestamp)),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = if (isOverdue) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = if (isOverdue) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                                 )
                             }
                         }

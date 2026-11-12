@@ -43,6 +43,7 @@ import com.varsel.expensetracker.ui.settings.general.GeneralSettingsScreen
 import com.varsel.expensetracker.ui.settings.notification.NotificationSettingsScreen
 import com.varsel.expensetracker.ui.transaction.TransactionDetailScreen
 import com.varsel.expensetracker.ui.transaction.TransactionScreen
+import com.varsel.expensetracker.ui.quality.QualityDashboardScreen
 
 @Composable
 fun NavGraph(
@@ -109,6 +110,9 @@ fun NavGraph(
                 },
                 onNavigateToRecurring = {
                     navController.navigate("recurring")
+                },
+                onNavigateToDataQuality = {
+                    navController.navigate("data_quality")
                 }
             )
         }
@@ -343,6 +347,9 @@ composable(AppDestination.Reports.route) {
                 },
                 onGeneralSettingsClick = {
                     navController.navigate("general_settings")
+                },
+                onDataQualityClick = {
+                    navController.navigate("data_quality")
                 }
             )
         }
@@ -550,6 +557,20 @@ composable(AppDestination.Reports.route) {
             AboutScreen(
                 onBackClick = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        composable(AppDestination.DataQuality.route) {
+            QualityDashboardScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToTransactionDetail = { transactionId ->
+                    navController.navigate("transaction_detail/$transactionId")
+                },
+                onNavigateToLoanDetail = { loanId ->
+                    navController.navigate("loan_detail/$loanId")
                 }
             )
         }

@@ -1,15 +1,9 @@
 package com.varsel.expensetracker.domain.engine
 
-import com.varsel.expensetracker.data.local.dao.BudgetDao
-import com.varsel.expensetracker.data.local.dao.FinancialEventAllocationDao
-import com.varsel.expensetracker.data.local.dao.LoanAccountDao
-import com.varsel.expensetracker.data.local.dao.LoanPaymentDao
-import com.varsel.expensetracker.data.local.dao.RecurringItemDao
-import com.varsel.expensetracker.data.local.dao.StatementSnapshotDao
-import com.varsel.expensetracker.data.local.dao.TransactionDao
 import com.varsel.expensetracker.data.local.entity.BudgetEntity
 import com.varsel.expensetracker.data.local.entity.FinancialEventAllocationEntity
 import com.varsel.expensetracker.data.local.entity.LoanAccountEntity
+import com.varsel.expensetracker.data.local.entity.LoanPaymentEntity
 import com.varsel.expensetracker.data.local.entity.RecurringItemEntity
 import com.varsel.expensetracker.data.local.entity.StatementSnapshotEntity
 import com.varsel.expensetracker.data.local.entity.TransactionEntity
@@ -20,7 +14,10 @@ import com.varsel.expensetracker.domain.model.quality.QualityCategory
 import com.varsel.expensetracker.domain.model.quality.QualityCheckType
 import com.varsel.expensetracker.domain.model.quality.QualityIssue
 import com.varsel.expensetracker.domain.model.quality.QualitySeverity
+import com.varsel.expensetracker.ui.budget.BudgetCalculator
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
 import java.util.Calendar
 import java.util.Locale
 import javax.inject.Inject
@@ -28,44 +25,14 @@ import javax.inject.Singleton
 import kotlin.math.abs
 
 @Singleton
-class DataQualityAuditEngine @Inject constructor(
-    private val transactionDao: TransactionDao,
-    private val statementSnapshotDao: StatementSnapshotDao,
-    private val recurringItemDao: RecurringItemDao,
-    private val loanAccountDao: LoanAccountDao,
-    private val loanPaymentDao: LoanPaymentDao,
-    private val budgetDao: BudgetDao,
-    private val financialEventAllocationDao: FinancialEventAllocationDao
-) {
-
-    suspend fun audit(
-        dismissedKeys: Set<String> = emptySet(),
-        currentTimeMillis: Long = System.currentTimeMillis()
-    ): DataQualityReport {
-        val transactions = transactionDao.getAllTransactionsList()
-        val snapshots = statementSnapshotDao.getAllSnapshots()
-        val recurringItems = recurringItemDao.getAllRecurringItemsList()
-        val loanAccounts = loanAccountDao.getAllLoanAccountsList()
-        val budgets = budgetDao.getAllBudgetsList()
-        val allocations = financialEventAllocationDao.getAllAllocationsList()
-
-        return auditWithData(
-            transactions = transactions,
-            snapshots = snapshots,
-            recurringItems = recurringItems,
-            loanAccounts = loanAccounts,
-            budgets = budgets,
-            allocations = allocations,
-            dismissedKeys = dismissedKeys,
-            currentTimeMillis = currentTimeMillis
-        )
-    }
+class DataQualityAuditEngine @Inject constructor() {
 
     fun auditWithData(
         transactions: List<TransactionEntity>,
         snapshots: List<StatementSnapshotEntity>,
         recurringItems: List<RecurringItemEntity>,
         loanAccounts: List<LoanAccountEntity>,
+        loanPayments: List<LoanPaymentEntity> = emptyList(),
         budgets: List<BudgetEntity>,
         allocations: List<FinancialEventAllocationEntity>,
         dismissedKeys: Set<String> = emptySet(),
@@ -104,10 +71,10 @@ class DataQualityAuditEngine @Inject constructor(
         allIssues.addAll(checkMissingRecurringBills(recurringItems, transactions, currentTimeMillis))
 
         // 11. Overdue Loan EMIs
-        allIssues.addAll(checkOverdueLoanEmis(loanAccounts, transactions, currentTimeMillis))
+        allIssues.addAll(checkOverdueLoanEmis(loanAccounts, loanPayments, transactions, currentTimeMillis))
 
         // 12. Unlinked Loan Payments
-        allIssues.addAll(checkUnlinkedLoanPayments(transactions, loanAccounts))
+        allIssues.addAll(checkUnlinkedLoanPayments(transactions, loanAccounts, loanPayments))
 
         // 13. Budget Overruns
         allIssues.addAll(checkBudgetOverruns(budgets, transactions, currentTimeMillis))
@@ -364,7 +331,7 @@ class DataQualityAuditEngine @Inject constructor(
         val issues = mutableListOf<QualityIssue>()
         for (snap in snapshots) {
             val open = snap.openingBalance
-            val close = snap.closingBalance
+            val close = snap.endingBalance
             val debits = snap.totalDebits ?: 0.0
             val credits = snap.totalCredits ?: 0.0
 
@@ -521,29 +488,53 @@ class DataQualityAuditEngine @Inject constructor(
     // --- Check 11: Overdue Loan EMIs ---
     private fun checkOverdueLoanEmis(
         loanAccounts: List<LoanAccountEntity>,
+        loanPayments: List<LoanPaymentEntity>,
         transactions: List<TransactionEntity>,
         currentTime: Long
     ): List<QualityIssue> {
         val issues = mutableListOf<QualityIssue>()
-        val activeLoans = loanAccounts.filter { it.status.equals("ACTIVE", ignoreCase = true) }
-
-        val cal = Calendar.getInstance().apply { timeInMillis = currentTime }
-        val currentMonth = cal.get(Calendar.MONTH)
-        val currentYear = cal.get(Calendar.YEAR)
+        val activeLoans = loanAccounts.filter { it.status.equals("ACTIVE", ignoreCase = true) && it.principal > 0.0 }
 
         for (loan in activeLoans) {
-            // Check if this loan has had an EMI payment in the current month
-            val hasPaidThisMonth = transactions.any { tx ->
-                val txCal = Calendar.getInstance().apply { timeInMillis = tx.dateTimestamp }
-                txCal.get(Calendar.MONTH) == currentMonth &&
-                        txCal.get(Calendar.YEAR) == currentYear &&
-                        (tx.description.contains(loan.name, ignoreCase = true) ||
-                                (loan.lenderName != null && tx.description.contains(loan.lenderName, ignoreCase = true)) ||
-                                abs(tx.amount - loan.emiAmount) < 2.0)
+            val paymentsForLoan = loanPayments.filter { it.loanId == loan.id }
+            val totalPrincipalPaid = paymentsForLoan.sumOf { it.principalComponent }
+            val remainingPrincipal = (loan.principal - totalPrincipalPaid).coerceAtLeast(0.0)
+
+            if (remainingPrincipal <= 0.0) continue
+
+            val regularPaymentsCount = paymentsForLoan.count {
+                it.paymentType.equals("REGULAR_EMI", ignoreCase = true)
             }
 
-            // If mid-month (past day 15) and no payment recorded
-            if (!hasPaidThisMonth && cal.get(Calendar.DAY_OF_MONTH) >= 15 && loan.emiAmount > 0.0) {
+            // Also check matching transactions in ledger
+            val matchingTxCount = transactions.count { tx ->
+                (tx.type.equals("EXPENSE", ignoreCase = true) || tx.type.equals("DEBIT", ignoreCase = true)) &&
+                        (tx.description.contains(loan.name, ignoreCase = true) ||
+                                (!loan.lenderName.isNullOrBlank() && tx.description.contains(loan.lenderName, ignoreCase = true))) &&
+                        abs(tx.amount - loan.emiAmount) < (loan.emiAmount * 0.15).coerceAtLeast(5.0)
+            }
+
+            val totalCompletedEmis = maxOf(regularPaymentsCount, matchingTxCount)
+            val nextEmiIndex = totalCompletedEmis + 1
+
+            val startLocalDate = Instant.ofEpochMilli(loan.startDateTimestamp)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+
+            val nextDueDate = if (loan.repaymentType.equals("BULLET_YEARLY", ignoreCase = true)) {
+                startLocalDate.plusMonths(loan.totalTenureMonths.toLong())
+            } else {
+                startLocalDate.plusMonths(nextEmiIndex.toLong())
+            }
+
+            val nextDueDateMs = nextDueDate.atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+
+            if (nextDueDateMs < currentTime) {
+                val daysOverdue = ((currentTime - nextDueDateMs) / (24 * 60 * 60 * 1000L)).coerceAtLeast(1)
+                val emiAmountDue = if (loan.emiAmount > 0.0) minOf(loan.emiAmount, remainingPrincipal) else remainingPrincipal
+
                 issues.add(
                     QualityIssue(
                         id = "overdue_emi_${loan.id}",
@@ -551,12 +542,12 @@ class DataQualityAuditEngine @Inject constructor(
                         category = QualityCategory.RECURRING_AND_LOANS,
                         severity = QualitySeverity.ERROR,
                         title = "Overdue Loan EMI: ${loan.name}",
-                        description = "No EMI payment of ₹${String.format(Locale.US, "%.2f", loan.emiAmount)} observed this month for ${loan.name}.",
-                        details = "Lender: ${loan.lenderName ?: "Bank"}. Principal remaining: ₹${String.format(Locale.US, "%.0f", loan.principal)}.",
+                        description = "EMI #${nextEmiIndex} of ₹${String.format(Locale.US, "%.2f", emiAmountDue)} was due on ${formatDate(nextDueDateMs)} ($daysOverdue day${if (daysOverdue == 1L) "" else "s"} overdue).",
+                        details = "No repayment entry found. Lender: ${loan.lenderName ?: "Bank"}. Outstanding: ₹${String.format(Locale.US, "%.0f", remainingPrincipal)}.",
                         entityId = loan.id,
-                        affectedAmount = loan.emiAmount,
-                        dateTimestamp = currentTime,
-                        accountName = loan.lenderName,
+                        affectedAmount = emiAmountDue,
+                        dateTimestamp = nextDueDateMs,
+                        accountName = loan.lenderName ?: loan.name,
                         actionType = QualityActionType.VIEW_LOAN
                     )
                 )
@@ -568,13 +559,18 @@ class DataQualityAuditEngine @Inject constructor(
     // --- Check 12: Unlinked Loan Payments ---
     private fun checkUnlinkedLoanPayments(
         transactions: List<TransactionEntity>,
-        loanAccounts: List<LoanAccountEntity>
+        loanAccounts: List<LoanAccountEntity>,
+        loanPayments: List<LoanPaymentEntity>
     ): List<QualityIssue> {
         val issues = mutableListOf<QualityIssue>()
         if (loanAccounts.isEmpty()) return emptyList()
 
+        val linkedTxIds = loanPayments.mapNotNull { it.linkedTransactionId }.toSet()
         val loanKeywords = listOf("loan emi", "home loan", "car loan", "personal loan", "hdfc ltd", "bajaj finance")
+
         for (tx in transactions) {
+            if (tx.id in linkedTxIds) continue
+
             val lower = tx.description.lowercase()
             val matchesLoan = loanKeywords.any { lower.contains(it) }
             if (matchesLoan && tx.type.equals("EXPENSE", ignoreCase = true)) {
@@ -608,20 +604,14 @@ class DataQualityAuditEngine @Inject constructor(
         val issues = mutableListOf<QualityIssue>()
         if (budgets.isEmpty()) return emptyList()
 
-        val cal = Calendar.getInstance().apply { timeInMillis = currentTime }
-        val currentMonth = cal.get(Calendar.MONTH)
-        val currentYear = cal.get(Calendar.YEAR)
-
-        val monthExpenses = transactions.filter { tx ->
-            val txCal = Calendar.getInstance().apply { timeInMillis = tx.dateTimestamp }
-            txCal.get(Calendar.MONTH) == currentMonth &&
-                    txCal.get(Calendar.YEAR) == currentYear &&
-                    (tx.type.equals("EXPENSE", ignoreCase = true) || tx.type.equals("DEBIT", ignoreCase = true))
-        }
-
         for (budget in budgets) {
-            val spent = monthExpenses.filter {
-                it.category.equals(budget.categoryName, ignoreCase = true)
+            if (budget.budgetType.equals("SAVINGS", ignoreCase = true)) continue
+            val bounds = BudgetCalculator.calculatePeriodBounds(budget.period, budget.startDayOfMonth, currentTime)
+
+            val spent = transactions.filter { tx ->
+                tx.dateTimestamp in bounds.startMillis..bounds.endMillis &&
+                        tx.category.equals(budget.categoryName, ignoreCase = true) &&
+                        (tx.type.equals("EXPENSE", ignoreCase = true) || tx.type.equals("DEBIT", ignoreCase = true))
             }.sumOf { it.amount }
 
             if (spent > budget.amount && budget.amount > 0.0) {
@@ -634,7 +624,7 @@ class DataQualityAuditEngine @Inject constructor(
                         severity = QualitySeverity.WARNING,
                         title = "Budget Exceeded in ${budget.categoryName}",
                         description = "Spent ₹${String.format(Locale.US, "%.2f", spent)} against budget limit of ₹${String.format(Locale.US, "%.2f", budget.amount)} (+₹${String.format(Locale.US, "%.2f", overrun)}).",
-                        details = "Review recent expenses in ${budget.categoryName} or adjust budget limit.",
+                        details = "Period: ${bounds.startFormatted} - ${bounds.endFormatted}. Review recent expenses or adjust budget limit.",
                         entityId = budget.id,
                         affectedAmount = overrun,
                         actionType = QualityActionType.VIEW_BUDGET
@@ -655,10 +645,26 @@ class DataQualityAuditEngine @Inject constructor(
 
         for ((txId, allocList) in byTx) {
             val parentTx = transactions.firstOrNull { it.id == txId }
-            if (parentTx != null && allocList.size > 1) {
-                // If marked as split and sum of allocations exceeds parent
-                // (Allocations can be partial, but cannot exceed parent amount)
-                // Note: If transaction has split allocations, check consistency
+            if (parentTx != null && allocList.isNotEmpty()) {
+                val totalAllocated = allocList.sumOf { it.allocatedAmount }
+                if (totalAllocated > parentTx.amount + 0.01) {
+                    val overrun = totalAllocated - parentTx.amount
+                    issues.add(
+                        QualityIssue(
+                            id = "broken_split_$txId",
+                            type = QualityCheckType.BROKEN_SPLIT,
+                            category = QualityCategory.SPLITS_AND_EVENTS,
+                            severity = QualitySeverity.ERROR,
+                            title = "Split Total Exceeds Transaction",
+                            description = "Allocations total ₹${String.format(Locale.US, "%.2f", totalAllocated)} exceeding transaction '${parentTx.description}' amount of ₹${String.format(Locale.US, "%.2f", parentTx.amount)} (+₹${String.format(Locale.US, "%.2f", overrun)}).",
+                            details = "The sum of financial event allocations must never exceed the parent transaction amount.",
+                            entityId = txId,
+                            affectedAmount = overrun,
+                            dateTimestamp = parentTx.dateTimestamp,
+                            actionType = QualityActionType.DISMISS
+                        )
+                    )
+                }
             }
         }
         return issues
