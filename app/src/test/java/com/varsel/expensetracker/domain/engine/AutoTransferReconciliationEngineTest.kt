@@ -41,10 +41,12 @@ class AutoTransferReconciliationEngineTest {
         override suspend fun getAllUnlinkedTransactions(): List<TransactionEntity> = emptyList()
         override suspend fun getTransactionsByRecurringItemId(recurringItemId: Long): List<TransactionEntity> = emptyList()
         override suspend fun countTransactionsByReferenceNumber(referenceNumber: String): Int = 0
+        override suspend fun getAllTransactionsList(): List<TransactionEntity> = emptyList()
     }
 
     private class FakeStatementSnapshotDao : StatementSnapshotDao {
         override suspend fun insertSnapshot(snapshot: StatementSnapshotEntity) {}
+        override suspend fun insertSnapshots(snapshots: List<StatementSnapshotEntity>) {}
         override suspend fun getLatestSnapshot(accountId: String): StatementSnapshotEntity? = null
         override suspend fun getAllSnapshots(): List<StatementSnapshotEntity> = emptyList()
         override fun observeAllSnapshots(): Flow<List<StatementSnapshotEntity>> = emptyFlow()

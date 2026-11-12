@@ -154,4 +154,123 @@ class CategoryDrillDownStateTest {
         assertEquals(700.0, state.displayAmount, 0.001)
         assertEquals(35.0, state.searchPercentOfCategory, 0.001)
     }
+
+    @Test
+    fun testComparisonModeMonthGroupingAndSubtotals() {
+        val multiMonthItems = listOf(
+            CategoryDrillDownItem(
+                transactionId = 1L,
+                description = "Swiggy Delivery",
+                category = "Food & Dining",
+                dateTimestamp = 1730000000000L,
+                amount = 500.0,
+                isExpense = true,
+                month = YearMonth.of(2026, 11)
+            ),
+            CategoryDrillDownItem(
+                transactionId = 2L,
+                description = "Grocery Mart",
+                category = "Food & Dining",
+                dateTimestamp = 1729000000000L,
+                amount = 1500.0,
+                isExpense = true,
+                month = YearMonth.of(2026, 11)
+            ),
+            CategoryDrillDownItem(
+                transactionId = 3L,
+                description = "Dine Out",
+                category = "Food & Dining",
+                dateTimestamp = 1727000000000L,
+                amount = 1200.0,
+                isExpense = true,
+                month = YearMonth.of(2026, 10)
+            ),
+            CategoryDrillDownItem(
+                transactionId = 4L,
+                description = "Cafe Coffee",
+                category = "Food & Dining",
+                dateTimestamp = 1725000000000L,
+                amount = 300.0,
+                isExpense = true,
+                month = YearMonth.of(2026, 9)
+            )
+        )
+
+        val state = CategoryDrillDownState(
+            isVisible = true,
+            categoryName = "Food & Dining",
+            flow = ReportsFlow.EXPENSES,
+            totalCategoryAmount = 3500.0,
+            percentOfTotal = 20.0,
+            periodLabel = "Sep 2026 – Nov 2026 (3 Months)",
+            month = YearMonth.of(2026, 11),
+            items = multiMonthItems,
+            isComparisonMode = true,
+            comparisonMonths = listOf(
+                YearMonth.of(2026, 9),
+                YearMonth.of(2026, 10),
+                YearMonth.of(2026, 11)
+            )
+        )
+
+        val groups = state.itemsByMonth
+        assertEquals(3, groups.size)
+
+        // Latest month first (Nov 2026)
+        val novItems = groups[YearMonth.of(2026, 11)]
+        assertEquals(2, novItems?.size)
+        assertEquals(2000.0, novItems?.sumOf { it.amount } ?: 0.0, 0.001)
+
+        // Oct 2026
+        val octItems = groups[YearMonth.of(2026, 10)]
+        assertEquals(1, octItems?.size)
+        assertEquals(1200.0, octItems?.sumOf { it.amount } ?: 0.0, 0.001)
+
+        // Sep 2026
+        val sepItems = groups[YearMonth.of(2026, 9)]
+        assertEquals(1, sepItems?.size)
+        assertEquals(300.0, sepItems?.sumOf { it.amount } ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun testComparisonModeSelectedMonthFilter() {
+        val multiMonthItems = listOf(
+            CategoryDrillDownItem(
+                transactionId = 1L,
+                description = "Swiggy Delivery",
+                category = "Food & Dining",
+                dateTimestamp = 1730000000000L,
+                amount = 500.0,
+                isExpense = true,
+                month = YearMonth.of(2026, 11)
+            ),
+            CategoryDrillDownItem(
+                transactionId = 2L,
+                description = "Dine Out",
+                category = "Food & Dining",
+                dateTimestamp = 1727000000000L,
+                amount = 1200.0,
+                isExpense = true,
+                month = YearMonth.of(2026, 10)
+            )
+        )
+
+        val state = CategoryDrillDownState(
+            isVisible = true,
+            categoryName = "Food & Dining",
+            flow = ReportsFlow.EXPENSES,
+            totalCategoryAmount = 1700.0,
+            percentOfTotal = 15.0,
+            periodLabel = "Oct 2026 – Nov 2026 (2 Months)",
+            month = YearMonth.of(2026, 11),
+            items = multiMonthItems,
+            isComparisonMode = true,
+            selectedMonthFilter = YearMonth.of(2026, 10)
+        )
+
+        // Filtered items should only contain October transactions
+        assertEquals(1, state.filteredItems.size)
+        assertEquals(1200.0, state.displayAmount, 0.001)
+        assertEquals("Dine Out", state.filteredItems.first().description)
+    }
 }

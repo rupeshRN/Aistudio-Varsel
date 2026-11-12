@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +52,7 @@ fun ReportsHeader(
     onNextPeriod: () -> Unit,
     onFilterClick: () -> Unit,
     onBackClick: (() -> Unit)? = null,
+    onExportClick: (() -> Unit)? = null,
     isPreviousEnabled: Boolean = true,
     isNextEnabled: Boolean = true,
     showComparisonWindowSelector: Boolean = false,
@@ -117,60 +119,90 @@ fun ReportsHeader(
                 }
             }
 
-            // Tactile Filter Pill
-            Surface(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable(onClick = onFilterClick),
-                shape = RoundedCornerShape(14.dp),
-                color = if (hasActiveAccountFilter) {
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                } else {
-                    cardBg
-                },
-                border = BorderStroke(
-                    1.dp,
-                    if (hasActiveAccountFilter) MaterialTheme.colorScheme.primary else cardBorder
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.FilterList,
-                        contentDescription = "Filter accounts",
-                        tint = if (hasActiveAccountFilter) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-                        },
-                        modifier = Modifier.size(18.dp)
+                // Tactile Filter Pill
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(onClick = onFilterClick),
+                    shape = RoundedCornerShape(14.dp),
+                    color = if (hasActiveAccountFilter) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                    } else {
+                        cardBg
+                    },
+                    border = BorderStroke(
+                        1.dp,
+                        if (hasActiveAccountFilter) MaterialTheme.colorScheme.primary else cardBorder
                     )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.FilterList,
+                            contentDescription = "Filter accounts",
+                            tint = if (hasActiveAccountFilter) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+                            },
+                            modifier = Modifier.size(18.dp)
+                        )
 
-                    if (hasActiveAccountFilter) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
+                        if (hasActiveAccountFilter) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
+
+                        Text(
+                            text = if (hasActiveAccountFilter) accountFilterLabel else "Filter",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            ),
+                            color = if (hasActiveAccountFilter) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
+                            },
+                            maxLines = 1
                         )
                     }
+                }
 
-                    Text(
-                        text = if (hasActiveAccountFilter) accountFilterLabel else "Filter",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        ),
-                        color = if (hasActiveAccountFilter) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569)
-                        },
-                        maxLines = 1
-                    )
+                // Export Action Pill
+                if (onExportClick != null) {
+                    Surface(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(onClick = onExportClick)
+                            .testTag("reports_export_button"),
+                        shape = RoundedCornerShape(14.dp),
+                        color = cardBg,
+                        border = BorderStroke(1.dp, cardBorder)
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.FileDownload,
+                                contentDescription = "Export report",
+                                tint = if (isDark) Color(0xFFCBD5E1) else Color(0xFF475569),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -15,6 +15,11 @@ interface StatementSnapshotDao {
         snapshot: StatementSnapshotEntity
     )
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSnapshots(
+        snapshots: List<StatementSnapshotEntity>
+    )
+
     @Query(
         """
         SELECT *

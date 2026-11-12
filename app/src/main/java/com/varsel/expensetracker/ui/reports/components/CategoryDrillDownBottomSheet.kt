@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -28,8 +30,10 @@ import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +62,7 @@ import com.varsel.expensetracker.ui.reports.CategoryDrillDownState
 import com.varsel.expensetracker.ui.reports.ReportsFlow
 import java.text.NumberFormat
 import java.time.Instant
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -69,6 +74,7 @@ fun CategoryDrillDownBottomSheet(
     sheetState: SheetState,
     onDismiss: () -> Unit,
     onSearchQueryChange: (String) -> Unit,
+    onSelectMonthFilter: (YearMonth?) -> Unit = {},
     onTransactionClick: (Long) -> Unit,
     onFinancialEventClick: (String) -> Unit
 ) {
@@ -252,11 +258,38 @@ fun CategoryDrillDownBottomSheet(
                                 }
                                 "$pctString of category"
                             } else {
-                                "${state.percentOfTotal.toInt()}% of total"
+                                val contextLabel = if (state.isComparisonMode && state.comparisonMonths.isNotEmpty()) {
+                                    "${state.comparisonMonths.size}M total"
+                                } else {
+                                    "total"
+                                }
+                                "${state.percentOfTotal.toInt()}% of $contextLabel"
                             },
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        if (state.isComparisonMode && state.trendText != null) {
+                            Spacer(modifier = Modifier.height(3.dp))
+                            val isIncreasing = state.trendText.startsWith("+") || state.trendText.contains("New", ignoreCase = true)
+                            val badgeColor = if (state.flow == ReportsFlow.EXPENSES) {
+                                if (isIncreasing) AppColors.Expense else AppColors.Success
+                            } else {
+                                if (isIncreasing) AppColors.Success else AppColors.Expense
+                            }
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = badgeColor.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = state.trendText,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    fontWeight = FontWeight.Bold,
+                                    color = badgeColor,
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -343,9 +376,52 @@ fun CategoryDrillDownBottomSheet(
                 }
             }
 
+            // Quick Month Filter Chips for Comparison Mode
+            if (state.isComparisonMode && state.comparisonMonths.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = state.selectedMonthFilter == null,
+                        onClick = { onSelectMonthFilter(null) },
+                        label = {
+                            Text(
+                                text = "All Months (${state.items.size})",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (state.selectedMonthFilter == null) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    )
+                    state.comparisonMonths.forEach { m ->
+                        val countInMonth = state.items.count { it.month == m }
+                        val isSelected = state.selectedMonthFilter == m
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                if (isSelected) onSelectMonthFilter(null) else onSelectMonthFilter(m)
+                            },
+                            label = {
+                                Text(
+                                    text = "${m.format(DateTimeFormatter.ofPattern("MMM"))} ($countInMonth)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             // Transactions Breakdown List
+            val shouldGroupByMonth = state.isComparisonMode || state.itemsByMonth.size > 1
+
             if (filteredItems.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -377,23 +453,102 @@ fun CategoryDrillDownBottomSheet(
                     contentPadding = PaddingValues(bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(
-                        items = filteredItems,
-                        key = { "${it.transactionId}_${it.eventLinkId}_${it.amount}" }
-                    ) { item ->
-                        DrillDownTransactionRow(
-                            item = item,
-                            categoryColor = categoryColor,
-                            dateFormatter = dateFormatter,
-                            currencyFormatter = currencyFormatter,
-                            onItemClick = {
-                                if (item.isEventAllocation && item.eventLinkId != null) {
-                                    onFinancialEventClick(item.eventLinkId)
-                                } else if (item.transactionId > 0L) {
-                                    onTransactionClick(item.transactionId)
+                    if (shouldGroupByMonth) {
+                        state.itemsByMonth.forEach { (m, monthItems) ->
+                            val monthSubtotal = monthItems.sumOf { it.amount }
+                            item(key = "header_${m}") {
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp, bottom = 2.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.CalendarMonth,
+                                                contentDescription = null,
+                                                tint = categoryColor,
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                            Text(
+                                                text = m.format(monthFormatter).uppercase(),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = MaterialTheme.colorScheme.surfaceVariant
+                                            ) {
+                                                Text(
+                                                    text = "${monthItems.size} txn${if (monthItems.size != 1) "s" else ""}",
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Text(
+                                            text = currencyFormatter.format(monthSubtotal),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (state.flow == ReportsFlow.EXPENSES) AppColors.Expense else AppColors.Income
+                                        )
+                                    }
                                 }
                             }
-                        )
+
+                            items(
+                                items = monthItems,
+                                key = { "${it.transactionId}_${it.eventLinkId}_${it.amount}_${it.dateTimestamp}" }
+                            ) { item ->
+                                DrillDownTransactionRow(
+                                    item = item,
+                                    categoryColor = categoryColor,
+                                    dateFormatter = dateFormatter,
+                                    currencyFormatter = currencyFormatter,
+                                    onItemClick = {
+                                        if (item.isEventAllocation && item.eventLinkId != null) {
+                                            onFinancialEventClick(item.eventLinkId)
+                                        } else if (item.transactionId > 0L) {
+                                            onTransactionClick(item.transactionId)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        items(
+                            items = filteredItems,
+                            key = { "${it.transactionId}_${it.eventLinkId}_${it.amount}_${it.dateTimestamp}" }
+                        ) { item ->
+                            DrillDownTransactionRow(
+                                item = item,
+                                categoryColor = categoryColor,
+                                dateFormatter = dateFormatter,
+                                currencyFormatter = currencyFormatter,
+                                onItemClick = {
+                                    if (item.isEventAllocation && item.eventLinkId != null) {
+                                        onFinancialEventClick(item.eventLinkId)
+                                    } else if (item.transactionId > 0L) {
+                                        onTransactionClick(item.transactionId)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }

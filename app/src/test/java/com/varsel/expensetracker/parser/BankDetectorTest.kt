@@ -20,6 +20,7 @@ class BankDetectorTest {
         private val snapshots: List<StatementSnapshotEntity> = emptyList()
     ) : StatementSnapshotDao {
         override suspend fun insertSnapshot(snapshot: StatementSnapshotEntity) {}
+        override suspend fun insertSnapshots(snapshots: List<StatementSnapshotEntity>) {}
         override suspend fun getLatestSnapshot(accountId: String): StatementSnapshotEntity? =
             snapshots.firstOrNull { it.accountId == accountId }
         override suspend fun getAllSnapshots(): List<StatementSnapshotEntity> = snapshots

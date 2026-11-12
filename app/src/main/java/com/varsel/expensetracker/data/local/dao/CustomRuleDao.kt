@@ -14,6 +14,9 @@ interface CustomRuleDao {
     @Query("SELECT * FROM custom_rules")
     fun getAllRules(): Flow<List<CustomRuleEntity>>
 
+    @Query("SELECT * FROM custom_rules")
+    suspend fun getAllRulesList(): List<CustomRuleEntity>
+
     @Query("""
 SELECT *
 FROM custom_rules
@@ -26,6 +29,9 @@ suspend fun findRuleByPattern(
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCustomRule(rule: CustomRuleEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertCustomRules(rules: List<CustomRuleEntity>)
 
     @androidx.room.Update
     suspend fun updateRule(rule: CustomRuleEntity)

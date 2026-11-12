@@ -28,7 +28,8 @@ fun SettingsScreen(
     onAppearanceClick: () -> Unit,
     onDeveloperClick: () -> Unit,
     onAboutClick: () -> Unit,
-    onNotificationsClick: () -> Unit = {}
+    onNotificationsClick: () -> Unit = {},
+    onDataBackupClick: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -149,7 +150,38 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Group 2: System & Info
+            // Group 3: Data & Privacy
+            Text(
+                text = "Data & Privacy",
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold
+            )
+
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                shadowElevation = 1.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Column {
+                    MoreMenuItem(
+                        icon = Icons.Outlined.Storage,
+                        title = "Data & Backup",
+                        subtitle = "Export CSV spreadsheets, PDF statements & database backup",
+                        showDivider = false,
+                        onClick = onDataBackupClick
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Group 4: System & Info
             Text(
                 text = "System & About",
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),

@@ -15,6 +15,9 @@ interface LoanAccountDao {
     @Query("SELECT * FROM loan_accounts ORDER BY createdAt DESC")
     fun getAllLoanAccounts(): Flow<List<LoanAccountEntity>>
 
+    @Query("SELECT * FROM loan_accounts ORDER BY createdAt DESC")
+    suspend fun getAllLoanAccountsList(): List<LoanAccountEntity>
+
     @Query("SELECT * FROM loan_accounts WHERE id = :id")
     fun getLoanAccountById(id: Long): Flow<LoanAccountEntity?>
 
@@ -23,6 +26,9 @@ interface LoanAccountDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLoanAccount(loan: LoanAccountEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLoanAccounts(loans: List<LoanAccountEntity>)
 
     @Update
     suspend fun updateLoanAccount(loan: LoanAccountEntity)

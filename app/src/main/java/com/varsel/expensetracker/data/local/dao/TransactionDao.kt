@@ -27,6 +27,16 @@ interface TransactionDao {
     fun getAllTransactions():
         Flow<List<TransactionEntity>>
 
+    @Query(
+        """
+        SELECT *
+        FROM transactions
+        ORDER BY dateTimestamp DESC
+        """
+    )
+    suspend fun getAllTransactionsList():
+        List<TransactionEntity>
+
     //--------------------------------------------------
     // Insert transactions
     //--------------------------------------------------

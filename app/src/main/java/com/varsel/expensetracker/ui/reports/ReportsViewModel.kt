@@ -19,6 +19,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -514,34 +515,78 @@ private fun updateSelectedMonth(
 
     fun openCategoryDrillDown(
         categoryName: String,
-        flow: ReportsFlow = _uiState.value.selectedFlow
+        flow: ReportsFlow = _uiState.value.selectedFlow,
+        isComparison: Boolean = (_uiState.value.currentTab == ReportsTab.COMPARE)
     ) {
         val state = _uiState.value
+
+        val (reportRange, comparisonMonths, periodLabel, totalCategoryAmount, totalFlowAmount, trendText) = if (isComparison) {
+            val count = state.comparisonWindow.monthsCount
+            val months = (count - 1 downTo 0).map { offset ->
+                state.selectedMonth.minusMonths(offset.toLong())
+            }
+            val range = ReportDateRange(months.first().atDay(1), months.last().atEndOfMonth())
+            val monthFmt = DateTimeFormatter.ofPattern("MMM yyyy")
+            val pLabel = "${months.first().format(monthFmt)} – ${months.last().format(monthFmt)} (${state.comparisonWindow.label})"
+
+            val compItem = state.comparisonItems.firstOrNull { it.category.equals(categoryName, ignoreCase = true) }
+            val catTotal = compItem?.monthlyTotals?.sumOf { it.amount }
+            val flowTotal = state.comparisonItems.sumOf { item -> item.monthlyTotals.sumOf { m -> m.amount } }
+
+            val trend = compItem?.let { item ->
+                if (item.isNew) {
+                    "New"
+                } else if (item.isEliminated) {
+                    "Eliminated"
+                } else {
+                    val sign = if (item.percentageChange >= 0) "+" else ""
+                    "${sign}${item.percentageChange.toInt()}% vs ${item.baselineMonth.format(monthFmt)}"
+                }
+            }
+
+            ComparisonDrillDownConfig(
+                range = range,
+                comparisonMonths = months,
+                periodLabel = pLabel,
+                totalCategoryAmount = catTotal,
+                totalFlowAmount = flowTotal,
+                trendText = trend
+            )
+        } else {
+            val catTotal = when (flow) {
+                ReportsFlow.EXPENSES -> {
+                    state.expenseCategories.firstOrNull { it.category.equals(categoryName, ignoreCase = true) }?.totalAmount
+                }
+                ReportsFlow.INCOME -> {
+                    state.incomeCategories.firstOrNull { it.category.equals(categoryName, ignoreCase = true) }?.totalAmount
+                }
+            }
+
+            val flowTotal = when (flow) {
+                ReportsFlow.EXPENSES -> state.cashFlow.effectiveExpense
+                ReportsFlow.INCOME -> state.cashFlow.actualIncome
+            }
+
+            ComparisonDrillDownConfig(
+                range = state.dateRange,
+                comparisonMonths = emptyList(),
+                periodLabel = state.formattedPeriodLabel,
+                totalCategoryAmount = catTotal,
+                totalFlowAmount = flowTotal,
+                trendText = null
+            )
+        }
+
         val items = buildCategoryDrillDownItems(
             categoryName = categoryName,
             flow = flow,
-            selectedMonth = state.selectedMonth,
+            reportRange = reportRange,
             selectedAccountIds = state.selectedAccountIds
         )
 
-        val totalCategoryAmount = when (flow) {
-            ReportsFlow.EXPENSES -> {
-                state.expenseCategories.firstOrNull { it.category.equals(categoryName, ignoreCase = true) }?.totalAmount
-                    ?: items.sumOf { it.amount }
-            }
-            ReportsFlow.INCOME -> {
-                state.incomeCategories.firstOrNull { it.category.equals(categoryName, ignoreCase = true) }?.totalAmount
-                    ?: items.sumOf { it.amount }
-            }
-        }
-
-        val totalFlowAmount = when (flow) {
-            ReportsFlow.EXPENSES -> state.cashFlow.effectiveExpense
-            ReportsFlow.INCOME -> state.cashFlow.actualIncome
-        }
-
+        val finalCategoryTotal = totalCategoryAmount ?: items.sumOf { it.amount }
         val percent = if (totalFlowAmount > 0.0) {
-            (totalCategoryAmount / totalFlowAmount) * 100.0
+            (finalCategoryTotal / totalFlowAmount) * 100.0
         } else {
             0.0
         }
@@ -551,13 +596,35 @@ private fun updateSelectedMonth(
                 isVisible = true,
                 categoryName = categoryName,
                 flow = flow,
-                totalCategoryAmount = totalCategoryAmount,
+                totalCategoryAmount = finalCategoryTotal,
                 percentOfTotal = percent,
-                periodLabel = state.formattedPeriodLabel,
+                periodLabel = periodLabel,
                 month = state.selectedMonth,
                 items = items,
-                searchQuery = ""
+                searchQuery = "",
+                isComparisonMode = isComparison,
+                selectedMonthFilter = null,
+                comparisonMonths = comparisonMonths,
+                trendText = trendText
             )
+        )
+    }
+
+    fun openComparisonCategoryDrillDown(
+        categoryName: String
+    ) {
+        val flow = _uiState.value.comparisonFlow
+        if (flow == ReportsFlow.EXPENSES) {
+            _uiState.value = _uiState.value.copy(selectedExpenseCategory = categoryName)
+        } else {
+            _uiState.value = _uiState.value.copy(selectedIncomeCategory = categoryName)
+        }
+        openCategoryDrillDown(categoryName, flow, isComparison = true)
+    }
+
+    fun selectDrillDownMonthFilter(month: YearMonth?) {
+        _uiState.value = _uiState.value.copy(
+            drillDownState = _uiState.value.drillDownState.copy(selectedMonthFilter = month)
         )
     }
 
@@ -575,17 +642,23 @@ private fun updateSelectedMonth(
         )
     }
 
+    private data class ComparisonDrillDownConfig(
+        val range: ReportDateRange,
+        val comparisonMonths: List<YearMonth>,
+        val periodLabel: String,
+        val totalCategoryAmount: Double?,
+        val totalFlowAmount: Double,
+        val trendText: String?
+    )
+
     private fun buildCategoryDrillDownItems(
         categoryName: String,
         flow: ReportsFlow,
-        selectedMonth: YearMonth,
+        reportRange: ReportDateRange,
         selectedAccountIds: Set<String>
     ): List<CategoryDrillDownItem> {
-        val reportRange = _uiState.value.dateRange
         val periodTransactions = latestTransactions.filter { transaction ->
-            transaction.belongsToDateRange(
-                reportRange
-            )
+            transaction.belongsToDateRange(reportRange)
         }
         val filteredTransactions = filterByAccounts(periodTransactions, selectedAccountIds)
         val allFilteredTransactions = filterByAccounts(latestTransactions, selectedAccountIds)
@@ -605,6 +678,11 @@ private fun updateSelectedMonth(
                 .forEach { tx ->
                     val unallocated = getUnallocatedAmount(tx, latestAllocations)
                     if (unallocated > 0.0) {
+                        val txMonth = Instant.ofEpochMilli(tx.dateTimestamp)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                            .let { YearMonth.of(it.year, it.month) }
+
                         result.add(
                             CategoryDrillDownItem(
                                 transactionId = tx.id,
@@ -614,7 +692,8 @@ private fun updateSelectedMonth(
                                 amount = unallocated,
                                 isExpense = true,
                                 accountLast4 = tx.accountLast4,
-                                isEventAllocation = false
+                                isEventAllocation = false,
+                                month = txMonth
                             )
                         )
                     }
@@ -627,20 +706,23 @@ private fun updateSelectedMonth(
                     reportRange.contains(event.finalMonth.atDay(1)) &&
                     event.netCost > 0.0
                 ) {
-                    // Include event root/rep item or top transaction
                     val primaryTx = event.eventTransactions.firstOrNull()
+                    val evDate = primaryTx?.dateTimestamp
+                        ?: event.finalMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
                     result.add(
                         CategoryDrillDownItem(
                             transactionId = primaryTx?.id ?: 0L,
                             description = event.group.groupName,
                             category = event.group.category,
-                            dateTimestamp = primaryTx?.dateTimestamp ?: System.currentTimeMillis(),
+                            dateTimestamp = evDate,
                             amount = event.netCost,
                             isExpense = true,
                             accountLast4 = primaryTx?.accountLast4,
                             isEventAllocation = true,
                             eventName = event.group.groupName,
-                            eventLinkId = event.group.transactionLinkId
+                            eventLinkId = event.group.transactionLinkId,
+                            month = event.finalMonth
                         )
                     )
                 }
@@ -657,6 +739,11 @@ private fun updateSelectedMonth(
                 .forEach { tx ->
                     val unallocated = getUnallocatedAmount(tx, latestAllocations)
                     if (unallocated > 0.0) {
+                        val txMonth = Instant.ofEpochMilli(tx.dateTimestamp)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                            .let { YearMonth.of(it.year, it.month) }
+
                         result.add(
                             CategoryDrillDownItem(
                                 transactionId = tx.id,
@@ -666,7 +753,8 @@ private fun updateSelectedMonth(
                                 amount = unallocated,
                                 isExpense = false,
                                 accountLast4 = tx.accountLast4,
-                                isEventAllocation = false
+                                isEventAllocation = false,
+                                month = txMonth
                             )
                         )
                     }
@@ -680,18 +768,22 @@ private fun updateSelectedMonth(
                     event.netCost < 0.0
                 ) {
                     val primaryTx = event.eventTransactions.firstOrNull()
+                    val evDate = primaryTx?.dateTimestamp
+                        ?: event.finalMonth.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
                     result.add(
                         CategoryDrillDownItem(
                             transactionId = primaryTx?.id ?: 0L,
                             description = event.group.groupName + " (Surplus)",
                             category = event.group.category,
-                            dateTimestamp = primaryTx?.dateTimestamp ?: System.currentTimeMillis(),
+                            dateTimestamp = evDate,
                             amount = kotlin.math.abs(event.netCost),
                             isExpense = false,
                             accountLast4 = primaryTx?.accountLast4,
                             isEventAllocation = true,
                             eventName = event.group.groupName,
-                            eventLinkId = event.group.transactionLinkId
+                            eventLinkId = event.group.transactionLinkId,
+                            month = event.finalMonth
                         )
                     )
                 }

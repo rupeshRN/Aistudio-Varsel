@@ -48,6 +48,7 @@ class ReportsViewModelSavedStateTest {
 
     private class FakeFinancialEventAllocationDao : FinancialEventAllocationDao {
         override fun getAllAllocations(): Flow<List<FinancialEventAllocationEntity>> = flowOf(emptyList())
+        override suspend fun getAllAllocationsList(): List<FinancialEventAllocationEntity> = emptyList()
         override suspend fun getAllocationsForTransaction(transactionId: Long): List<FinancialEventAllocationEntity> = emptyList()
         override suspend fun getAllocationsForFinancialEvent(transactionLinkId: String): List<FinancialEventAllocationEntity> = emptyList()
         override suspend fun insertAllocation(allocation: FinancialEventAllocationEntity): Long = 0L

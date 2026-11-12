@@ -21,11 +21,17 @@ interface LoanPaymentDao {
     @Query("SELECT * FROM loan_payments ORDER BY paymentDateTimestamp DESC")
     fun getAllPayments(): Flow<List<LoanPaymentEntity>>
 
+    @Query("SELECT * FROM loan_payments ORDER BY paymentDateTimestamp DESC")
+    suspend fun getAllPaymentsList(): List<LoanPaymentEntity>
+
     @Query("SELECT * FROM loan_payments WHERE linkedTransactionId = :transactionId LIMIT 1")
     suspend fun getPaymentByTransactionId(transactionId: Long): LoanPaymentEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPayment(payment: LoanPaymentEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertPayments(payments: List<LoanPaymentEntity>)
 
     @Update
     suspend fun updatePayment(payment: LoanPaymentEntity)

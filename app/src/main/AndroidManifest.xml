@@ -44,10 +44,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-<!-- Crash Activity -->
+        <!-- FileProvider for Sharing Exported CSV, PDF and Backup files -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Crash Activity -->
         <activity
-    android:name=".CrashActivity"
-    android:exported="false" />
+            android:name=".CrashActivity"
+            android:exported="false" />
 
     </application>
 

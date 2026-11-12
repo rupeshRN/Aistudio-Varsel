@@ -37,6 +37,7 @@ import com.varsel.expensetracker.ui.more.SettingsDetailScreen
 import com.varsel.expensetracker.ui.recurring.RecurringSubscriptionsScreen
 import com.varsel.expensetracker.ui.reports.ReportsScreen
 import com.varsel.expensetracker.ui.settings.SettingsScreen
+import com.varsel.expensetracker.ui.settings.data.DataManagementScreen
 import com.varsel.expensetracker.ui.settings.general.EditHomeScreen
 import com.varsel.expensetracker.ui.settings.general.GeneralSettingsScreen
 import com.varsel.expensetracker.ui.settings.notification.NotificationSettingsScreen
@@ -259,6 +260,10 @@ composable(AppDestination.Reports.route) {
             navController.popBackStack()
         },
 
+        onExportClick = {
+            navController.navigate("settings/data_backup")
+        },
+
         onTransactionClick = { transactionId ->
             navController.navigate(
                 "transaction_detail/$transactionId"
@@ -377,6 +382,17 @@ composable(AppDestination.Reports.route) {
                 },
                 onNotificationsClick = {
                     navController.navigate("settings/notifications")
+                },
+                onDataBackupClick = {
+                    navController.navigate("settings/data_backup")
+                }
+            )
+        }
+
+        composable("settings/data_backup") {
+            DataManagementScreen(
+                onBackClick = {
+                    navController.popBackStack()
                 }
             )
         }

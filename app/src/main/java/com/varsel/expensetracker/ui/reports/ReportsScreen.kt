@@ -61,6 +61,7 @@ import kotlinx.coroutines.launch
 fun ReportsScreen(
     viewModel: ReportsViewModel = hiltViewModel(),
     onBackClick: () -> Unit = {},
+    onExportClick: () -> Unit = {},
     onTransactionClick: (Long) -> Unit = {},
     onFinancialEventClick: (String) -> Unit
 ) {
@@ -85,6 +86,7 @@ fun ReportsScreen(
     ReportsScreenContent(
         uiState = uiState,
         onBackClick = onBackClick,
+        onExportClick = onExportClick,
 
         onPreviousMonth =
             viewModel::previousMonth,
@@ -106,11 +108,7 @@ fun ReportsScreen(
             viewModel::selectComparisonFlow,
 
         onComparisonCategoryClick = { category ->
-            if (uiState.comparisonFlow == ReportsFlow.EXPENSES) {
-                viewModel.selectExpenseCategory(category)
-            } else {
-                viewModel.selectIncomeCategory(category)
-            }
+            viewModel.openComparisonCategoryDrillDown(category)
         },
 
         onFlowSelected =
@@ -195,6 +193,7 @@ fun ReportsScreen(
                 }
             },
             onSearchQueryChange = viewModel::updateDrillDownSearch,
+            onSelectMonthFilter = viewModel::selectDrillDownMonthFilter,
             onTransactionClick = onTransactionClick,
             onFinancialEventClick = onFinancialEventClick
         )
@@ -205,6 +204,7 @@ fun ReportsScreen(
 private fun ReportsScreenContent(
     uiState: ReportsUiState,
     onBackClick: () -> Unit,
+    onExportClick: () -> Unit = {},
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onFilterClick: () -> Unit,
@@ -265,6 +265,7 @@ private fun ReportsScreenContent(
                         onNextPeriod = onNextMonth,
                         onFilterClick = onFilterClick,
                         onBackClick = onBackClick,
+                        onExportClick = onExportClick,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp)
                     )
 

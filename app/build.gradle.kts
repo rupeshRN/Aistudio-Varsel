@@ -142,9 +142,9 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation("org.json:json:20231013")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    testImplementation("junit:junit:4.13.2")
 
     // SQLCipher for encrypted Room DB
     implementation(libs.sqlcipher.android)

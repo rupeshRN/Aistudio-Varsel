@@ -24,6 +24,15 @@ interface TransactionLinkGroupDao {
     )
     fun getAllGroups(): Flow<List<TransactionLinkGroupEntity>>
 
+    @Query(
+        """
+        SELECT *
+        FROM transaction_link_groups
+        ORDER BY createdAt DESC
+        """
+    )
+    suspend fun getAllGroupsList(): List<TransactionLinkGroupEntity>
+
     /**
      * Get one group synchronously.
      */
@@ -47,6 +56,13 @@ interface TransactionLinkGroupDao {
     )
     suspend fun insertGroup(
         group: TransactionLinkGroupEntity
+    )
+
+    @Insert(
+        onConflict = OnConflictStrategy.REPLACE
+    )
+    suspend fun insertGroups(
+        groups: List<TransactionLinkGroupEntity>
     )
 
     /**

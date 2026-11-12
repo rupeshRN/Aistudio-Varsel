@@ -24,6 +24,16 @@ interface FinancialEventAllocationDao {
     fun getAllAllocations():
         Flow<List<FinancialEventAllocationEntity>>
 
+    @Query(
+        """
+        SELECT *
+        FROM financial_event_allocations
+        ORDER BY createdAt ASC
+        """
+    )
+    suspend fun getAllAllocationsList():
+        List<FinancialEventAllocationEntity>
+
     /**
      * Get allocations for one transaction.
      */

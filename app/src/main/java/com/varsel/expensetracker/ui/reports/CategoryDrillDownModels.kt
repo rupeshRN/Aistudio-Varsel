@@ -15,7 +15,8 @@ data class CategoryDrillDownItem(
     val accountLast4: String? = null,
     val isEventAllocation: Boolean = false,
     val eventName: String? = null,
-    val eventLinkId: String? = null
+    val eventLinkId: String? = null,
+    val month: YearMonth = YearMonth.now()
 )
 
 /**
@@ -30,17 +31,27 @@ data class CategoryDrillDownState(
     val periodLabel: String = "",
     val month: YearMonth = YearMonth.now(),
     val items: List<CategoryDrillDownItem> = emptyList(),
-    val searchQuery: String = ""
+    val searchQuery: String = "",
+    val isComparisonMode: Boolean = false,
+    val selectedMonthFilter: YearMonth? = null,
+    val comparisonMonths: List<YearMonth> = emptyList(),
+    val trendText: String? = null
 ) {
     val isSearching: Boolean
         get() = searchQuery.isNotBlank()
 
     val filteredItems: List<CategoryDrillDownItem>
-        get() = if (searchQuery.isBlank()) {
-            items
-        } else {
+        get() {
+            val baseList = if (selectedMonthFilter != null) {
+                items.filter { it.month == selectedMonthFilter }
+            } else {
+                items
+            }
+            if (searchQuery.isBlank()) {
+                return baseList
+            }
             val q = searchQuery.trim().lowercase()
-            items.filter { item ->
+            return baseList.filter { item ->
                 item.description.lowercase().contains(q) ||
                     (item.eventName?.lowercase()?.contains(q) == true) ||
                     (item.accountLast4?.contains(q) == true) ||
@@ -49,7 +60,7 @@ data class CategoryDrillDownState(
         }
 
     val displayAmount: Double
-        get() = if (isSearching) {
+        get() = if (isSearching || selectedMonthFilter != null) {
             filteredItems.sumOf { it.amount }
         } else {
             totalCategoryAmount
@@ -61,4 +72,12 @@ data class CategoryDrillDownState(
         } else {
             0.0
         }
+
+    /**
+     * Group items by YearMonth in descending order (latest month first).
+     */
+    val itemsByMonth: Map<YearMonth, List<CategoryDrillDownItem>>
+        get() = filteredItems
+            .groupBy { it.month }
+            .toSortedMap(compareByDescending { it })
 }

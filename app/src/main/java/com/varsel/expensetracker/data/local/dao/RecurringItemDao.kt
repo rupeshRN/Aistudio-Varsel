@@ -15,6 +15,9 @@ interface RecurringItemDao {
     @Query("SELECT * FROM recurring_items ORDER BY nextOccurrenceTimestamp ASC")
     fun getAllRecurringItems(): Flow<List<RecurringItemEntity>>
 
+    @Query("SELECT * FROM recurring_items ORDER BY nextOccurrenceTimestamp ASC")
+    suspend fun getAllRecurringItemsList(): List<RecurringItemEntity>
+
     @Query("SELECT * FROM recurring_items WHERE isActive = 1 ORDER BY nextOccurrenceTimestamp ASC")
     fun getActiveRecurringItems(): Flow<List<RecurringItemEntity>>
 
