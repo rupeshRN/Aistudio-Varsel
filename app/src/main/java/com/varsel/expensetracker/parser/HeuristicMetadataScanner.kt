@@ -36,13 +36,13 @@ class HeuristicMetadataScanner @Inject constructor() {
         val SUPPORTED_IFSC_MAP = mapOf(
             "IDIB" to Pair("indian_bank", "Indian Bank"),
             "ICIC" to Pair("icici_bank", "ICICI Bank"),
-            "HDFC" to Pair("hdfc_bank", "HDFC Bank")
+            "HDFC" to Pair("hdfc_bank", "HDFC Bank"),
+            "SBIN" to Pair("sbi_bank", "State Bank of India (SBI)"),
+            "UTIB" to Pair("axis_bank", "Axis Bank")
         )
 
         // Comprehensive registry of major Indian Banks operated in India mapped by 4-letter IFSC prefix
         val INDIAN_BANKS_IFSC_MAP = mapOf(
-            "SBIN" to "State Bank of India (SBI)",
-            "UTIB" to "Axis Bank",
             "KKBK" to "Kotak Mahindra Bank",
             "PUNB" to "Punjab National Bank",
             "BARB" to "Bank of Baroda",
@@ -81,8 +81,6 @@ class HeuristicMetadataScanner @Inject constructor() {
 
         // Known brand & website cues present in document headers
         val BRAND_HEADER_MAP = listOf(
-            "State Bank of India (SBI)" to listOf("STATE BANK OF INDIA", "YONO SBI", "ONLINESBI.COM", "ONLINESBI.SBM"),
-            "Axis Bank" to listOf("AXIS BANK", "AXISBANK.COM", "AXIS DIRECT", "UTI BANK"),
             "Kotak Mahindra Bank" to listOf("KOTAK MAHINDRA", "KOTAK.COM", "KOTAK BANK", "KOTAK 811"),
             "Punjab National Bank" to listOf("PUNJAB NATIONAL BANK", "PNBINDIA.IN", "PNB NET BANKING"),
             "Bank of Baroda" to listOf("BANK OF BARODA", "BANKOFBARODA.IN", "BOB FINANCIAL", "BOB WORLD"),
@@ -233,11 +231,23 @@ class HeuristicMetadataScanner @Inject constructor() {
                 headerText.contains("HDFCBANK")
         val hasIndianBank = (headerText.contains("INDIAN BANK") || headerText.contains("WWW.INDIANBANK.IN")) &&
                 !headerText.contains("INDIAN OVERSEAS BANK")
+        val hasSbiBank = headerText.contains("STATE BANK OF INDIA") ||
+                headerText.contains("YONO SBI") ||
+                headerText.contains("ONLINESBI.COM") ||
+                headerText.contains("ONLINESBI.SBM") ||
+                headerText.contains("SBIN0")
+        val hasAxisBank = headerText.contains("AXIS BANK") ||
+                headerText.contains("AXISBANK.COM") ||
+                headerText.contains("AXIS DIRECT") ||
+                headerText.contains("UTIB0") ||
+                headerText.contains("UTI BANK")
 
         val supportedBrandsFound = listOfNotNull(
             if (hasIciciBank) "icici_bank" to "ICICI Bank" else null,
             if (hasHdfcBank) "hdfc_bank" to "HDFC Bank" else null,
-            if (hasIndianBank) "indian_bank" to "Indian Bank" else null
+            if (hasIndianBank) "indian_bank" to "Indian Bank" else null,
+            if (hasSbiBank) "sbi_bank" to "State Bank of India (SBI)" else null,
+            if (hasAxisBank) "axis_bank" to "Axis Bank" else null
         )
 
         if (supportedBrandsFound.size == 1) {

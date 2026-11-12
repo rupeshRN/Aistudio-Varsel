@@ -74,6 +74,12 @@ sealed class AppDestination(
         Icons.Outlined.MoreHoriz
     )
 
+    data object DataQuality : AppDestination(
+        "data_quality",
+        "Data Quality",
+        Icons.Outlined.FactCheck
+    )
+
     companion object {
 
         val allNavDestinations = listOf(

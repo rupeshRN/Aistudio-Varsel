@@ -47,6 +47,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.varsel.expensetracker.data.repository.DataQualityRepository
+import com.varsel.expensetracker.domain.model.quality.QualitySummaryUiModel
+
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val transactionRepository: TransactionRepository,
@@ -59,8 +62,16 @@ class DashboardViewModel @Inject constructor(
     private val appearanceRepository: AppearanceRepository,
     private val generalPreferencesRepository: GeneralPreferencesRepository,
     private val addManualTransactionUseCase: AddManualTransactionUseCase,
-    private val categoryDao: CategoryDao
+    private val categoryDao: CategoryDao,
+    private val dataQualityRepository: DataQualityRepository
 ) : ViewModel() {
+
+    val qualitySummary: StateFlow<QualitySummaryUiModel?> = dataQualityRepository.qualitySummary
+        .catch { e ->
+            if (e is CancellationException) throw e
+            SafeLog.e("DashboardViewModel", "Failed to stream quality summary", e)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     private val _uiState =
         MutableStateFlow(DashboardUiState())

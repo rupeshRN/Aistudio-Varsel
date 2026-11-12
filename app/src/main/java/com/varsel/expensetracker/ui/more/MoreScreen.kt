@@ -35,6 +35,7 @@ fun MoreScreen(
     onRecurringClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     onGeneralSettingsClick: () -> Unit = {},
+    onDataQualityClick: () -> Unit = {},
     viewModel: GeneralSettingsViewModel = hiltViewModel()
 ) {
     val generalConfig by viewModel.generalConfig.collectAsStateWithLifecycle()
@@ -154,6 +155,19 @@ fun MoreScreen(
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             iconTint = MaterialTheme.colorScheme.secondary,
             onClick = onImportClick
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Data Quality & Health Card
+        ToolHubCard(
+            title = "Data Quality & Health",
+            subtitle = "Continuous ledger audit: duplicates, balance discrepancies & split integrity",
+            icon = Icons.Outlined.FactCheck,
+            isPinned = false,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            iconTint = MaterialTheme.colorScheme.secondary,
+            onClick = onDataQualityClick
         )
 
         Spacer(modifier = Modifier.height(24.dp))

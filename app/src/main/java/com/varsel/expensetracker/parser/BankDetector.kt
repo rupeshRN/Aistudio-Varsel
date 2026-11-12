@@ -108,8 +108,6 @@ class BankDetector @Inject constructor(
 
         // 1. Check for known unsupported financial institutions in isolated header
         val knownUnsupportedBanks = listOf(
-            "State Bank of India (SBI)" to listOf("STATE BANK OF INDIA", "SBIN0", "YONO SBI", "ONLINESBI.COM", "SBI"),
-            "Axis Bank" to listOf("AXIS BANK", "UTIB0"),
             "Kotak Mahindra Bank" to listOf("KOTAK MAHINDRA", "KKBK0"),
             "Punjab National Bank" to listOf("PUNJAB NATIONAL BANK", "PUNB0"),
             "Bank of Baroda" to listOf("BANK OF BARODA", "BARB0"),
@@ -128,7 +126,9 @@ class BankDetector @Inject constructor(
         val knownSupportedBankCues = listOf(
             "Indian Bank" to listOf("INDIAN BANK", "IDIB0", "INDIANBANK.IN"),
             "ICICI Bank" to listOf("ICICI BANK", "ICIC0", "ICICIBANK.COM"),
-            "HDFC Bank" to listOf("HDFC BANK", "HDFC0", "HDFCBANK.COM")
+            "HDFC Bank" to listOf("HDFC BANK", "HDFC0", "HDFCBANK.COM"),
+            "State Bank of India (SBI)" to listOf("STATE BANK OF INDIA", "SBIN0", "YONO SBI", "ONLINESBI.COM", "SBI"),
+            "Axis Bank" to listOf("AXIS BANK", "UTIB0", "AXISBANK.COM", "UTI BANK")
         )
 
         for ((bankName, cues) in knownSupportedBankCues) {

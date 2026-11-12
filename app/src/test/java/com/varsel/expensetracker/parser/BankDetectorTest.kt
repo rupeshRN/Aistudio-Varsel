@@ -15,6 +15,8 @@ class BankDetectorTest {
     private lateinit var dummyIndianBankParser: StatementParser
     private lateinit var dummyIciciBankParser: StatementParser
     private lateinit var dummyHdfcBankParser: StatementParser
+    private lateinit var dummySbiBankParser: StatementParser
+    private lateinit var dummyAxisBankParser: StatementParser
 
     private class FakeStatementSnapshotDao(
         private val snapshots: List<StatementSnapshotEntity> = emptyList()
@@ -46,12 +48,26 @@ class BankDetectorTest {
                 rawText.contains("HDFC BANK") && rawText.contains("STATEMENT OF ACCOUNT") && !rawText.contains("AMBIGUOUS")
             override fun parse(rawText: String) = emptyList<com.varsel.expensetracker.domain.model.Transaction>()
         }
+        dummySbiBankParser = object : StatementParser {
+            override fun canParse(rawText: String) =
+                (rawText.contains("STATE BANK OF INDIA", ignoreCase = true) || rawText.contains("SBIN")) &&
+                    rawText.contains("Account Statement", ignoreCase = true) && !rawText.contains("AMBIGUOUS")
+            override fun parse(rawText: String) = emptyList<com.varsel.expensetracker.domain.model.Transaction>()
+        }
+        dummyAxisBankParser = object : StatementParser {
+            override fun canParse(rawText: String) =
+                (rawText.contains("AXIS BANK", ignoreCase = true) || rawText.contains("UTIB")) &&
+                    rawText.contains("Statement of Account", ignoreCase = true) && !rawText.contains("AMBIGUOUS")
+            override fun parse(rawText: String) = emptyList<com.varsel.expensetracker.domain.model.Transaction>()
+        }
 
         val registry = BankParserRegistry {
             listOf(
                 RegisteredBankParser("indian_bank", "Indian Bank", dummyIndianBankParser),
                 RegisteredBankParser("icici_bank", "ICICI Bank", dummyIciciBankParser),
-                RegisteredBankParser("hdfc_bank", "HDFC Bank", dummyHdfcBankParser)
+                RegisteredBankParser("hdfc_bank", "HDFC Bank", dummyHdfcBankParser),
+                RegisteredBankParser("sbi_bank", "State Bank of India (SBI)", dummySbiBankParser),
+                RegisteredBankParser("axis_bank", "Axis Bank", dummyAxisBankParser)
             )
         }
 
@@ -59,7 +75,7 @@ class BankDetectorTest {
     }
 
     @Test
-    fun `test detectResult returns UnsupportedBank for State Bank of India`() {
+    fun `test detectResult returns Supported for valid State Bank of India statement`() {
         val sbiText = """
             STATE BANK OF INDIA
             Branch: Connaught Place, New Delhi
@@ -68,24 +84,38 @@ class BankDetectorTest {
         """.trimIndent()
 
         val result = bankDetector.detectResult(sbiText)
-        assertTrue(result is BankDetectionResult.UnsupportedBank)
-        assertEquals("State Bank of India (SBI)", (result as BankDetectionResult.UnsupportedBank).detectedBankName)
-    }
-
-    @Test(expected = UnsupportedBankException::class)
-    fun `test detect throws UnsupportedBankException for State Bank of India`() {
-        val sbiText = """
-            STATE BANK OF INDIA
-            Branch: Connaught Place, New Delhi
-            IFSC: SBIN0001234
-            Account Statement for 01/01/2024 to 31/01/2024
-        """.trimIndent()
-
-        bankDetector.detect(sbiText)
+        assertTrue(result is BankDetectionResult.Supported)
+        assertEquals("State Bank of India (SBI)", (result as BankDetectionResult.Supported).displayName)
     }
 
     @Test
-    fun `test detectResult returns UnsupportedBank for Axis Bank`() {
+    fun `test detectResult returns UnsupportedBank for Kotak Mahindra Bank`() {
+        val kotakText = """
+            KOTAK MAHINDRA BANK
+            Branch: Nariman Point, Mumbai
+            IFSC: KKBK0000123
+            Account Statement for 01/01/2024 to 31/01/2024
+        """.trimIndent()
+
+        val result = bankDetector.detectResult(kotakText)
+        assertTrue(result is BankDetectionResult.UnsupportedBank)
+        assertEquals("Kotak Mahindra Bank", (result as BankDetectionResult.UnsupportedBank).detectedBankName)
+    }
+
+    @Test(expected = UnsupportedBankException::class)
+    fun `test detect throws UnsupportedBankException for Kotak Mahindra Bank`() {
+        val kotakText = """
+            KOTAK MAHINDRA BANK
+            Branch: Nariman Point, Mumbai
+            IFSC: KKBK0000123
+            Account Statement for 01/01/2024 to 31/01/2024
+        """.trimIndent()
+
+        bankDetector.detect(kotakText)
+    }
+
+    @Test
+    fun `test detectResult returns Supported for valid Axis Bank statement`() {
         val axisText = """
             AXIS BANK LIMITED
             Statement of Account
@@ -93,8 +123,8 @@ class BankDetectorTest {
         """.trimIndent()
 
         val result = bankDetector.detectResult(axisText)
-        assertTrue(result is BankDetectionResult.UnsupportedBank)
-        assertEquals("Axis Bank", (result as BankDetectionResult.UnsupportedBank).detectedBankName)
+        assertTrue(result is BankDetectionResult.Supported)
+        assertEquals("Axis Bank", (result as BankDetectionResult.Supported).displayName)
     }
 
     @Test
@@ -143,8 +173,8 @@ class BankDetectorTest {
         """.trimIndent()
 
         val result = bankDetector.detectResult(axisWithIciciNarration)
-        assertTrue(result is BankDetectionResult.UnsupportedBank)
-        assertEquals("Axis Bank", (result as BankDetectionResult.UnsupportedBank).detectedBankName)
+        assertTrue(result is BankDetectionResult.Supported)
+        assertEquals("Axis Bank", (result as BankDetectionResult.Supported).displayName)
     }
 
     @Test

@@ -17,7 +17,9 @@ open class BankParserRegistry(
     constructor(
         indianBankParser: IndianBankParser,
         iciciBankParser: IciciBankParser,
-        hdfcBankParser: HdfcBankParser
+        hdfcBankParser: HdfcBankParser,
+        sbiBankParser: SbiBankParser,
+        axisBankParser: AxisBankParser
     ) : this({
         listOf(
             RegisteredBankParser(
@@ -34,6 +36,16 @@ open class BankParserRegistry(
                 bankId = "hdfc_bank",
                 displayName = "HDFC Bank",
                 parser = hdfcBankParser
+            ),
+            RegisteredBankParser(
+                bankId = "sbi_bank",
+                displayName = "State Bank of India (SBI)",
+                parser = sbiBankParser
+            ),
+            RegisteredBankParser(
+                bankId = "axis_bank",
+                displayName = "Axis Bank",
+                parser = axisBankParser
             )
         )
     })

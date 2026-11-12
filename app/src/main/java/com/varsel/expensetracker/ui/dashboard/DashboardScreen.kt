@@ -24,6 +24,7 @@ import com.varsel.expensetracker.ui.dashboard.components.BalanceCard
 import com.varsel.expensetracker.ui.dashboard.components.DashboardLoanWidget
 import com.varsel.expensetracker.ui.dashboard.components.DashboardRecentSection
 import com.varsel.expensetracker.ui.dashboard.components.DashboardRecurringWidget
+import com.varsel.expensetracker.ui.dashboard.components.DataQualityPill
 import com.varsel.expensetracker.ui.dashboard.components.GreetingHeader
 import com.varsel.expensetracker.ui.dashboard.components.InsightsCard
 import com.varsel.expensetracker.ui.dashboard.components.QuickActionBar
@@ -57,10 +58,12 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToLoans: () -> Unit = {},
     onNavigateToBudgets: () -> Unit = {},
-    onNavigateToRecurring: () -> Unit = {}
+    onNavigateToRecurring: () -> Unit = {},
+    onNavigateToDataQuality: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val qualitySummary by viewModel.qualitySummary.collectAsStateWithLifecycle()
     val activeSections by viewModel.activeHomeSections.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val availableAccounts by viewModel.availableAccounts.collectAsStateWithLifecycle()
@@ -140,9 +143,16 @@ fun DashboardScreen(
                     when (sectionId) {
                         HomeSection.BANNER.id -> {
                             item(key = "greeting") {
-                                GreetingHeader(
-                                    onSettingsClick = onNavigateToSettings
-                                )
+                                Column {
+                                    GreetingHeader(
+                                        onSettingsClick = onNavigateToSettings
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    DataQualityPill(
+                                        summary = qualitySummary,
+                                        onClick = onNavigateToDataQuality
+                                    )
+                                }
                             }
                         }
 
