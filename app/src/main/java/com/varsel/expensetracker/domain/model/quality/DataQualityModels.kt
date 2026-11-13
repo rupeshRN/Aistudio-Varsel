@@ -12,7 +12,7 @@ enum class QualityCategory(val displayName: String) {
     CATEGORIES_AND_BUDGETS("Categories & Budgets"),
     TRANSFERS_AND_ACCOUNTS("Transfers & Accounts"),
     RECURRING_AND_LOANS("Recurring & Loans"),
-    SPLITS_AND_EVENTS("Splits & Events")
+    SPLITS_AND_EVENTS("Events & Receivables")
 }
 
 enum class QualityActionType {
@@ -21,9 +21,11 @@ enum class QualityActionType {
     CATEGORIZE,
     ADJUST_DATE,
     LINK_TRANSFER,
+    VIEW_TRANSACTION,
     RECORD_RECURRING,
     VIEW_LOAN,
     VIEW_BUDGET,
+    IMPORT_STATEMENT,
     CLEAN_ORPHAN
 }
 
@@ -63,6 +65,12 @@ enum class QualityCheckType(
         QualitySeverity.ERROR,
         8
     ),
+    ROLE_TYPE_MISMATCH(
+        "Role & Type Mismatch",
+        QualityCategory.INTEGRITY,
+        QualitySeverity.ERROR,
+        6
+    ),
     UNCATEGORISED_ITEM(
         "Uncategorised Transaction",
         QualityCategory.CATEGORIES_AND_BUDGETS,
@@ -100,7 +108,7 @@ enum class QualityCheckType(
         4
     ),
     OVERDUE_LOAN_EMI(
-        "Overdue Loan Payment",
+        "Overdue Loan EMI",
         QualityCategory.RECURRING_AND_LOANS,
         QualitySeverity.ERROR,
         7
@@ -111,14 +119,26 @@ enum class QualityCheckType(
         QualitySeverity.INFO,
         1
     ),
-    BROKEN_SPLIT(
-        "Split Total Mismatch",
+    OLD_RECEIVABLE(
+        "Old Unsettled Receivable",
+        QualityCategory.SPLITS_AND_EVENTS,
+        QualitySeverity.WARNING,
+        3
+    ),
+    OVER_ALLOCATION(
+        "Allocation Exceeds Transaction",
         QualityCategory.SPLITS_AND_EVENTS,
         QualitySeverity.ERROR,
         6
     ),
-    ORPHAN_ALLOCATION(
-        "Orphan Event Allocation",
+    OVER_SETTLEMENT(
+        "Event Over-Settlement",
+        QualityCategory.SPLITS_AND_EVENTS,
+        QualitySeverity.WARNING,
+        4
+    ),
+    ORPHAN_MAPPING(
+        "Orphan Ledger Mapping",
         QualityCategory.SPLITS_AND_EVENTS,
         QualitySeverity.ERROR,
         5
@@ -148,7 +168,9 @@ data class DataQualityReport(
     val warningCount: Int,
     val infoCount: Int,
     val issues: List<QualityIssue>,
-    val passedChecksCount: Int
+    val passedChecksCount: Int,
+    val totalChecksCount: Int = QualityCheckType.values().size,
+    val dismissedCount: Int = 0
 ) {
     val isHealthy: Boolean get() = totalIssues == 0
 }

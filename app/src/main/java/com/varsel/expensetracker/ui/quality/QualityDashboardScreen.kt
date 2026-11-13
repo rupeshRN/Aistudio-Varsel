@@ -1,10 +1,6 @@
 package com.varsel.expensetracker.ui.quality
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -32,11 +28,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -64,14 +56,11 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -96,6 +85,11 @@ import java.util.Locale
 fun QualityDashboardScreen(
     onNavigateBack: () -> Unit,
     onNavigateToTransactionDetail: (Long) -> Unit = {},
+    onNavigateToLoanDetail: (Long) -> Unit = {},
+    onNavigateToLoans: () -> Unit = {},
+    onNavigateToBudgetDetail: (Long) -> Unit = {},
+    onNavigateToRecurring: () -> Unit = {},
+    onNavigateToImport: () -> Unit = {},
     viewModel: DataQualityViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -104,6 +98,19 @@ fun QualityDashboardScreen(
     LaunchedEffect(viewModel) {
         viewModel.userMessage.collectLatest { msg ->
             snackbarHostState.showSnackbar(msg)
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.navEvents.collectLatest { event ->
+            when (event) {
+                is QualityNavEvent.OpenTransaction -> onNavigateToTransactionDetail(event.transactionId)
+                is QualityNavEvent.OpenLoan -> onNavigateToLoanDetail(event.loanId)
+                QualityNavEvent.OpenLoans -> onNavigateToLoans()
+                is QualityNavEvent.OpenBudget -> onNavigateToBudgetDetail(event.budgetId)
+                QualityNavEvent.OpenRecurring -> onNavigateToRecurring()
+                QualityNavEvent.OpenImport -> onNavigateToImport()
+            }
         }
     }
 
@@ -123,6 +130,20 @@ fun QualityDashboardScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
+                    }
+                },
+                actions = {
+                    val dismissedCount = uiState.report?.dismissedCount ?: 0
+                    if (dismissedCount > 0) {
+                        TextButton(onClick = { viewModel.restoreAllDismissed() }) {
+                            Icon(
+                                imageVector = Icons.Default.Restore,
+                                contentDescription = "Restore Dismissed",
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Restore ($dismissedCount)")
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -175,7 +196,10 @@ fun QualityDashboardScreen(
                     val issues = uiState.filteredIssues
                     if (issues.isEmpty()) {
                         item(key = "empty_state") {
-                            AllCleanCard(selectedCategory = uiState.selectedCategory)
+                            AllCleanCard(
+                                selectedCategory = uiState.selectedCategory,
+                                totalChecksCount = uiState.report?.totalChecksCount ?: 18
+                            )
                         }
                     } else {
                         items(issues, key = { it.id }) { issue ->
@@ -249,13 +273,13 @@ fun QualityScoreHeroCard(report: DataQualityReport) {
 
     val headline = when {
         report.isHealthy -> "Ledger In Pristine Shape"
-        report.errorCount > 0 -> "${report.errorCount} Critical Issues Require Review"
-        else -> "${report.totalIssues} Anomalies Observed"
+        report.errorCount > 0 -> "${report.errorCount} Critical Issue${if (report.errorCount > 1) "s" else ""} Require Review"
+        else -> "${report.totalIssues} Anomal${if (report.totalIssues > 1) "ies" else "y"} Observed"
     }
 
     val subtitle = when {
-        report.isHealthy -> "All 15 financial data quality and integrity rules passed with zero discrepancies."
-        else -> "Resolve or dismiss highlighted transactions to maintain pristine ledger accuracy."
+        report.isHealthy -> "All ${report.totalChecksCount} financial data quality and integrity rules passed with zero discrepancies."
+        else -> "Resolve or dismiss highlighted items to keep your ledger, cash flow, and reports accurate."
     }
 
     Card(
@@ -318,7 +342,11 @@ fun QualityScoreHeroCard(report: DataQualityReport) {
                 MetricCounter(label = "Critical", count = report.errorCount, color = MaterialTheme.colorScheme.error)
                 MetricCounter(label = "Warnings", count = report.warningCount, color = MaterialTheme.colorScheme.tertiary)
                 MetricCounter(label = "Notices", count = report.infoCount, color = MaterialTheme.colorScheme.primary)
-                MetricCounter(label = "Passed Checks", count = report.passedChecksCount, color = MaterialTheme.colorScheme.secondary)
+                MetricCounter(
+                    label = "Passed Checks",
+                    count = report.passedChecksCount,
+                    color = MaterialTheme.colorScheme.secondary
+                )
             }
         }
     }
@@ -434,10 +462,12 @@ fun QualityIssueCard(
         QualityActionType.DELETE_DUPLICATE -> "Resolve Duplicate"
         QualityActionType.ADJUST_DATE -> "Correct Date"
         QualityActionType.CLEAN_ORPHAN -> "Clean Orphan"
-        QualityActionType.LINK_TRANSFER -> "Review Transfer"
-        QualityActionType.RECORD_RECURRING -> "Record Payment"
+        QualityActionType.LINK_TRANSFER -> "Link Transfer"
+        QualityActionType.VIEW_TRANSACTION -> "Inspect Entry"
+        QualityActionType.RECORD_RECURRING -> "Open Recurring"
         QualityActionType.VIEW_LOAN -> "View Loan"
         QualityActionType.VIEW_BUDGET -> "View Budget"
+        QualityActionType.IMPORT_STATEMENT -> "Import Statement"
         QualityActionType.DISMISS -> "Acknowledge"
     }
 
@@ -457,8 +487,10 @@ fun QualityIssueCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Severity Tag + Category
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = severityColor.copy(alpha = 0.15f)
@@ -468,7 +500,9 @@ fun QualityIssueCard(
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = severityColor,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
@@ -482,16 +516,17 @@ fun QualityIssueCard(
                                 text = issue.accountName,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
                 }
 
-                // Dismiss icon button
                 IconButton(
                     onClick = onDismiss,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -504,7 +539,6 @@ fun QualityIssueCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Title & Description
             Text(
                 text = issue.title,
                 style = MaterialTheme.typography.titleSmall,
@@ -532,7 +566,6 @@ fun QualityIssueCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Action row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -568,7 +601,10 @@ fun QualityIssueCard(
 }
 
 @Composable
-fun AllCleanCard(selectedCategory: QualityCategory) {
+fun AllCleanCard(
+    selectedCategory: QualityCategory,
+    totalChecksCount: Int
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -611,7 +647,7 @@ fun AllCleanCard(selectedCategory: QualityCategory) {
 
             Text(
                 text = if (selectedCategory == QualityCategory.ALL) {
-                    "Your offline ledger is in excellent health. All 15 audit checks passed."
+                    "Your offline ledger is in excellent health. All $totalChecksCount audit checks passed."
                 } else {
                     "No anomalies detected in ${selectedCategory.displayName}."
                 },
@@ -650,7 +686,7 @@ fun QuickCategorizeSheet(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Select a category for '${issue.title}'",
+                text = issue.description,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -660,7 +696,7 @@ fun QuickCategorizeSheet(
             val commonCategories = if (categories.isNotEmpty()) {
                 categories.map { it.name }
             } else {
-                listOf("Groceries", "Food & Dining", "Shopping", "Transport", "Bills & Utilities", "Entertainment", "Health", "Salary", "Investment")
+                listOf("Groceries", "Dining & Food", "Shopping", "Fuel & Transport", "Utilities", "Entertainment", "Healthcare", "Salary", "Investments")
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

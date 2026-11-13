@@ -34,6 +34,7 @@ import com.varsel.expensetracker.ui.loan.add_edit.AddEditLoanScreen
 import com.varsel.expensetracker.ui.loan.detail.LoanDetailScreen
 import com.varsel.expensetracker.ui.more.MoreScreen
 import com.varsel.expensetracker.ui.more.SettingsDetailScreen
+import com.varsel.expensetracker.ui.quality.QualityDashboardScreen
 import com.varsel.expensetracker.ui.recurring.RecurringSubscriptionsScreen
 import com.varsel.expensetracker.ui.reports.ReportsScreen
 import com.varsel.expensetracker.ui.settings.SettingsScreen
@@ -109,6 +110,9 @@ fun NavGraph(
                 },
                 onNavigateToRecurring = {
                     navController.navigate("recurring")
+                },
+                onNavigateToDataQuality = {
+                    navController.navigate("data_quality")
                 }
             )
         }
@@ -343,6 +347,9 @@ composable(AppDestination.Reports.route) {
                 },
                 onGeneralSettingsClick = {
                     navController.navigate("general_settings")
+                },
+                onDataQualityClick = {
+                    navController.navigate("data_quality")
                 }
             )
         }
@@ -550,6 +557,32 @@ composable(AppDestination.Reports.route) {
             AboutScreen(
                 onBackClick = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        composable("data_quality") {
+            QualityDashboardScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToTransactionDetail = { transactionId ->
+                    navController.navigate("transaction_detail/$transactionId")
+                },
+                onNavigateToLoanDetail = { loanId ->
+                    navController.navigate("loan_detail/$loanId")
+                },
+                onNavigateToLoans = {
+                    navController.navigate("loans")
+                },
+                onNavigateToBudgetDetail = { budgetId ->
+                    navController.navigate("budget_detail/$budgetId")
+                },
+                onNavigateToRecurring = {
+                    navController.navigate(AppDestination.Recurring.route)
+                },
+                onNavigateToImport = {
+                    navController.navigate("import_statement")
                 }
             )
         }

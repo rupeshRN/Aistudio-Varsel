@@ -8,6 +8,7 @@ import com.varsel.expensetracker.data.repository.DataQualityRepository
 import com.varsel.expensetracker.domain.model.quality.DataQualityReport
 import com.varsel.expensetracker.domain.model.quality.QualityActionType
 import com.varsel.expensetracker.domain.model.quality.QualityCategory
+import com.varsel.expensetracker.domain.model.quality.QualityCheckType
 import com.varsel.expensetracker.domain.model.quality.QualityIssue
 import com.varsel.expensetracker.domain.model.quality.QualitySeverity
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +28,15 @@ sealed class QuickFixSheetState {
     data class Categorize(val issue: QualityIssue) : QuickFixSheetState()
     data class DuplicateMerge(val issue: QualityIssue) : QuickFixSheetState()
     data class AdjustDate(val issue: QualityIssue) : QuickFixSheetState()
+}
+
+sealed class QualityNavEvent {
+    data class OpenTransaction(val transactionId: Long) : QualityNavEvent()
+    data class OpenLoan(val loanId: Long) : QualityNavEvent()
+    object OpenLoans : QualityNavEvent()
+    data class OpenBudget(val budgetId: Long) : QualityNavEvent()
+    object OpenRecurring : QualityNavEvent()
+    object OpenImport : QualityNavEvent()
 }
 
 data class DataQualityUiState(
@@ -65,6 +75,9 @@ class DataQualityViewModel @Inject constructor(
 
     private val _userMessage = MutableSharedFlow<String>()
     val userMessage: SharedFlow<String> = _userMessage.asSharedFlow()
+
+    private val _navEvents = MutableSharedFlow<QualityNavEvent>()
+    val navEvents: SharedFlow<QualityNavEvent> = _navEvents.asSharedFlow()
 
     val uiState: StateFlow<DataQualityUiState> = combine(
         repository.dataQualityReport,
@@ -107,14 +120,54 @@ class DataQualityViewModel @Inject constructor(
                 _quickFixState.value = QuickFixSheetState.AdjustDate(issue)
             }
             QualityActionType.CLEAN_ORPHAN -> {
-                issue.entityId?.let { allocId ->
-                    viewModelScope.launch {
-                        repository.deleteOrphanAllocation(allocId)
-                        _userMessage.emit("Cleaned orphan allocation")
+                viewModelScope.launch {
+                    val cleaned = repository.cleanOrphanIssue(issue)
+                    if (cleaned) {
+                        _userMessage.emit("Cleaned orphan reference")
                     }
                 }
             }
-            else -> {
+            QualityActionType.LINK_TRANSFER,
+            QualityActionType.VIEW_TRANSACTION -> {
+                val txId = issue.entityId
+                if (txId != null) {
+                    viewModelScope.launch {
+                        _navEvents.emit(QualityNavEvent.OpenTransaction(txId))
+                    }
+                } else {
+                    dismissIssue(issue)
+                }
+            }
+            QualityActionType.VIEW_LOAN -> {
+                viewModelScope.launch {
+                    if (issue.type == QualityCheckType.OVERDUE_LOAN_EMI && issue.entityId != null) {
+                        _navEvents.emit(QualityNavEvent.OpenLoan(issue.entityId))
+                    } else if (issue.entityId != null && issue.type == QualityCheckType.UNLINKED_LOAN_PAYMENT) {
+                        _navEvents.emit(QualityNavEvent.OpenTransaction(issue.entityId))
+                    } else {
+                        _navEvents.emit(QualityNavEvent.OpenLoans)
+                    }
+                }
+            }
+            QualityActionType.VIEW_BUDGET -> {
+                val budgetId = issue.entityId
+                if (budgetId != null) {
+                    viewModelScope.launch {
+                        _navEvents.emit(QualityNavEvent.OpenBudget(budgetId))
+                    }
+                }
+            }
+            QualityActionType.RECORD_RECURRING -> {
+                viewModelScope.launch {
+                    _navEvents.emit(QualityNavEvent.OpenRecurring)
+                }
+            }
+            QualityActionType.IMPORT_STATEMENT -> {
+                viewModelScope.launch {
+                    _navEvents.emit(QualityNavEvent.OpenImport)
+                }
+            }
+            QualityActionType.DISMISS -> {
                 dismissIssue(issue)
             }
         }
@@ -131,9 +184,10 @@ class DataQualityViewModel @Inject constructor(
         }
     }
 
-    fun restoreIssue(issueId: String) {
+    fun restoreAllDismissed() {
         viewModelScope.launch {
-            repository.restoreDismissedIssue(issueId)
+            repository.clearAllDismissed()
+            _userMessage.emit("Dismissed issues restored")
         }
     }
 
