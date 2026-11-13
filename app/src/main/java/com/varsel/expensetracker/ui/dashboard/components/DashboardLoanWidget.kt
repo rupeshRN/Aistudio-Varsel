@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -37,13 +36,7 @@ fun DashboardLoanWidget(
         }
     }
 
-    val now = System.currentTimeMillis()
     val activeLoans = loans.filter { it.loan.status == com.varsel.expensetracker.domain.model.loan.LoanStatus.ACTIVE }
-    val overdueLoans = activeLoans.filter {
-        it.currentOutstandingBalance > 0.0 &&
-            it.nextEmiDueDateTimestamp != null &&
-            it.nextEmiDueDateTimestamp < now
-    }
     val totalDebt = activeLoans.sumOf { it.currentOutstandingBalance }
     val totalMonthlyEmi = activeLoans.sumOf { it.nextEmiAmount }
 
@@ -79,14 +72,14 @@ fun DashboardLoanWidget(
                     ) {
                         Surface(
                             shape = CircleShape,
-                            color = if (overdueLoans.isNotEmpty()) MaterialTheme.colorScheme.error.copy(alpha = 0.15f) else Color(0xFFF59E0B).copy(alpha = 0.15f),
+                            color = Color(0xFFF59E0B).copy(alpha = 0.15f),
                             modifier = Modifier.size(30.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = if (overdueLoans.isNotEmpty()) Icons.Default.Warning else Icons.Outlined.AccountBalance,
+                                    imageVector = Icons.Outlined.AccountBalance,
                                     contentDescription = null,
-                                    tint = if (overdueLoans.isNotEmpty()) MaterialTheme.colorScheme.error else Color(0xFFF59E0B),
+                                    tint = Color(0xFFF59E0B),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -96,30 +89,16 @@ fun DashboardLoanWidget(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        if (overdueLoans.isNotEmpty()) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.errorContainer
-                            ) {
-                                Text(
-                                    text = "${activeLoans.size} Active • ${overdueLoans.size} Overdue",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        } else {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            ) {
-                                Text(
-                                    text = "${activeLoans.size} Active",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Text(
+                                text = "${activeLoans.size} Active",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
                         }
                     }
 
@@ -130,82 +109,14 @@ fun DashboardLoanWidget(
                         Text(
                             text = "Hub",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = if (overdueLoans.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary
                         )
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
                             contentDescription = null,
-                            tint = if (overdueLoans.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(11.dp)
                         )
-                    }
-                }
-
-                // Overdue Alert Banner if any EMI past due
-                if (overdueLoans.isNotEmpty()) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.85f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.35f))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.Warning,
-                                            contentDescription = "Overdue EMI",
-                                            tint = MaterialTheme.colorScheme.error,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(10.dp))
-
-                                Column {
-                                    val firstOverdue = overdueLoans.first()
-                                    val overdueDays = ((now - (firstOverdue.nextEmiDueDateTimestamp ?: now)) / (24 * 60 * 60 * 1000L)).coerceAtLeast(1)
-                                    val overdueTitle = if (overdueLoans.size == 1) {
-                                        "Overdue: ${firstOverdue.loan.name}"
-                                    } else {
-                                        "${overdueLoans.size} Loans Overdue"
-                                    }
-
-                                    Text(
-                                        text = overdueTitle,
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                    Text(
-                                        text = "₹${currencyFormatter.format(overdueLoans.sumOf { it.nextEmiAmount }).replace("₹", "").trim()} past due ($overdueDays days ago) • Tap to repay",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
-                                    )
-                                }
-                            }
-
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(12.dp)
-                            )
-                        }
                     }
                 }
 

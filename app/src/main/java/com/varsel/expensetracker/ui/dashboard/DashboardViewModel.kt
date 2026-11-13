@@ -197,29 +197,10 @@ class DashboardViewModel @Inject constructor(
                         period = generalConfig.netWorthWidgetPeriod
                     )
 
-                val overdueLoans = loans.filter {
-                    it.loan.status == com.varsel.expensetracker.domain.model.loan.LoanStatus.ACTIVE &&
-                        it.currentOutstandingBalance > 0.0 &&
-                        it.nextEmiDueDateTimestamp != null &&
-                        it.nextEmiDueDateTimestamp < System.currentTimeMillis()
-                }
-                val loanInsights = overdueLoans.map { overdue ->
-                    val daysAgo = ((System.currentTimeMillis() - (overdue.nextEmiDueDateTimestamp ?: 0L)) / (24 * 60 * 60 * 1000L)).coerceAtLeast(1)
-                    val emiStr = "₹${String.format(java.util.Locale.US, "%,.0f", overdue.nextEmiAmount)}"
-                    val sdf = java.text.SimpleDateFormat("dd MMM", java.util.Locale.ENGLISH)
-                    com.varsel.expensetracker.ui.model.FinancialInsight(
-                        emoji = "⚠️",
-                        title = "Overdue EMI: ${overdue.loan.name}",
-                        description = "$emiStr was due on ${sdf.format(java.util.Date(overdue.nextEmiDueDateTimestamp!!))} ($daysAgo days ago). No repayment recorded.",
-                        type = com.varsel.expensetracker.ui.model.InsightType.ATTENTION,
-                        actionLabel = "Record Repayment"
-                    )
-                }
-
                 val insights = if (appearanceConfig.actionableInsights) {
-                    loanInsights + baseDashboard.insights
+                    baseDashboard.insights
                 } else {
-                    loanInsights
+                    emptyList()
                 }
 
                 val allBudgets = rawBudgets.map { budget ->
