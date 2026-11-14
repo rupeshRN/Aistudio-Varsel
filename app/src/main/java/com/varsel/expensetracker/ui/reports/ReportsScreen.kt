@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.varsel.expensetracker.domain.model.FinancialEventStatusFilter
 import com.varsel.expensetracker.ui.reports.components.CategoryComparisonView
 import com.varsel.expensetracker.ui.reports.components.CategoryDrillDownBottomSheet
 import com.varsel.expensetracker.ui.reports.components.ExpenseCategoryChart
@@ -133,6 +134,9 @@ fun ReportsScreen(
         onFinancialEventClick =
             onFinancialEventClick,
 
+        onEventStatusFilterSelected =
+            viewModel::selectEventStatusFilter,
+
         onRetry =
             viewModel::retry
     )
@@ -216,6 +220,7 @@ private fun ReportsScreenContent(
     onExpenseCategorySelected: (String?) -> Unit,
     onIncomeCategorySelected: (String?) -> Unit,
     onFinancialEventClick: (String) -> Unit,
+    onEventStatusFilterSelected: (FinancialEventStatusFilter) -> Unit,
     onRetry: () -> Unit = {}
 ) {
     Box(
@@ -352,6 +357,8 @@ private fun ReportsScreenContent(
 
                                 FinancialEventsCard(
                                     financialEvents = uiState.financialEvents,
+                                    selectedStatusFilter = uiState.selectedEventStatusFilter,
+                                    onStatusFilterSelected = onEventStatusFilterSelected,
                                     onFinancialEventClick = onFinancialEventClick
                                 )
                             }

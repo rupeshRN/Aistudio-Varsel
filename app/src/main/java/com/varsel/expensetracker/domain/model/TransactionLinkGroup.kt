@@ -20,5 +20,15 @@ data class TransactionLinkGroup(
     /**
      * Creation timestamp.
      */
-    val createdAt: Long
+    val createdAt: Long,
+
+    /**
+     * Manual override marking the event settled.
+     */
+    val isManuallySettled: Boolean = false,
+
+    /**
+     * Optional expected reimbursement target from roommates/others.
+     */
+    val expectedReimbursement: Double? = null
 )

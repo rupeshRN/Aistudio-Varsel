@@ -42,7 +42,7 @@ import javax.inject.Provider
         BudgetEntity::class,
         RecurringItemEntity::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -586,6 +586,17 @@ val MIGRATION_8_9 =
 
                     // Add isVariableAmount to recurring_items table
                     database.execSQL("ALTER TABLE recurring_items ADD COLUMN isVariableAmount INTEGER NOT NULL DEFAULT 0")
+                }
+            }
+
+        val MIGRATION_20_21 =
+            object : Migration(20, 21) {
+
+                override fun migrate(
+                    database: SupportSQLiteDatabase
+                ) {
+                    database.execSQL("ALTER TABLE transaction_link_groups ADD COLUMN isManuallySettled INTEGER NOT NULL DEFAULT 0")
+                    database.execSQL("ALTER TABLE transaction_link_groups ADD COLUMN expectedReimbursement REAL")
                 }
             }
     }

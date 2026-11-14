@@ -3,6 +3,8 @@ package com.varsel.expensetracker.ui.reports
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.varsel.expensetracker.domain.engine.FinancialEventStatusCalculator
+import com.varsel.expensetracker.domain.model.FinancialEventStatusFilter
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
 import com.varsel.expensetracker.domain.model.TransactionRole
@@ -99,6 +101,7 @@ class ReportsViewModel @Inject constructor(
         const val KEY_SELECTED_FLOW = "reports_selected_flow"
         const val KEY_COMPARISON_WINDOW = "reports_comparison_window"
         const val KEY_COMPARISON_FLOW = "reports_comparison_flow"
+        const val KEY_EVENT_STATUS_FILTER = "reports_event_status_filter"
     }
 
     private val initialPeriodFilter: PeriodFilter =
@@ -162,6 +165,11 @@ class ReportsViewModel @Inject constructor(
             runCatching { ReportsFlow.valueOf(name) }.getOrNull()
         } ?: ReportsFlow.EXPENSES
 
+    private val initialEventStatusFilter: FinancialEventStatusFilter =
+        savedStateHandle.get<String>(KEY_EVENT_STATUS_FILTER)?.let { name ->
+            runCatching { FinancialEventStatusFilter.valueOf(name) }.getOrNull()
+        } ?: FinancialEventStatusFilter.ALL
+
     private val _uiState = MutableStateFlow(
         ReportsUiState(
             isLoading = true,
@@ -174,7 +182,8 @@ class ReportsViewModel @Inject constructor(
             currentTab = initialCurrentTab,
             selectedFlow = initialSelectedFlow,
             comparisonWindow = initialComparisonWindow,
-            comparisonFlow = initialComparisonFlow
+            comparisonFlow = initialComparisonFlow,
+            selectedEventStatusFilter = initialEventStatusFilter
         )
     )
 
@@ -205,6 +214,11 @@ class ReportsViewModel @Inject constructor(
     fun selectReportsTab(tab: ReportsTab) {
         savedStateHandle[KEY_CURRENT_TAB] = tab.name
         _uiState.value = _uiState.value.copy(currentTab = tab)
+    }
+
+    fun selectEventStatusFilter(filter: FinancialEventStatusFilter) {
+        savedStateHandle[KEY_EVENT_STATUS_FILTER] = filter.name
+        _uiState.value = _uiState.value.copy(selectedEventStatusFilter = filter)
     }
 
     fun selectComparisonWindow(window: ComparisonWindow) {
@@ -1757,6 +1771,13 @@ val isFinalMonth =
                             event.allocationMap[transaction.id] ?: 0.0
                         }
 
+                val statusSummary = FinancialEventStatusCalculator.calculate(
+                    totalExpense = event.totalExpense,
+                    totalReimbursement = event.totalReimbursement,
+                    expectedReimbursement = event.group.expectedReimbursement,
+                    isManuallySettled = event.group.isManuallySettled
+                )
+
                 ReportsFinancialEvent(
                     transactionLinkId = event.group.transactionLinkId,
                     groupName = event.group.groupName,
@@ -1767,7 +1788,10 @@ val isFinalMonth =
                     totalEventExpense = event.totalExpense,
                     totalEventReimbursement = event.totalReimbursement,
                     isFinalMonth = isFinalMonth,
-                    coveredMonths = event.coveredMonths
+                    coveredMonths = event.coveredMonths,
+                    statusSummary = statusSummary,
+                    isManuallySettled = event.group.isManuallySettled,
+                    expectedReimbursement = event.group.expectedReimbursement
                 )
             }
             .filter {

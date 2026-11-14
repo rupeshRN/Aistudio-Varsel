@@ -48,5 +48,17 @@ data class TransactionLinkGroupEntity(
     /**
      * Time when the report group was created.
      */
-    val createdAt: Long
+    val createdAt: Long,
+
+    /**
+     * Manual override allowing the user to mark an event settled even when
+     * net expense remains positive (e.g., personal room share or cash offset).
+     */
+    val isManuallySettled: Boolean = false,
+
+    /**
+     * Optional total reimbursement expected from roommates/others for this event.
+     * When null, settlement compares reimbursements against total event expenses.
+     */
+    val expectedReimbursement: Double? = null
 )

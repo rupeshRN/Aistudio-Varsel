@@ -98,13 +98,23 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Switch
+import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.varsel.expensetracker.category.CategoryIconCatalog
+import com.varsel.expensetracker.domain.model.FinancialEventStatus
+import com.varsel.expensetracker.domain.model.FinancialEventStatusSummary
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
+import com.varsel.expensetracker.ui.components.FinancialEventStatusBadge
+import com.varsel.expensetracker.ui.components.rememberFinancialEventStatusPalette
 import com.varsel.expensetracker.ui.design.CategoryPalette
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 private enum class AddTransactionMode {
     EXPENSE,
@@ -232,7 +242,9 @@ fun FinancialEventScreen(
                             totalExpenses = state.totalExpenses,
                             totalReimbursements = state.totalReimbursements,
                             actualExpense = state.actualExpense,
+                            statusSummary = state.statusSummary,
                             onEditGroup = viewModel::startEditingGroup,
+                            onToggleSettled = viewModel::toggleManualSettled,
                             enabled = !state.isUpdating
                         )
 
@@ -432,6 +444,9 @@ fun FinancialEventScreen(
                         EditFinancialEventDialog(
                             initialName = state.group.groupName,
                             initialCategory = state.group.category,
+                            initialExpectedReimbursement = state.group.expectedReimbursement,
+                            initialIsManuallySettled = state.group.isManuallySettled,
+                            totalExpenses = state.totalExpenses,
                             categories = state.categories,
                             onDismiss = viewModel::cancelEditingGroup,
                             onSave = viewModel::saveGroup
@@ -507,11 +522,14 @@ private fun EventHeroHeaderCard(
     totalExpenses: Double,
     totalReimbursements: Double,
     actualExpense: Double,
+    statusSummary: FinancialEventStatusSummary,
     onEditGroup: () -> Unit,
+    onToggleSettled: () -> Unit,
     enabled: Boolean
 ) {
     val categoryColor = CategoryPalette.colorFor(group.category)
     val categoryIcon = CategoryIconCatalog.iconFor(group.category)
+    val statusPalette = rememberFinancialEventStatusPalette(statusSummary.status)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -562,7 +580,7 @@ private fun EventHeroHeaderCard(
                         )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -582,6 +600,7 @@ private fun EventHeroHeaderCard(
                 FilledTonalIconButton(
                     onClick = onEditGroup,
                     enabled = enabled,
+                    modifier = Modifier.testTag("edit_financial_event_button"),
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                         contentColor = MaterialTheme.colorScheme.primary
@@ -591,6 +610,77 @@ private fun EventHeroHeaderCard(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Financial Event"
                     )
+                }
+            }
+
+            // Settlement Status Strip + Quick Toggle
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = statusPalette.containerColor,
+                border = BorderStroke(1.dp, statusPalette.borderColor),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        FinancialEventStatusBadge(
+                            summary = statusSummary,
+                            modifier = Modifier.testTag("event_detail_status_badge")
+                        )
+                        if (statusSummary.statusMessage.isNotBlank()) {
+                            Text(
+                                text = statusSummary.statusMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    if (statusSummary.isManuallySettled || statusSummary.status != FinancialEventStatus.SETTLED) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilledTonalButton(
+                            onClick = onToggleSettled,
+                            enabled = enabled,
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            modifier = Modifier
+                                .heightIn(min = 48.dp)
+                                .testTag("toggle_event_settled_button"),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = if (statusSummary.isManuallySettled) {
+                                    MaterialTheme.colorScheme.surface
+                                } else {
+                                    statusPalette.contentColor.copy(alpha = 0.18f)
+                                },
+                                contentColor = if (statusSummary.isManuallySettled) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    statusPalette.contentColor
+                                }
+                            )
+                        ) {
+                            Icon(
+                                imageVector = if (statusSummary.isManuallySettled) Icons.Default.Edit else Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (statusSummary.isManuallySettled) "Reopen" else "Mark Settled",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
 
@@ -722,10 +812,18 @@ private fun EventHeroHeaderCard(
                     }
                 }
 
-                // Reimbursement offset progress
-                if (totalExpenses > 0.0) {
-                    val progress = (totalReimbursements / totalExpenses).toFloat().coerceIn(0f, 1f)
-                    val offsetPercent = (progress * 100).toInt()
+                // Reimbursement offset progress toward expected roommates' share or gross expense
+                if (statusSummary.targetReimbursement > 0.0 || totalExpenses > 0.0) {
+                    val progress = statusSummary.recoveryRatio
+                    val offsetPercent = statusSummary.recoveryPercent
+                    val leftLabel = if (statusSummary.hasExpectedReimbursement) {
+                        "Target: ₹%,.0f (My share: ₹%,.0f)".format(
+                            statusSummary.targetReimbursement,
+                            statusSummary.personalShare ?: 0.0
+                        )
+                    } else {
+                        "Reimbursement Offset"
+                    }
 
                     Column(
                         modifier = Modifier.padding(top = 4.dp),
@@ -736,7 +834,7 @@ private fun EventHeroHeaderCard(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Reimbursement Offset",
+                                text = leftLabel,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -744,7 +842,7 @@ private fun EventHeroHeaderCard(
                                 text = "$offsetPercent% covered",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (offsetPercent >= 100) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary
+                                color = statusPalette.contentColor
                             )
                         }
                         LinearProgressIndicator(
@@ -753,7 +851,7 @@ private fun EventHeroHeaderCard(
                                 .fillMaxWidth()
                                 .height(6.dp)
                                 .clip(CircleShape),
-                            color = if (offsetPercent >= 100) Color(0xFF2E7D32) else MaterialTheme.colorScheme.primary,
+                            color = statusPalette.contentColor,
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                     }
@@ -1573,13 +1671,27 @@ private fun EditItemAmountDialog(
 private fun EditFinancialEventDialog(
     initialName: String,
     initialCategory: String,
+    initialExpectedReimbursement: Double?,
+    initialIsManuallySettled: Boolean,
+    totalExpenses: Double,
     categories: List<String>,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit
+    onSave: (String, String, Double?, Boolean) -> Unit
 ) {
     var groupName by remember(initialName) { mutableStateOf(initialName) }
     var category by remember(initialCategory) { mutableStateOf(initialCategory) }
+    var expectedText by remember(initialExpectedReimbursement) {
+        mutableStateOf(
+            initialExpectedReimbursement?.let { value ->
+                if (value % 1.0 == 0.0) value.toLong().toString() else "%.2f".format(Locale.US, value)
+            }.orEmpty()
+        )
+    }
+    var isManuallySettled by remember(initialIsManuallySettled) { mutableStateOf(initialIsManuallySettled) }
     var categoryExpanded by remember { mutableStateOf(false) }
+
+    val parsedExpected: Double? = expectedText.trim().takeIf { it.isNotEmpty() }?.toDoubleOrNull()
+    val isExpectedValid = expectedText.isBlank() || (parsedExpected != null && parsedExpected >= 0.0)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1607,7 +1719,9 @@ private fun EditFinancialEventDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 OutlinedTextField(
@@ -1698,13 +1812,140 @@ private fun EditFinancialEventDialog(
                         }
                     }
                 }
+
+                // Expected Reimbursements from roommates (Optional)
+                OutlinedTextField(
+                    value = expectedText,
+                    onValueChange = { input ->
+                        if (input.isEmpty() || input.matches(Regex("^\\d*\\.?\\d{0,2}$"))) {
+                            expectedText = input
+                        }
+                    },
+                    label = { Text("Expected Reimbursements (Optional)") },
+                    placeholder = { Text("Roommates' total share") },
+                    prefix = { Text("₹") },
+                    trailingIcon = {
+                        if (expectedText.isNotEmpty()) {
+                            IconButton(onClick = { expectedText = "" }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear expected share"
+                                )
+                            }
+                        }
+                    },
+                    isError = !isExpectedValid,
+                    supportingText = {
+                        val help = when {
+                            !isExpectedValid -> "Enter a valid non-negative amount"
+                            parsedExpected != null && totalExpenses > parsedExpected ->
+                                "Your personal share: ₹%,.0f".format(totalExpenses - parsedExpected)
+                            parsedExpected != null ->
+                                "Roommates' share target: ₹%,.0f".format(parsedExpected)
+                            totalExpenses > 0.0 ->
+                                "Leave blank to compare against full ₹%,.0f".format(totalExpenses)
+                            else -> "Optional target reimbursement amount"
+                        }
+                        Text(help)
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("expected_reimbursement_input")
+                )
+
+                // Quick Roommate Split Presets
+                if (totalExpenses > 0.0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val presets = listOf(
+                            "1/2 Share" to (totalExpenses * 0.5),
+                            "2/3 Share" to (totalExpenses * (2.0 / 3.0)),
+                            "3/4 Share" to (totalExpenses * 0.75)
+                        )
+                        presets.forEach { (label, share) ->
+                            val roundedShare = (share * 100.0).roundToInt() / 100.0
+                            Surface(
+                                modifier = Modifier
+                                    .heightIn(min = 40.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        expectedText = if (roundedShare % 1.0 == 0.0) {
+                                            roundedShare.toLong().toString()
+                                        } else {
+                                            "%.2f".format(Locale.US, roundedShare)
+                                        }
+                                    },
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Manual Settled Switch
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { isManuallySettled = !isManuallySettled }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            Text(
+                                text = "Mark as Settled",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Use when settled in cash or your own share remains",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = isManuallySettled,
+                            onCheckedChange = { isManuallySettled = it },
+                            modifier = Modifier.testTag("edit_event_settled_switch")
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(groupName, category) },
-                enabled = groupName.isNotBlank() && category.isNotBlank(),
-                shape = RoundedCornerShape(12.dp)
+                onClick = { onSave(groupName, category, parsedExpected, isManuallySettled) },
+                enabled = groupName.isNotBlank() && category.isNotBlank() && isExpectedValid,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.testTag("save_financial_event_button")
             ) {
                 Text("Save Changes")
             }

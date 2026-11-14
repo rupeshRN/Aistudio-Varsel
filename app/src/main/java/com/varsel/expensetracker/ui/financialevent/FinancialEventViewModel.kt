@@ -6,6 +6,7 @@ import com.varsel.expensetracker.category.CategoryMetadata
 import com.varsel.expensetracker.data.local.dao.CategoryDao
 import com.varsel.expensetracker.data.local.entity.FinancialEventAllocationEntity
 import com.varsel.expensetracker.data.repository.FinancialEventAllocationRepository
+import com.varsel.expensetracker.domain.engine.FinancialEventStatusCalculator
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
 import com.varsel.expensetracker.domain.model.TransactionType
@@ -51,27 +52,37 @@ class FinancialEventViewModel @Inject constructor(
             combine(
                 transactionRepository.getAllTransactions(),
                 financialEventAllocationRepository.observeAllAllocations(),
-                categoryDao.getAllCategories()
-            ) { transactions, allocations, dbCategories ->
-                Triple(transactions, allocations, dbCategories)
-            }.collectLatest { (transactions, allocations, dbCategories) ->
+                categoryDao.getAllCategories(),
+                transactionLinkGroupRepository.getAllGroups()
+            ) { transactions, allocations, dbCategories, groups ->
+                Quadruple(transactions, allocations, dbCategories, groups)
+            }.collectLatest { (transactions, allocations, dbCategories, groups) ->
                 rebuildState(
                     transactionLinkId = transactionLinkId,
                     transactions = transactions,
                     allocations = allocations,
-                    dbCategories = dbCategories.map { it.name }
+                    dbCategories = dbCategories.map { it.name },
+                    groupFromFlow = groups.firstOrNull { it.transactionLinkId == transactionLinkId }
                 )
             }
         }
     }
 
+    private data class Quadruple<A, B, C, D>(
+        val first: A,
+        val second: B,
+        val third: C,
+        val fourth: D
+    )
+
     private suspend fun rebuildState(
         transactionLinkId: String,
         transactions: List<Transaction>,
         allocations: List<FinancialEventAllocationEntity>,
-        dbCategories: List<String> = emptyList()
+        dbCategories: List<String> = emptyList(),
+        groupFromFlow: TransactionLinkGroup? = null
     ) {
-        val group = transactionLinkGroupRepository.getGroup(transactionLinkId)
+        val group = groupFromFlow ?: transactionLinkGroupRepository.getGroup(transactionLinkId)
         if (group == null) {
             _uiState.value = FinancialEventUiState.EventDeleted
             return
@@ -165,6 +176,12 @@ class FinancialEventViewModel @Inject constructor(
 
         val totalExpenses = allocatedExpenses.sumOf { it.allocatedAmount }
         val totalReimbursements = allocatedReimbursements.sumOf { it.allocatedAmount }
+        val statusSummary = FinancialEventStatusCalculator.calculate(
+            totalExpense = totalExpenses,
+            totalReimbursement = totalReimbursements,
+            expectedReimbursement = group.expectedReimbursement,
+            isManuallySettled = group.isManuallySettled
+        )
 
         val current = _uiState.value as? FinancialEventUiState.Loaded
         val isEditingGroup = current?.isEditingGroup ?: false
@@ -183,7 +200,8 @@ class FinancialEventViewModel @Inject constructor(
             totalReimbursements = totalReimbursements,
             isUpdating = false,
             isEditingGroup = isEditingGroup,
-            editingItem = editingItem
+            editingItem = editingItem,
+            statusSummary = statusSummary
         )
     }
 
@@ -326,7 +344,34 @@ class FinancialEventViewModel @Inject constructor(
         _uiState.value = current.copy(isEditingGroup = false)
     }
 
-    fun saveGroup(groupName: String, category: String) {
+    fun toggleManualSettled() {
+        val current = _uiState.value as? FinancialEventUiState.Loaded ?: return
+        if (current.isUpdating) return
+
+        val nextSettled = !current.group.isManuallySettled
+        val updatedGroup = current.group.copy(isManuallySettled = nextSettled)
+        val updatedSummary = FinancialEventStatusCalculator.calculate(
+            totalExpense = current.totalExpenses,
+            totalReimbursement = current.totalReimbursements,
+            expectedReimbursement = updatedGroup.expectedReimbursement,
+            isManuallySettled = nextSettled
+        )
+
+        viewModelScope.launch {
+            transactionLinkGroupRepository.saveGroup(updatedGroup)
+            _uiState.value = current.copy(
+                group = updatedGroup,
+                statusSummary = updatedSummary
+            )
+        }
+    }
+
+    fun saveGroup(
+        groupName: String,
+        category: String,
+        expectedReimbursement: Double? = null,
+        isManuallySettled: Boolean = false
+    ) {
         val current = _uiState.value as? FinancialEventUiState.Loaded ?: return
         val cleanName = groupName.trim()
         val cleanCategory = category.trim()
@@ -337,19 +382,30 @@ class FinancialEventViewModel @Inject constructor(
         if (!categoryExists) return
 
         val selectedCategory = current.categories.first { it.equals(cleanCategory, ignoreCase = true) }
+        val cleanExpected = expectedReimbursement?.takeIf { !it.isNaN() && !it.isInfinite() && it >= 0.0 }
 
         viewModelScope.launch {
             val updatedGroup = TransactionLinkGroup(
                 transactionLinkId = current.group.transactionLinkId,
                 groupName = cleanName,
                 category = selectedCategory,
-                createdAt = current.group.createdAt
+                createdAt = current.group.createdAt,
+                isManuallySettled = isManuallySettled,
+                expectedReimbursement = cleanExpected
             )
 
             transactionLinkGroupRepository.saveGroup(updatedGroup)
 
+            val updatedSummary = FinancialEventStatusCalculator.calculate(
+                totalExpense = current.totalExpenses,
+                totalReimbursement = current.totalReimbursements,
+                expectedReimbursement = cleanExpected,
+                isManuallySettled = isManuallySettled
+            )
+
             _uiState.value = current.copy(
                 group = updatedGroup,
+                statusSummary = updatedSummary,
                 isEditingGroup = false
             )
         }

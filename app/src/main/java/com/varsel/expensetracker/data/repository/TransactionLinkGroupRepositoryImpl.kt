@@ -54,32 +54,20 @@ class TransactionLinkGroupRepositoryImpl @Inject constructor(
 
 private fun TransactionLinkGroupEntity.toDomain() =
     TransactionLinkGroup(
-
-        transactionLinkId =
-            transactionLinkId,
-
-        groupName =
-            groupName,
-
-        category =
-            category,
-
-        createdAt =
-            createdAt
+        transactionLinkId = transactionLinkId,
+        groupName = groupName,
+        category = category,
+        createdAt = createdAt,
+        isManuallySettled = isManuallySettled,
+        expectedReimbursement = expectedReimbursement
     )
 
 private fun TransactionLinkGroup.toEntity() =
     TransactionLinkGroupEntity(
-
-        transactionLinkId =
-            transactionLinkId,
-
-        groupName =
-            groupName,
-
-        category =
-            category,
-
-        createdAt =
-            createdAt
+        transactionLinkId = transactionLinkId,
+        groupName = groupName,
+        category = category,
+        createdAt = createdAt,
+        isManuallySettled = isManuallySettled,
+        expectedReimbursement = expectedReimbursement
     )

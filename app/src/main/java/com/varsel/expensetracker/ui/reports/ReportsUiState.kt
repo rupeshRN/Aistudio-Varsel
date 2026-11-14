@@ -1,5 +1,7 @@
 package com.varsel.expensetracker.ui.reports
 
+import com.varsel.expensetracker.domain.model.FinancialEventStatusFilter
+import com.varsel.expensetracker.domain.model.FinancialEventStatusSummary
 import com.varsel.expensetracker.util.AppError
 import java.time.YearMonth
 import java.time.LocalDate
@@ -112,6 +114,11 @@ val customEndDate: LocalDate = LocalDate.now(),
     val financialEvents: List<ReportsFinancialEvent> = emptyList(),
 
     /**
+     * Active status filter for the Reports Financial Events card.
+     */
+    val selectedEventStatusFilter: FinancialEventStatusFilter = FinancialEventStatusFilter.ALL,
+
+    /**
      * Detailed category drill-down state.
      */
     val drillDownState: CategoryDrillDownState = CategoryDrillDownState(),
@@ -147,6 +154,20 @@ val customEndDate: LocalDate = LocalDate.now(),
      */
     val isAllAccountsSelected: Boolean
         get() = selectedAccountIds.isEmpty()
+
+    /**
+     * Financial Events matching the selected status filter.
+     */
+    val filteredFinancialEvents: List<ReportsFinancialEvent>
+        get() = financialEvents.filter { event ->
+            selectedEventStatusFilter.matches(event.statusSummary.status)
+        }
+
+    /**
+     * Total remaining reimbursements expected across open Financial Events in this period.
+     */
+    val totalPendingEventDues: Double
+        get() = financialEvents.sumOf { it.statusSummary.remainingDue }
 
     /**
      * Selected expense category model.
@@ -463,5 +484,11 @@ data class ReportsFinancialEvent(
 
     val isFinalMonth: Boolean = true,
 
-    val coveredMonths: List<YearMonth> = emptyList()
+    val coveredMonths: List<YearMonth> = emptyList(),
+
+    val statusSummary: FinancialEventStatusSummary = FinancialEventStatusSummary(),
+
+    val isManuallySettled: Boolean = false,
+
+    val expectedReimbursement: Double? = null
 )

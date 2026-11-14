@@ -1,5 +1,6 @@
 package com.varsel.expensetracker.ui.financialevent
 
+import com.varsel.expensetracker.domain.model.FinancialEventStatusSummary
 import com.varsel.expensetracker.domain.model.Transaction
 import com.varsel.expensetracker.domain.model.TransactionLinkGroup
 
@@ -63,7 +64,9 @@ sealed interface FinancialEventUiState {
 
         val editingItem: FinancialEventItemUiModel? = null,
 
-        val categories: List<String> = emptyList()
+        val categories: List<String> = emptyList(),
+
+        val statusSummary: FinancialEventStatusSummary = FinancialEventStatusSummary()
 
     ) : FinancialEventUiState {
 

@@ -248,6 +248,8 @@ class BackupRestoreEngine @Inject constructor(
                 put("groupName", g.groupName)
                 put("category", g.category)
                 put("createdAt", g.createdAt)
+                put("isManuallySettled", g.isManuallySettled)
+                putOpt("expectedReimbursement", g.expectedReimbursement)
             }
             grpArray.put(obj)
         }
@@ -594,7 +596,13 @@ class BackupRestoreEngine @Inject constructor(
                             transactionLinkId = o.getString("transactionLinkId"),
                             groupName = o.getString("groupName"),
                             category = o.getString("category"),
-                            createdAt = o.getLong("createdAt")
+                            createdAt = o.getLong("createdAt"),
+                            isManuallySettled = o.optBoolean("isManuallySettled", false),
+                            expectedReimbursement = if (o.has("expectedReimbursement") && !o.isNull("expectedReimbursement")) {
+                                o.optDouble("expectedReimbursement").takeIf { !it.isNaN() }
+                            } else {
+                                null
+                            }
                         )
                     )
                 }
